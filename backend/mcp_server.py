@@ -5,7 +5,7 @@ import asyncio
 import json
 
 # Initialize FastMCP Server
-mcp = FastMCP("Gemini API Tester")
+mcp = FastMCP("TestOrbit")
 
 @mcp.tool()
 async def generate_api_tests(url: str, context: str = None) -> str:

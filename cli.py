@@ -12,7 +12,7 @@ def run_mcp_server():
     """Starts the MCP server for agent integration."""
     try:
         from backend.mcp_server import mcp
-        logger.info("Starting Gemini API Tester MCP Server...")
+        logger.info("Starting TestOrbit MCP Server...")
         # FastMCP run method handles stdio
         mcp.run() 
     except ImportError:
@@ -62,7 +62,7 @@ async def run_test_collection(file_path):
         sys.exit(1)
 
 def main():
-    parser = argparse.ArgumentParser(description="Gemini API Tester CLI")
+    parser = argparse.ArgumentParser(description="TestOrbit CLI")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # MCP Command

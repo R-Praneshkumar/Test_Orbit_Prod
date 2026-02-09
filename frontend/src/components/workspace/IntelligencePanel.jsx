@@ -281,11 +281,10 @@ export const IntelligencePanel = () => {
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${
-                            activeTab === tab.id
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${activeTab === tab.id
                                 ? 'bg-corporate-50 text-corporate-700 dark:bg-corporate-900/30 dark:text-corporate-400'
                                 : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-800'
-                        }`}
+                            }`}
                     >
                         <tab.icon size={12} />
                         {tab.label}
@@ -523,7 +522,7 @@ export const IntelligencePanel = () => {
                             value={localBaseUrl}
                             onChange={(e) => { setLocalBaseUrl(e.target.value); setCollectionBaseUrl(e.target.value); }}
                             className="w-full text-[11px] px-2.5 py-1.5 border border-slate-200 dark:border-slate-600 rounded-md font-mono bg-white dark:bg-slate-900 dark:text-slate-200 outline-none focus:ring-2 focus:ring-corporate-500"
-                            placeholder="https://phobos-alpha.fly.dev"
+                            placeholder="https://api.example.com"
                         />
                         <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">Required if the spec has no servers field. Prepended to all endpoint paths.</p>
                     </div>
@@ -573,11 +572,10 @@ export const IntelligencePanel = () => {
                     </div>
 
                     {importResult && (
-                        <div className={`mt-2 text-[10px] px-2 py-1.5 rounded ${
-                            importResult.success
+                        <div className={`mt-2 text-[10px] px-2 py-1.5 rounded ${importResult.success
                                 ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
                                 : 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
-                        }`}>
+                            }`}>
                             {importResult.saved
                                 ? 'Spec saved as AI context for this collection'
                                 : importResult.success
@@ -631,14 +629,14 @@ export const IntelligencePanel = () => {
 
                     {testSuites.map((suite, sIdx) => (
                         <div key={suite.id} className="animate-slide-up" style={{ animationDelay: `${sIdx * 100}ms`, animationFillMode: 'both' }}>
-                        <TestSuiteCard
-                            suite={suite}
-                            colId={activeCollectionId}
-                            onDelete={() => deleteTestSuite(activeCollectionId, suite.id)}
-                            onRun={() => openRunnerForTestSuite(activeCollectionId, suite)}
-                            categoryColors={CATEGORY_COLORS}
-                            methodColors={METHOD_COLORS}
-                        />
+                            <TestSuiteCard
+                                suite={suite}
+                                colId={activeCollectionId}
+                                onDelete={() => deleteTestSuite(activeCollectionId, suite.id)}
+                                onRun={() => openRunnerForTestSuite(activeCollectionId, suite)}
+                                categoryColors={CATEGORY_COLORS}
+                                methodColors={METHOD_COLORS}
+                            />
                         </div>
                     ))}
                 </div>

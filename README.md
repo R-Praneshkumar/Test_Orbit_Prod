@@ -12,7 +12,7 @@
   
   **🏆 Built for the Gemini API Developer Competition 2025**
   
-  [Demo Video](#demo) · [Quick Start](#quick-start) · [Features](#features) · [Architecture](#architecture)
+  [▶️ Watch Demo](https://vimeo.com/1163412339) · [Quick Start](#quick-start) · [Features](#features) · [Architecture](#architecture)
   
 </div>
 
@@ -104,7 +104,7 @@ python mcp_server.py
 
 <div align="center">
 
-> 📹 **[Watch the 3-minute demo video](https://youtu.be/your-demo-link)**
+> 📹 **[Watch the Demo Video](https://vimeo.com/1163412339)**
 
 </div>
 

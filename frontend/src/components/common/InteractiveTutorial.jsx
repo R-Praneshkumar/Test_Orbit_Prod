@@ -257,7 +257,7 @@ export function InteractiveTutorial() {
             steps: [
                 {
                     title: 'Welcome!',
-                    description: 'Let me give you a quick tour of the Gemini API Tester. This app helps you design, test, and mock APIs using AI.',
+                    description: 'Let me give you a quick tour of TestOrbit. This app helps you design, test, and mock APIs using AI.',
                     action: async () => {
                         setCurrentView('dashboard');
                         await sleep(1000);

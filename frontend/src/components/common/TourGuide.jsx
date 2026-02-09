@@ -103,7 +103,7 @@ export function TourGuide() {
                 target: 'body',
                 placement: 'center',
                 disableBeacon: true,
-                title: 'Welcome to Gemini API Tester! 🚀',
+                title: 'Welcome to TestOrbit! 🚀',
                 content: (
                     <p>
                         This is your <strong>AI-native API testing tool</strong>. Let me give you a quick tour of the key features. You can skip at any time.
