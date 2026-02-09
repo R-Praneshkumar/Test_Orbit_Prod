@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <linearGradient id="orbit-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#6d28d9"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="120" height="120" rx="24" fill="url(#orbit-grad)"/>
+  
+  <!-- Outer orbit ring -->
+  <circle cx="60" cy="60" r="35" stroke="white" stroke-width="3" fill="none" opacity="0.3"/>
+  
+  <!-- Inner orbit ring -->
+  <circle cx="60" cy="60" r="22" stroke="white" stroke-width="2" fill="none" opacity="0.2"/>
+  
+  <!-- Center point (planet) -->
+  <circle cx="60" cy="60" r="10" fill="white"/>
+  
+  <!-- Orbiting dot 1 -->
+  <circle cx="95" cy="60" r="5" fill="white"/>
+  
+  <!-- Orbiting dot 2 -->
+  <circle cx="60" cy="25" r="4" fill="white" opacity="0.8"/>
+  
+  <!-- Orbiting dot 3 -->
+  <circle cx="38" cy="82" r="3" fill="white" opacity="0.6"/>
+  
+  <!-- Speed lines -->
+  <path d="M100 55 L108 52" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <path d="M102 60 L110 60" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <path d="M100 65 L108 68" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+</svg>

@@ -1,0 +1,565 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { ChevronRight, ChevronDown, Folder, FolderOpen, MoreHorizontal, Plus, Search, Pencil, Copy, Trash2, FilePlus, FolderPlus, Play, History, CheckCircle, XCircle, Globe, Download, Clock, FlaskConical, Terminal, Plug, Upload } from 'lucide-react';
+import { useWorkspaceStore } from '../../store/workspaceStore';
+import { EnvironmentManager } from './EnvironmentManager';
+import { CurlImportModal } from './CurlImportModal';
+import { ImportCollectionModal } from './ImportCollectionModal';
+
+const API_BASE = "http://localhost:8000/api/v1";
+
+const SidebarItem = ({ item, level = 0 }) => {
+    const [expanded, setExpanded] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
+    const [isRenaming, setIsRenaming] = useState(false);
+    const [renameValue, setRenameValue] = useState(item.name);
+    const menuRef = useRef(null);
+    const renameRef = useRef(null);
+
+    const openTab = useWorkspaceStore(state => state.openTab);
+    const deleteRequest = useWorkspaceStore(state => state.deleteRequest);
+    const renameItem = useWorkspaceStore(state => state.renameItem);
+    const duplicateRequest = useWorkspaceStore(state => state.duplicateRequest);
+    const openRunner = useWorkspaceStore(state => state.openRunner);
+    const setActiveCollection = useWorkspaceStore(state => state.setActiveCollection);
+    const activeCollectionId = useWorkspaceStore(state => state.activeCollectionId);
+    const addTestSuite = useWorkspaceStore(state => state.addTestSuite);
+    const collections = useWorkspaceStore(state => state.collections);
+
+    // Close context menu on outside click
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (menuRef.current && !menuRef.current.contains(e.target)) {
+                setShowMenu(false);
+            }
+        };
+        if (showMenu) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [showMenu]);
+
+    // Focus rename input when entering rename mode
+    useEffect(() => {
+        if (isRenaming && renameRef.current) {
+            renameRef.current.focus();
+            renameRef.current.select();
+        }
+    }, [isRenaming]);
+
+    const handleClick = () => {
+        if (isRenaming) return;
+        if (item.type === 'collection') {
+            setExpanded(!expanded);
+            setActiveCollection(item.id);
+        } else if (item.type === 'folder') {
+            setExpanded(!expanded);
+        } else {
+            // Works for both 'request' and 'websocket' types
+            openTab(item);
+        }
+    };
+
+    const handleRenameSubmit = () => {
+        const trimmed = renameValue.trim();
+        if (trimmed && trimmed !== item.name) {
+            renameItem(item.id, trimmed);
+        }
+        setIsRenaming(false);
+    };
+
+    const handleMenuAction = (action) => {
+        setShowMenu(false);
+        switch (action) {
+            case 'rename':
+                setRenameValue(item.name);
+                setIsRenaming(true);
+                break;
+            case 'duplicate':
+                if (item.type === 'request') duplicateRequest(item.id);
+                break;
+            case 'delete':
+                deleteRequest(item.id);
+                break;
+            case 'runAll':
+                if (item.type === 'collection' && openRunner) openRunner(item.id);
+                break;
+            case 'generateTests':
+                if (item.type === 'collection') {
+                    (async () => {
+                        const col = collections.find(c => c.id === item.id);
+                        const baseUrl = col?.items?.[0]?.url || '';
+                        const openApiSpec = col?.openApiSpec || '';
+                        try {
+                            const res = await fetch(`${API_BASE}/generate`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    url: baseUrl,
+                                    context: openApiSpec || `Collection: ${col?.name}, Endpoints: ${(col?.items || []).map(i => `${i.method} ${i.url}`).join(', ')}`
+                                })
+                            });
+                            const data = await res.json();
+                            if (!data.error) addTestSuite(item.id, data);
+                        } catch { /* silently fail */ }
+                    })();
+                }
+                break;
+            case 'export':
+                if (item.type === 'collection') {
+                    // Export as Postman v2.1 collection
+                    const postmanCol = {
+                        info: {
+                            name: item.name,
+                            schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json'
+                        },
+                        item: (item.items || []).filter(i => i.type === 'request').map(req => ({
+                            name: req.name,
+                            request: {
+                                method: req.method,
+                                header: (req.headers || []).filter(h => h.enabled !== false && h.key).map(h => ({
+                                    key: h.key, value: h.value, type: 'text'
+                                })),
+                                url: { raw: req.url },
+                                body: req.body?.content ? {
+                                    mode: 'raw',
+                                    raw: req.body.content,
+                                    options: { raw: { language: 'json' } }
+                                } : undefined
+                            }
+                        }))
+                    };
+                    const blob = new Blob([JSON.stringify(postmanCol, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${item.name.replace(/\s+/g, '_')}_postman.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                }
+                break;
+        }
+    };
+
+    const getIcon = () => {
+        if (item.type === 'collection') return expanded ? <FolderOpen size={14} className="text-slate-800 dark:text-slate-200" /> : <Folder size={14} className="text-slate-800 dark:text-slate-200" />;
+        if (item.type === 'folder') return expanded ? <FolderOpen size={14} className="text-slate-400 dark:text-slate-500" /> : <Folder size={14} className="text-slate-400 dark:text-slate-500" />;
+        if (item.type === 'websocket') return (
+            <span className="text-[9px] font-bold px-1 py-0.5 rounded border text-violet-600 bg-violet-50 border-violet-200 dark:bg-violet-900/30 dark:border-violet-700">
+                WS
+            </span>
+        );
+
+        const methodColors = {
+            GET: 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700',
+            POST: 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700',
+            PUT: 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700',
+            DELETE: 'text-rose-600 bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700',
+            PATCH: 'text-violet-600 bg-violet-50 border-violet-200 dark:bg-violet-900/30 dark:border-violet-700'
+        };
+
+        return (
+            <span className={`text-[9px] font-bold px-1 py-0.5 rounded border ${methodColors[item.method] || 'text-slate-500 bg-slate-100 dark:text-slate-400 dark:bg-slate-800'}`}>
+                {item.method}
+            </span>
+        );
+    };
+
+    return (
+        <div className="select-none font-sans">
+            <div
+                className={`
+                    group flex items-center gap-2 px-3 py-1.5 cursor-pointer text-sm transition-colors border-l-2
+                    ${item.type === 'collection' && item.id === activeCollectionId
+                        ? 'border-l-[3px] border-corporate-500 bg-corporate-100 dark:bg-corporate-900/30 text-slate-900 dark:text-slate-100 font-semibold'
+                        : `border-transparent ${level === 0 ? 'text-slate-800 dark:text-slate-100 font-medium' : 'text-slate-600 dark:text-slate-400'} hover:bg-slate-100 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600`
+                    }
+                `}
+                style={{ paddingLeft: `${level * 12 + 12}px` }}
+                onClick={handleClick}
+            >
+                <span className="text-slate-400 dark:text-slate-500 shrink-0 w-4 block">
+                    {(item.type === 'collection' || item.type === 'folder') && (
+                        expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />
+                    )}
+                </span>
+
+                <div className="shrink-0 w-8 text-center flex justify-center">
+                    {getIcon()}
+                </div>
+
+                {/* Inline Rename Input */}
+                {isRenaming ? (
+                    <input
+                        ref={renameRef}
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={handleRenameSubmit}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleRenameSubmit();
+                            if (e.key === 'Escape') setIsRenaming(false);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 text-xs bg-white dark:bg-slate-800 border border-corporate-500 rounded px-1.5 py-0.5 outline-none text-slate-700 dark:text-slate-200 min-w-0"
+                    />
+                ) : (
+                    <span className="truncate flex-1 flex items-center gap-1.5">
+                        {item.name}
+                        {item.type === 'collection' && (item.testSuites || []).length > 0 && (
+                            <span className="text-[8px] bg-corporate-100 dark:bg-corporate-900/30 text-corporate-600 dark:text-corporate-400 px-1 py-0.5 rounded-full shrink-0">
+                                {item.testSuites.length} tests
+                            </span>
+                        )}
+                    </span>
+                )}
+
+                {/* Context Menu Trigger */}
+                <div className="relative" ref={menuRef}>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-slate-400 dark:text-slate-500"
+                    >
+                        <MoreHorizontal size={12} />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {showMenu && (
+                        <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg rounded-lg overflow-hidden z-50">
+                            {item.type === 'collection' && (item.items || []).length > 0 && (
+                                <>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleMenuAction('runAll'); }}
+                                        className="w-full text-left px-3 py-2 text-xs text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center gap-2"
+                                    >
+                                        <Play size={11} className="fill-current" /> Run All
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleMenuAction('generateTests'); }}
+                                        className="w-full text-left px-3 py-2 text-xs text-corporate-600 dark:text-corporate-400 hover:bg-corporate-50 dark:hover:bg-corporate-900/20 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800"
+                                    >
+                                        <FlaskConical size={11} /> Generate Tests
+                                    </button>
+                                </>
+                            )}
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleMenuAction('rename'); }}
+                                className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                            >
+                                <Pencil size={11} /> Rename
+                            </button>
+                            {item.type === 'request' && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleMenuAction('duplicate'); }}
+                                    className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                >
+                                    <Copy size={11} /> Duplicate
+                                </button>
+                            )}
+                            {item.type === 'collection' && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleMenuAction('export'); }}
+                                    className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                >
+                                    <Download size={11} /> Export (Postman)
+                                </button>
+                            )}
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleMenuAction('delete'); }}
+                                className="w-full text-left px-3 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 border-t border-slate-100 dark:border-slate-800"
+                            >
+                                <Trash2 size={11} /> Delete
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {expanded && item.items && (
+                <div>
+                    {item.items.map(sub => (
+                        <SidebarItem key={sub.id} item={sub} level={level + 1} />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+export const Sidebar = () => {
+    const collections = useWorkspaceStore(state => state.collections);
+    const addRequest = useWorkspaceStore(state => state.addRequest);
+    const addWebSocket = useWorkspaceStore(state => state.addWebSocket);
+    const addCollection = useWorkspaceStore(state => state.addCollection);
+    const activeCollectionId = useWorkspaceStore(state => state.activeCollectionId);
+    const viewRunFromHistory = useWorkspaceStore(state => state.viewRunFromHistory);
+    // Per-collection run history
+    const activeCol = collections.find(c => c.id === activeCollectionId);
+    const runHistory = activeCol?.runHistory || [];
+    const activeEnv = useWorkspaceStore(state => state.activeEnv);
+    const requestHistory = useWorkspaceStore(state => state.requestHistory);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showSearch, setShowSearch] = useState(false);
+    const [showAddMenu, setShowAddMenu] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
+    const [showRequestHistory, setShowRequestHistory] = useState(false);
+    const [showEnvManager, setShowEnvManager] = useState(false);
+    const [showCurlImport, setShowCurlImport] = useState(false);
+    const [showCollectionImport, setShowCollectionImport] = useState(false);
+    const addMenuRef = useRef(null);
+
+    // Close add menu on outside click
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (addMenuRef.current && !addMenuRef.current.contains(e.target)) {
+                setShowAddMenu(false);
+            }
+        };
+        if (showAddMenu) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [showAddMenu]);
+
+    // Flatten all requests for search
+    const flattenRequests = (collections) => {
+        const results = [];
+        for (const col of collections) {
+            for (const item of (col.items || [])) {
+                if (item.type === 'request') {
+                    results.push(item);
+                }
+            }
+        }
+        return results;
+    };
+
+    const filteredRequests = searchQuery.trim()
+        ? flattenRequests(collections).filter(r =>
+            r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            r.url.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            r.method.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        : null;
+
+    return (
+        <div className="w-64 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 h-full flex flex-col font-sans">
+            {/* Header */}
+            <div className="h-12 border-b border-slate-200 dark:border-slate-700 flex items-center px-4 justify-between bg-white dark:bg-slate-900">
+                <span className="font-semibold text-slate-700 dark:text-slate-300 text-sm tracking-tight uppercase">Explorer</span>
+                <div className="flex gap-1">
+                    <button
+                        onClick={() => { setShowSearch(!showSearch); setSearchQuery(''); }}
+                        className={`p-1.5 rounded transition-colors ${showSearch ? 'bg-corporate-100 dark:bg-corporate-900/30 text-corporate-600 dark:text-corporate-400' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400'}`}
+                    >
+                        <Search size={14} />
+                    </button>
+                    <div className="relative" ref={addMenuRef}>
+                        <button
+                            onClick={() => setShowAddMenu(!showAddMenu)}
+                            className="hover:bg-slate-100 dark:hover:bg-slate-700 p-1.5 rounded text-slate-500 dark:text-slate-400 transition-colors"
+                            title="Add New"
+                        >
+                            <Plus size={14} />
+                        </button>
+                        {showAddMenu && (
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg rounded-lg overflow-hidden z-50">
+                                <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold px-3 pt-2 pb-1">New Request In</div>
+                                {collections.map(col => (
+                                    <button
+                                        key={col.id}
+                                        onClick={() => { addRequest(col.id); setShowAddMenu(false); }}
+                                        className="w-full text-left px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                    >
+                                        <FilePlus size={11} /> {col.name}
+                                    </button>
+                                ))}
+                                <div className="border-t border-slate-100 dark:border-slate-800 mt-1">
+                                    <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold px-3 pt-2 pb-1">WebSocket In</div>
+                                    {collections.map(col => (
+                                        <button
+                                            key={`ws-${col.id}`}
+                                            onClick={() => { addWebSocket(col.id); setShowAddMenu(false); }}
+                                            className="w-full text-left px-3 py-1.5 text-xs text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 flex items-center gap-2"
+                                        >
+                                            <Plug size={11} /> {col.name}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="border-t border-slate-100 dark:border-slate-800 mt-1">
+                                    <button
+                                        onClick={() => { setShowCollectionImport(true); setShowAddMenu(false); }}
+                                        className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                    >
+                                        <Upload size={12} /> Import Collection
+                                    </button>
+                                    <button
+                                        onClick={() => { setShowCurlImport(true); setShowAddMenu(false); }}
+                                        className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                    >
+                                        <Terminal size={12} /> Import cURL
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const name = prompt('Collection name:');
+                                            if (name?.trim()) addCollection(name.trim());
+                                            setShowAddMenu(false);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                    >
+                                        <FolderPlus size={12} /> New Collection
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Search Bar */}
+            {showSearch && (
+                <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search requests..."
+                        className="w-full text-xs px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-md outline-none focus:ring-1 focus:ring-corporate-500 bg-slate-50 dark:bg-slate-800 dark:text-slate-200"
+                        autoFocus
+                    />
+                </div>
+            )}
+
+            {/* Tree or Search Results */}
+            <div className="flex-1 overflow-y-auto py-2">
+                {filteredRequests ? (
+                    filteredRequests.length > 0 ? (
+                        filteredRequests.map(item => (
+                            <SidebarItem key={item.id} item={item} level={1} />
+                        ))
+                    ) : (
+                        <div className="px-4 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+                            No matching requests
+                        </div>
+                    )
+                ) : (
+                    collections.map(col => (
+                        <SidebarItem key={col.id} item={col} />
+                    ))
+                )}
+            </div>
+
+            {/* Request History (Individual requests) */}
+            {requestHistory && requestHistory.length > 0 && (
+                <div className="border-t border-slate-200 dark:border-slate-700">
+                    <button
+                        onClick={() => setShowRequestHistory(!showRequestHistory)}
+                        className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Clock size={12} />
+                            <span className="uppercase tracking-wider text-[10px]">Recent</span>
+                            <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500">({requestHistory.length})</span>
+                        </div>
+                        {showRequestHistory ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    </button>
+                    {showRequestHistory && (
+                        <div className="max-h-48 overflow-y-auto">
+                            {requestHistory.slice(0, 20).map(entry => {
+                                const METHOD_COLORS = {
+                                    GET: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30',
+                                    POST: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30',
+                                    PUT: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30',
+                                    DELETE: 'text-rose-600 bg-rose-50 dark:bg-rose-900/30',
+                                    PATCH: 'text-violet-600 bg-violet-50 dark:bg-violet-900/30',
+                                };
+                                return (
+                                    <div
+                                        key={entry.id}
+                                        className="px-4 py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${METHOD_COLORS[entry.method] || 'text-slate-500 bg-slate-50 dark:text-slate-400 dark:bg-slate-800'}`}>
+                                                {entry.method}
+                                            </span>
+                                            <span className="text-[10px] text-slate-600 dark:text-slate-400 truncate flex-1">{entry.name}</span>
+                                            <span className={`text-[10px] font-bold ${entry.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                                {entry.status || 'ERR'}
+                                            </span>
+                                            <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono">{entry.time}ms</span>
+                                        </div>
+                                        <div className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">
+                                            {new Date(entry.timestamp).toLocaleTimeString()}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Run History */}
+            {runHistory && runHistory.length > 0 && (
+                <div className="border-t border-slate-200 dark:border-slate-700">
+                    <button
+                        onClick={() => setShowHistory(!showHistory)}
+                        className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <History size={12} />
+                            <span className="uppercase tracking-wider text-[10px]">Run History</span>
+                            <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500">({runHistory.length})</span>
+                        </div>
+                        {showHistory ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    </button>
+                    {showHistory && (
+                        <div className="max-h-48 overflow-y-auto">
+                            {runHistory.map(run => (
+                                <button
+                                    key={run.id}
+                                    onClick={() => viewRunFromHistory(run.id)}
+                                    className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate">{run.collectionName}</span>
+                                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                            <span className="flex items-center gap-0.5 text-[10px] text-green-600 dark:text-green-400">
+                                                <CheckCircle size={9} /> {run.summary?.passed || 0}
+                                            </span>
+                                            {run.summary?.failed > 0 && (
+                                                <span className="flex items-center gap-0.5 text-[10px] text-red-600 dark:text-red-400">
+                                                    <XCircle size={9} /> {run.summary.failed}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                                        {new Date(run.timestamp).toLocaleString()} — {run.summary?.totalTime || 0}ms
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Footer — Environment Indicator */}
+            <button
+                onClick={() => setShowEnvManager(true)}
+                className="h-9 border-t border-slate-200 dark:border-slate-700 flex items-center px-3 text-[10px] text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 shrink-0 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors w-full gap-2"
+            >
+                <Globe size={10} className="text-corporate-500" />
+                <span className="font-medium">Env: {activeEnv}</span>
+                <span className="ml-auto text-slate-400 dark:text-slate-500 text-[9px]">Click to manage</span>
+            </button>
+
+            {/* Environment Manager Modal */}
+            {showEnvManager && <EnvironmentManager onClose={() => setShowEnvManager(false)} />}
+
+            {/* cURL Import Modal */}
+            {showCurlImport && <CurlImportModal onClose={() => setShowCurlImport(false)} />}
+
+            {/* Collection Import Modal */}
+            {showCollectionImport && <ImportCollectionModal onClose={() => setShowCollectionImport(false)} />}
+        </div>
+    );
+};
