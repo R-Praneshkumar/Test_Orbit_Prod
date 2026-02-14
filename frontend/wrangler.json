@@ -1,5 +1,5 @@
 {
-  "name": "Test_Orbit_Prod",
+  "name": "test-orbit-prod",
   "pages_build_output_dir": "./dist",
   "compatibility_date": "2026-02-14"
 }
