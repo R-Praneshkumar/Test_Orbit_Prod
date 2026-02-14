@@ -3,7 +3,10 @@ import { Sparkles, ArrowRight, Zap, Activity, Play, FileText, ChevronDown, Chevr
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { JsonViewer } from './JsonViewer';
 
-const API_BASE = "http://localhost:8000/api/v1";
+import { API_BASE, authFetch } from '../../config';
+
+const EMPTY_MESSAGES = [];
+const EMPTY_SUITES = [];
 
 // Streaming text component — reveals text word-by-word
 const StreamingText = ({ text, className = '' }) => {
@@ -54,7 +57,7 @@ export const IntelligencePanel = () => {
     const collections = useWorkspaceStore(state => state.collections);
     const activeCollection = collections.find(c => c.id === activeCollectionId);
 
-    const messages = activeCollection?.chatMessages || [];
+    const messages = activeCollection?.chatMessages || EMPTY_MESSAGES;
     const openApiSpec = activeCollection?.openApiSpec || '';
 
     const addCollectionChatMessage = useWorkspaceStore(state => state.addCollectionChatMessage);
@@ -68,13 +71,14 @@ export const IntelligencePanel = () => {
     const deleteTestSuite = useWorkspaceStore(state => state.deleteTestSuite);
     const openRunnerForTestSuite = useWorkspaceStore(state => state.openRunnerForTestSuite);
 
-    const testSuites = activeCollection?.testSuites || [];
+    const testSuites = activeCollection?.testSuites || EMPTY_SUITES;
 
     // Sync local spec text and base URL when switching collections
     useEffect(() => {
         setLocalSpec(activeCollection?.openApiSpec || '');
         setLocalBaseUrl(activeCollection?.baseUrl || '');
         setImportResult(null);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeCollectionId]);
 
     // Auto-scroll to bottom on new messages
@@ -88,7 +92,7 @@ export const IntelligencePanel = () => {
     };
 
     const handleExecute = async () => {
-        if (!prompt.trim() || !activeCollectionId) return;
+        if (!prompt.trim() || !activeCollectionId || loading) return;
 
         const userMessage = { role: 'user', content: prompt.trim() };
         addCollectionChatMessage(userMessage);
@@ -108,7 +112,7 @@ export const IntelligencePanel = () => {
                 return null;
             }).filter(Boolean);
 
-            const res = await fetch(`${API_BASE}/voice`, {
+            const res = await authFetch(`${API_BASE}/voice`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -155,7 +159,7 @@ export const IntelligencePanel = () => {
         if (shouldRun && url) {
             setExecuting(true);
             try {
-                const proxyRes = await fetch(`${API_BASE}/proxy`, {
+                const proxyRes = await authFetch(`${API_BASE}/proxy`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -206,7 +210,7 @@ export const IntelligencePanel = () => {
             const col = activeCollection;
             const baseUrl = col?.items?.[0]?.url || '';
             const context = `Collection: ${col?.name}, Endpoints: ${(col?.items || []).map(i => `${i.method} ${i.url}`).join(', ')}`;
-            const res = await fetch(`${API_BASE}/generate`, {
+            const res = await authFetch(`${API_BASE}/generate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

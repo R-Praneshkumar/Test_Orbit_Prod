@@ -33,7 +33,6 @@ function getByPath(obj, path) {
 function compare(actual, comparison, expected) {
     switch (comparison) {
         case 'equals':
-            // eslint-disable-next-line eqeqeq
             return String(actual) === String(expected);
         case 'not_equals':
             return String(actual) !== String(expected);

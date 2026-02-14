@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Folder, Play, FlaskConical, CheckCircle, XCircle, Plus, Terminal, Upload, Clock, ArrowRight, Zap, FileText } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { CurlImportModal } from './CurlImportModal';
@@ -43,9 +43,11 @@ export const Dashboard = () => {
 
     const recentRuns = getAllRecentRuns();
 
+    // eslint-disable-next-line react-hooks/purity
+    const now = useMemo(() => Date.now(), []);
     const formatTimeAgo = (ts) => {
         if (!ts) return '';
-        const diff = Date.now() - ts;
+        const diff = now - ts;
         if (diff < 60000) return 'just now';
         if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
         if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;

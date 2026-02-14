@@ -3,7 +3,7 @@ import { Play, X, Activity, CheckCircle, XCircle, Clock, Zap, BarChart3, ArrowDo
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { runPreRequestScript, runPostResponseScript } from '../../utils/scriptEngine';
 
-const API_BASE = "http://localhost:8000/api/v1";
+import { API_BASE, authFetch } from '../../config';
 
 const METHOD_COLORS = {
     GET: 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/20',
@@ -42,7 +42,7 @@ export const CollectionRunner = () => {
         if (diagnosing[result.id]) return;
         setDiagnosing(prev => ({ ...prev, [result.id]: true }));
         try {
-            const res = await fetch(`${API_BASE}/diagnose`, {
+            const res = await authFetch(`${API_BASE}/diagnose`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -138,7 +138,7 @@ export const CollectionRunner = () => {
                     }
                 }
 
-                const proxyRes = await fetch(`${API_BASE}/proxy`, {
+                const proxyRes = await authFetch(`${API_BASE}/proxy`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -199,6 +199,7 @@ export const CollectionRunner = () => {
         }
 
         finishRun(results, Date.now() - startTotal);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [runner, isRunning, setRunnerState, resolveVariables, chainVars, setChainVar, getEnvVars]);
 
     // Parallel execution via /run endpoint
@@ -243,7 +244,7 @@ export const CollectionRunner = () => {
                 };
             });
 
-            const res = await fetch(`${API_BASE}/run`, {
+            const res = await authFetch(`${API_BASE}/run`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ base_url: baseUrl, tests })
@@ -287,6 +288,7 @@ export const CollectionRunner = () => {
             setIsRunning(false);
             alert(`Parallel execution failed: ${err.message}. Try sequential mode.`);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [runner, isRunning, setRunnerState, resolveVariables]);
 
     const finishRun = (results, totalTime) => {

@@ -8,7 +8,181 @@ import { CodeGenModal } from './CodeGenModal';
 import { runPreRequestScript, runPostResponseScript } from '../../utils/scriptEngine';
 import { evaluateAssertions, createAssertion } from '../../utils/assertionEngine';
 
-const API_BASE = "http://localhost:8000/api/v1";
+import { API_BASE, authFetch } from '../../config';
+
+// --- Auto-Auth Panel (Smart Token Management) ---
+const AutoAuthPanel = ({ request, handleChange }) => {
+    const [tokenStatus, setTokenStatus] = React.useState(null); // 'idle' | 'loading' | 'success' | 'error'
+    const [tokenError, setTokenError] = React.useState(null);
+    const [lastTokenTime, setLastTokenTime] = React.useState(request.autoAuthToken ? 'cached' : null);
+
+    const handleTestLogin = async () => {
+        setTokenStatus('loading');
+        setTokenError(null);
+        try {
+            let loginBody = null;
+            const bodyStr = request.autoAuthBody || '';
+            if (bodyStr.trim()) {
+                try { loginBody = JSON.parse(bodyStr); } catch { loginBody = bodyStr; }
+            }
+
+            const res = await authFetch(`${API_BASE}/proxy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    url: request.autoAuthLoginUrl,
+                    method: request.autoAuthMethod || 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: loginBody,
+                })
+            });
+            const result = await res.json();
+
+            if (!res.ok || result.status >= 400) {
+                setTokenStatus('error');
+                setTokenError(`Login returned ${result.status}: ${JSON.stringify(result.data).slice(0, 200)}`);
+                return;
+            }
+
+            // Extract token using the configured path
+            const tokenPath = (request.autoAuthTokenPath || 'token').split('.');
+            let token = result.data;
+            for (const key of tokenPath) {
+                if (token && typeof token === 'object') token = token[key];
+                else { token = null; break; }
+            }
+
+            if (!token || typeof token !== 'string') {
+                setTokenStatus('error');
+                setTokenError(`Could not find token at path "${request.autoAuthTokenPath || 'token'}" in response: ${JSON.stringify(result.data).slice(0, 200)}`);
+                return;
+            }
+
+            handleChange('autoAuthToken', token);
+            handleChange('autoAuthTokenTime', Date.now());
+            setLastTokenTime(new Date().toLocaleTimeString());
+            setTokenStatus('success');
+        } catch (err) {
+            setTokenStatus('error');
+            setTokenError(err.message);
+        }
+    };
+
+    const inputClass = "w-full text-xs font-mono px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 outline-none focus:ring-1 focus:ring-corporate-500 text-slate-700 dark:text-slate-300";
+    const labelClass = "text-[10px] text-slate-500 dark:text-slate-400 mb-1 block";
+
+    return (
+        <div className="space-y-3">
+            <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-[10px] text-blue-700 dark:text-blue-300">
+                    <strong>💡 How it works:</strong> Configure your login endpoint below. When you send this request,
+                    TestOrbit will <strong>automatically call your login API first</strong>, extract the token, and attach it as a Bearer header.
+                </p>
+            </div>
+
+            {/* Login URL */}
+            <div>
+                <label className={labelClass}>Login Endpoint URL</label>
+                <input
+                    type="text"
+                    value={request.autoAuthLoginUrl || ''}
+                    onChange={(e) => handleChange('autoAuthLoginUrl', e.target.value)}
+                    placeholder="https://your-api.com/api/login"
+                    className={inputClass}
+                />
+            </div>
+
+            {/* Method */}
+            <div>
+                <label className={labelClass}>Method</label>
+                <select
+                    value={request.autoAuthMethod || 'POST'}
+                    onChange={(e) => handleChange('autoAuthMethod', e.target.value)}
+                    className="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1.5 outline-none focus:ring-1 focus:ring-corporate-500 text-slate-700 dark:text-slate-300"
+                >
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="GET">GET</option>
+                </select>
+            </div>
+
+            {/* Login Body */}
+            <div>
+                <label className={labelClass}>Login Request Body (JSON)</label>
+                <textarea
+                    value={request.autoAuthBody || ''}
+                    onChange={(e) => handleChange('autoAuthBody', e.target.value)}
+                    placeholder='{\n  "email": "user@example.com",\n  "password": "your-password"\n}'
+                    className={`${inputClass} resize-none`}
+                    rows={4}
+                />
+            </div>
+
+            {/* Token Path */}
+            <div>
+                <label className={labelClass}>Token Path (dot notation)</label>
+                <input
+                    type="text"
+                    value={request.autoAuthTokenPath || ''}
+                    onChange={(e) => handleChange('autoAuthTokenPath', e.target.value)}
+                    placeholder="token"
+                    className={inputClass}
+                />
+                <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1">
+                    Path to the token in the login response. Examples: <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">token</code>,
+                    <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded ml-1">data.accessToken</code>,
+                    <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded ml-1">result.jwt</code>
+                </p>
+            </div>
+
+            {/* Test Login + Status */}
+            <div className="flex items-center gap-2 pt-1">
+                <button
+                    onClick={handleTestLogin}
+                    disabled={tokenStatus === 'loading' || !request.autoAuthLoginUrl}
+                    className="px-4 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-corporate-600 to-corporate-500 hover:from-corporate-700 hover:to-corporate-600 disabled:from-slate-300 disabled:to-slate-300 rounded-lg transition-all shadow-sm"
+                >
+                    {tokenStatus === 'loading' ? '⏳ Logging in...' : '🔑 Test Login Now'}
+                </button>
+                {request.autoAuthToken && (
+                    <button
+                        onClick={() => { handleChange('autoAuthToken', ''); handleChange('autoAuthTokenTime', null); setTokenStatus(null); }}
+                        className="px-3 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                        Clear Token
+                    </button>
+                )}
+            </div>
+
+            {/* Success */}
+            {tokenStatus === 'success' && request.autoAuthToken && (
+                <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-green-700 dark:text-green-400">✓ Token Acquired</span>
+                        <span className="text-[9px] text-green-600 dark:text-green-400">at {lastTokenTime}</span>
+                    </div>
+                    <code className="text-[10px] text-green-800 dark:text-green-300 break-all block max-h-16 overflow-auto font-mono">
+                        {request.autoAuthToken.length > 80 ? request.autoAuthToken.slice(0, 80) + '...' : request.autoAuthToken}
+                    </code>
+                </div>
+            )}
+
+            {/* Error */}
+            {tokenStatus === 'error' && (
+                <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <span className="text-[10px] font-bold text-red-600 dark:text-red-400">✗ Login Failed</span>
+                    <p className="text-[10px] text-red-500 dark:text-red-400 mt-0.5 break-all">{tokenError}</p>
+                </div>
+            )}
+
+            <p className="text-[9px] text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800 pt-2">
+                When you send this request, token will be <strong>automatically refreshed</strong> if expired (401).
+                Sent as <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">Authorization: Bearer &lt;token&gt;</code>
+            </p>
+        </div>
+    );
+};
+
 
 // --- URL <-> Params Sync Utilities ---
 const parseUrlParams = (url) => {
@@ -71,9 +245,8 @@ export const RequestEditor = ({ tabId }) => {
     const [scriptResults, setScriptResults] = useState(null); // { pre, post } script execution results
     const [assertionResults, setAssertionResults] = useState(null); // evaluated assertion results
 
-    useEffect(() => {
-        setLocalUrl(request?.url || '');
-    }, [request?.id]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+    useEffect(() => { setLocalUrl(request?.url || ''); }, [request?.id]);
 
     // Extract a value from response data using dot-notation path (e.g., "data.token")
     const getByPath = (obj, path) => {
@@ -170,6 +343,49 @@ export const RequestEditor = ({ tabId }) => {
                 headers['Authorization'] = `Basic ${btoa(`${resolveVariables(request.authUsername || '')}:${resolveVariables(request.authPassword || '')}`)}`;
             } else if (request.authType === 'apikey' && request.authKeyValue) {
                 headers[resolveVariables(request.authKeyName || 'X-API-Key')] = resolveVariables(request.authKeyValue);
+            } else if (request.authType === 'auto-auth' && request.autoAuthLoginUrl) {
+                // Auto-Auth: automatically call login endpoint to get a fresh token
+                let token = request.autoAuthToken || '';
+                const tokenAge = request.autoAuthTokenTime ? Date.now() - request.autoAuthTokenTime : Infinity;
+                const needsRefresh = !token || tokenAge > 30 * 60 * 1000; // Refresh if >30 min old or missing
+
+                if (needsRefresh) {
+                    try {
+                        let loginBody = null;
+                        const bodyStr = request.autoAuthBody || '';
+                        if (bodyStr.trim()) {
+                            try { loginBody = JSON.parse(bodyStr); } catch { loginBody = bodyStr; }
+                        }
+                        const loginRes = await authFetch(`${API_BASE}/proxy`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                url: request.autoAuthLoginUrl,
+                                method: request.autoAuthMethod || 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: loginBody,
+                            })
+                        });
+                        const loginResult = await loginRes.json();
+                        if (loginRes.ok && loginResult.status < 400) {
+                            const tokenPath = (request.autoAuthTokenPath || 'token').split('.');
+                            let extracted = loginResult.data;
+                            for (const key of tokenPath) {
+                                if (extracted && typeof extracted === 'object') extracted = extracted[key];
+                                else { extracted = null; break; }
+                            }
+                            if (extracted && typeof extracted === 'string') {
+                                token = extracted;
+                                updateRequest(request.id, { autoAuthToken: token, autoAuthTokenTime: Date.now() });
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Auto-auth login failed:', e);
+                    }
+                }
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
             }
 
             // Parse body if it's a string (with variable resolution)
@@ -187,7 +403,7 @@ export const RequestEditor = ({ tabId }) => {
             }
 
             // Use the proxy endpoint to avoid CORS issues
-            const proxyRes = await fetch(`${API_BASE}/proxy`, {
+            const proxyRes = await authFetch(`${API_BASE}/proxy`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -435,7 +651,7 @@ export const RequestEditor = ({ tabId }) => {
                                                 if (!current) return;
                                                 const formatted = JSON.stringify(JSON.parse(current), null, 2);
                                                 handleChange('body', { ...request.body, content: formatted });
-                                            } catch (e) {
+                                            } catch {
                                                 alert("Invalid JSON: Cannot beautify");
                                             }
                                         }}
@@ -467,6 +683,7 @@ export const RequestEditor = ({ tabId }) => {
                                         <option value="bearer">Bearer Token</option>
                                         <option value="basic">Basic Auth</option>
                                         <option value="apikey">API Key</option>
+                                        <option value="auto-auth">Auto-Auth (Login → Token)</option>
                                     </select>
                                 </div>
 
@@ -531,6 +748,10 @@ export const RequestEditor = ({ tabId }) => {
                                             />
                                         </div>
                                     </div>
+                                )}
+
+                                {request.authType === 'auto-auth' && (
+                                    <AutoAuthPanel request={request} handleChange={handleChange} />
                                 )}
 
                                 {(!request.authType || request.authType === 'none') && (
@@ -600,11 +821,10 @@ export const RequestEditor = ({ tabId }) => {
                                         {(request.assertions || []).map((assertion, idx) => (
                                             <div
                                                 key={assertion.id}
-                                                className={`border rounded-lg p-3 transition-colors ${
-                                                    assertion.enabled !== false
-                                                        ? 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900'
-                                                        : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 opacity-60'
-                                                }`}
+                                                className={`border rounded-lg p-3 transition-colors ${assertion.enabled !== false
+                                                    ? 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900'
+                                                    : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 opacity-60'
+                                                    }`}
                                             >
                                                 <div className="flex items-center gap-2 mb-2">
                                                     {/* Enable toggle */}
@@ -614,11 +834,10 @@ export const RequestEditor = ({ tabId }) => {
                                                             updated[idx] = { ...updated[idx], enabled: !(updated[idx].enabled !== false) };
                                                             handleChange('assertions', updated);
                                                         }}
-                                                        className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
-                                                            assertion.enabled !== false
-                                                                ? 'border-corporate-500 bg-corporate-500 text-white'
-                                                                : 'border-slate-300 dark:border-slate-600'
-                                                        }`}
+                                                        className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${assertion.enabled !== false
+                                                            ? 'border-corporate-500 bg-corporate-500 text-white'
+                                                            : 'border-slate-300 dark:border-slate-600'
+                                                            }`}
                                                     >
                                                         {assertion.enabled !== false && <CheckCircle size={10} />}
                                                     </button>
@@ -701,8 +920,8 @@ export const RequestEditor = ({ tabId }) => {
                                                         }}
                                                         placeholder={
                                                             assertion.type === 'status_code' ? '200' :
-                                                            assertion.type === 'response_time' ? '2000' :
-                                                            'expected value'
+                                                                assertion.type === 'response_time' ? '2000' :
+                                                                    'expected value'
                                                         }
                                                         className="flex-1 font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 outline-none text-slate-700 dark:text-slate-300 placeholder-slate-400"
                                                     />
@@ -752,11 +971,10 @@ export const RequestEditor = ({ tabId }) => {
                                 <button
                                     key={tab}
                                     onClick={() => setResponseTab(tab)}
-                                    className={`px-3 h-full text-xs font-semibold capitalize relative transition-colors ${
-                                        responseTab === tab
-                                            ? 'text-corporate-600 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-corporate-600'
-                                            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
-                                    }`}
+                                    className={`px-3 h-full text-xs font-semibold capitalize relative transition-colors ${responseTab === tab
+                                        ? 'text-corporate-600 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-corporate-600'
+                                        : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                                        }`}
                                 >
                                     {tab}
                                 </button>
@@ -865,11 +1083,10 @@ export const RequestEditor = ({ tabId }) => {
                                         <span className="text-[10px] text-slate-400">/ {assertionResults.total} total</span>
                                     </div>
                                     {assertionResults.results.map((r, i) => (
-                                        <div key={r.id || i} className={`flex items-start gap-2 p-2.5 rounded-lg text-xs border ${
-                                            r.passed
-                                                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
-                                                : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
-                                        }`}>
+                                        <div key={r.id || i} className={`flex items-start gap-2 p-2.5 rounded-lg text-xs border ${r.passed
+                                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
+                                            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+                                            }`}>
                                             {r.passed ? <CheckCircle size={12} className="shrink-0 mt-0.5" /> : <AlertCircle size={12} className="shrink-0 mt-0.5" />}
                                             <div>
                                                 <div className="font-medium">{r.name}</div>
@@ -965,7 +1182,7 @@ export const RequestEditor = ({ tabId }) => {
                                             )}
                                             {Object.keys(chainVars).length > 0 && (
                                                 <div className="mt-2 flex flex-wrap gap-1">
-                                                    {Object.entries(chainVars).map(([k, v]) => (
+                                                    {Object.entries(chainVars).map(([k]) => (
                                                         <span key={k} className="text-[9px] bg-corporate-50 dark:bg-corporate-900/30 text-corporate-700 dark:text-corporate-400 border border-corporate-200 rounded px-1.5 py-0.5 font-mono">
                                                             {`{{${k}}}`}
                                                         </span>

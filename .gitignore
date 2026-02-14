@@ -10,6 +10,7 @@ dist/
 dist-ssr/
 build/
 wheels/
+uv.lock
 
 # Environment variables
 .env
@@ -40,3 +41,7 @@ pnpm-debug.log*
 # Testing artifacts
 coverage/
 .pytest_cache/
+
+# Mock server data
+mocks.json
+backend/data/

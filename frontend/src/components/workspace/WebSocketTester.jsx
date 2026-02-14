@@ -18,7 +18,7 @@ export const WebSocketTester = ({ tabId }) => {
     const [inputMsg, setInputMsg] = useState('');
     const [localUrl, setLocalUrl] = useState(tab?.url || 'wss://');
     const [protocols, setProtocols] = useState('');
-    const [autoScroll, setAutoScroll] = useState(true);
+    const [autoScroll] = useState(true);
     const [filter, setFilter] = useState('all'); // 'all' | 'sent' | 'received'
 
     const wsRef = useRef(null);
@@ -26,9 +26,8 @@ export const WebSocketTester = ({ tabId }) => {
     const connectTimeRef = useRef(null);
 
     // Sync URL from tab
-    useEffect(() => {
-        setLocalUrl(tab?.url || 'wss://');
-    }, [tab?.id]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+    useEffect(() => { setLocalUrl(tab?.url || 'wss://'); }, [tab?.id]);
 
     // Auto-scroll
     useEffect(() => {
@@ -45,6 +44,16 @@ export const WebSocketTester = ({ tabId }) => {
                 wsRef.current = null;
             }
         };
+    }, []);
+
+    const addSystemMsg = useCallback((text, level = 'info') => {
+        setMessages(prev => [...prev, {
+            id: Date.now() + Math.random(),
+            type: 'system',
+            data: text,
+            level,
+            timestamp: Date.now(),
+        }]);
     }, []);
 
     const handleConnect = useCallback(() => {
@@ -110,7 +119,7 @@ export const WebSocketTester = ({ tabId }) => {
             setStatus('error');
             addSystemMsg(`Failed to connect: ${err.message}`, 'error');
         }
-    }, [localUrl, protocols, tabId, updateRequest]);
+    }, [localUrl, protocols, tabId, updateRequest, addSystemMsg]);
 
     const handleDisconnect = useCallback(() => {
         if (wsRef.current) {
@@ -134,15 +143,7 @@ export const WebSocketTester = ({ tabId }) => {
         setInputMsg('');
     }, [inputMsg]);
 
-    const addSystemMsg = (text, level = 'info') => {
-        setMessages(prev => [...prev, {
-            id: Date.now() + Math.random(),
-            type: 'system',
-            data: text,
-            level,
-            timestamp: Date.now(),
-        }]);
-    };
+
 
     const clearMessages = () => setMessages([]);
 
@@ -236,11 +237,10 @@ export const WebSocketTester = ({ tabId }) => {
                             <button
                                 key={f}
                                 onClick={() => setFilter(f)}
-                                className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full capitalize transition-colors ${
-                                    filter === f
+                                className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full capitalize transition-colors ${filter === f
                                         ? 'bg-corporate-100 dark:bg-corporate-900/30 text-corporate-700 dark:text-corporate-400'
                                         : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                                }`}
+                                    }`}
                             >
                                 {f}
                             </button>
@@ -270,8 +270,7 @@ export const WebSocketTester = ({ tabId }) => {
                             filteredMessages.map(msg => (
                                 <div
                                     key={msg.id}
-                                    className={`group flex items-start gap-2 text-xs rounded-lg p-2 animate-fade-in ${
-                                        msg.type === 'sent'
+                                    className={`group flex items-start gap-2 text-xs rounded-lg p-2 animate-fade-in ${msg.type === 'sent'
                                             ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800'
                                             : msg.type === 'received'
                                                 ? 'bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800'
@@ -280,7 +279,7 @@ export const WebSocketTester = ({ tabId }) => {
                                                     : msg.level === 'success'
                                                         ? 'bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900'
                                                         : 'bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700'
-                                    }`}
+                                        }`}
                                 >
                                     {/* Direction Icon */}
                                     <div className="shrink-0 mt-0.5">
@@ -288,18 +287,17 @@ export const WebSocketTester = ({ tabId }) => {
                                         {msg.type === 'received' && <ArrowDownLeft size={12} className="text-green-500" />}
                                         {msg.type === 'system' && (
                                             msg.level === 'error' ? <XCircle size={12} className="text-red-500" /> :
-                                            msg.level === 'success' ? <CheckCircle size={12} className="text-green-500" /> :
-                                            <Activity size={12} className="text-slate-400" />
+                                                msg.level === 'success' ? <CheckCircle size={12} className="text-green-500" /> :
+                                                    <Activity size={12} className="text-slate-400" />
                                         )}
                                     </div>
 
                                     {/* Content */}
                                     <div className="flex-1 min-w-0">
-                                        <pre className={`whitespace-pre-wrap break-all font-mono text-[11px] ${
-                                            msg.type === 'system'
+                                        <pre className={`whitespace-pre-wrap break-all font-mono text-[11px] ${msg.type === 'system'
                                                 ? msg.level === 'error' ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400 italic'
                                                 : 'text-slate-700 dark:text-slate-300'
-                                        }`}>
+                                            }`}>
                                             {msg.data}
                                         </pre>
                                     </div>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Code2, Loader2, Sparkles } from 'lucide-react';
 import { CodeViewer } from './JsonViewer';
 
-const API_BASE = "http://localhost:8000/api/v1";
+import { API_BASE, authFetch } from '../../config';
 
 const LANGUAGES = [
     {
@@ -81,6 +81,8 @@ export const CodeGenModal = ({ request, onClose }) => {
             headers['Authorization'] = `Basic <base64(${request.authUsername}:${request.authPassword || ''})>`;
         } else if (request.authType === 'apikey' && request.authKeyValue) {
             headers[request.authKeyName || 'X-API-Key'] = request.authKeyValue;
+        } else if (request.authType === 'auto-auth' && request.autoAuthToken) {
+            headers['Authorization'] = `Bearer ${request.autoAuthToken}`;
         }
 
         const payload = {
@@ -94,7 +96,7 @@ export const CodeGenModal = ({ request, onClose }) => {
         };
 
         try {
-            const res = await fetch(`${API_BASE}/codegen`, {
+            const res = await authFetch(`${API_BASE}/codegen`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
@@ -138,11 +140,10 @@ export const CodeGenModal = ({ request, onClose }) => {
                             <button
                                 key={lang.id}
                                 onClick={() => handleLangChange(lang.id)}
-                                className={`flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                                    selectedLang === lang.id
-                                        ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm'
-                                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                                }`}
+                                className={`flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${selectedLang === lang.id
+                                    ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm'
+                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                                    }`}
                             >
                                 {lang.label}
                             </button>
@@ -157,11 +158,10 @@ export const CodeGenModal = ({ request, onClose }) => {
                                 <button
                                     key={v.id}
                                     onClick={() => { setSelectedVariant(v.id); setGeneratedCode(''); }}
-                                    className={`text-[11px] px-2.5 py-1 rounded-full font-medium border transition-all ${
-                                        selectedVariant === v.id
-                                            ? 'bg-corporate-50 dark:bg-corporate-900/30 text-corporate-700 dark:text-corporate-400 border-corporate-300 dark:border-corporate-600'
-                                            : 'text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
-                                    }`}
+                                    className={`text-[11px] px-2.5 py-1 rounded-full font-medium border transition-all ${selectedVariant === v.id
+                                        ? 'bg-corporate-50 dark:bg-corporate-900/30 text-corporate-700 dark:text-corporate-400 border-corporate-300 dark:border-corporate-600'
+                                        : 'text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
+                                        }`}
                                 >
                                     {v.label}
                                 </button>
@@ -196,13 +196,12 @@ export const CodeGenModal = ({ request, onClose }) => {
                     {/* Request summary */}
                     <div className="mt-3 p-2.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
                         <div className="flex items-center gap-2 text-xs">
-                            <span className={`font-bold px-1.5 py-0.5 rounded text-[10px] ${
-                                request.method === 'GET' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                            <span className={`font-bold px-1.5 py-0.5 rounded text-[10px] ${request.method === 'GET' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
                                 request.method === 'POST' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                                request.method === 'PUT' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
-                                request.method === 'DELETE' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
-                            }`}>
+                                    request.method === 'PUT' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                                        request.method === 'DELETE' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                            'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                                }`}>
                                 {request.method || 'GET'}
                             </span>
                             <span className="text-slate-600 dark:text-slate-300 font-mono truncate">{request.url || 'No URL set'}</span>

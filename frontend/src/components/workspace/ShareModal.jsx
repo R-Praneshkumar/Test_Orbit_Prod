@@ -1,0 +1,187 @@
+import React, { useState, useEffect } from 'react';
+import { X, Users, Trash2, UserPlus, Shield, Pencil } from 'lucide-react';
+import { supabase } from '../../utils/supabaseClient';
+import { useWorkspaceStore } from '../../store/workspaceStore';
+
+const ShareModal = ({ isOpen, onClose, collectionId, collectionName }) => {
+    const [email, setEmail] = useState('');
+    const [role, setRole] = useState('viewer');
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState(null);
+    const [shares, setShares] = useState([]);
+    const [loadingShares, setLoadingShares] = useState(false);
+    const user = useWorkspaceStore(state => state.user);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => { if (isOpen && collectionId) fetchShares(); }, [isOpen, collectionId]);
+
+    const fetchShares = async () => {
+        if (!supabase || !collectionId) return;
+        setLoadingShares(true);
+        const { data, error } = await supabase
+            .from('collection_shares')
+            .select('*')
+            .eq('collection_id', collectionId)
+            .order('created_at', { ascending: true });
+
+        if (!error && data) {
+            setShares(data);
+        }
+        setLoadingShares(false);
+    };
+
+    if (!isOpen) return null;
+
+    const handleInvite = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setMessage(null);
+
+        if (!supabase) {
+            setMessage({ type: 'error', text: 'Supabase not configured.' });
+            setLoading(false);
+            return;
+        }
+
+        if (email === user?.email) {
+            setMessage({ type: 'error', text: "You can't share with yourself." });
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const { error } = await supabase.from('collection_shares').upsert({
+                collection_id: collectionId,
+                user_email: email,
+                role: role
+            }, { onConflict: 'collection_id,user_email' });
+
+            if (error) throw error;
+
+            setMessage({ type: 'success', text: `Invited ${email} as ${role}` });
+            setEmail('');
+            fetchShares();
+        } catch (err) {
+            setMessage({ type: 'error', text: err.message });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRemoveShare = async (shareId) => {
+        if (!supabase) return;
+        await supabase.from('collection_shares').delete().eq('id', shareId);
+        fetchShares();
+    };
+
+    const roleIcon = (r) => r === 'editor'
+        ? <Pencil size={12} className="text-amber-500" />
+        : <Shield size={12} className="text-blue-500" />;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800">
+                    <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        <Users size={20} className="text-corporate-500" />
+                        Share "{collectionName}"
+                    </h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-6">
+                    <form onSubmit={handleInvite} className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Invite Collaborator</label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="email"
+                                    required
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="flex-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500 transition-all dark:text-slate-200"
+                                    placeholder="colleague@example.com"
+                                />
+                                <select
+                                    value={role}
+                                    onChange={(e) => setRole(e.target.value)}
+                                    className="px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500 dark:text-slate-200"
+                                >
+                                    <option value="viewer">Viewer</option>
+                                    <option value="editor">Editor</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {message && (
+                            <div className={`p-3 rounded-lg text-xs ${message.type === 'success' ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'}`}>
+                                {message.text}
+                            </div>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={loading || !supabase}
+                            className="w-full py-2 bg-corporate-600 hover:bg-corporate-700 text-white rounded-lg font-medium text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            <UserPlus size={16} />
+                            {loading ? 'Sending...' : 'Send Invite'}
+                        </button>
+                    </form>
+
+                    <div>
+                        <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Who has access</h3>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {/* Owner */}
+                            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-full bg-corporate-100 dark:bg-corporate-900/30 flex items-center justify-center text-corporate-600 dark:text-corporate-400 text-xs font-bold">
+                                        {user?.email?.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{user?.email}</div>
+                                    </div>
+                                </div>
+                                <span className="text-xs text-corporate-600 dark:text-corporate-400 font-semibold px-2 py-0.5 bg-corporate-50 dark:bg-corporate-900/20 rounded-full">Owner</span>
+                            </div>
+
+                            {/* Shared Users */}
+                            {loadingShares ? (
+                                <div className="text-xs text-slate-400 text-center py-2">Loading...</div>
+                            ) : shares.length === 0 ? (
+                                <div className="text-xs text-slate-400 text-center py-2">No collaborators yet</div>
+                            ) : shares.map(share => (
+                                <div key={share.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 text-xs font-bold">
+                                            {share.user_email.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{share.user_email}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex items-center gap-1 text-xs text-slate-500 capitalize">
+                                            {roleIcon(share.role)} {share.role}
+                                        </span>
+                                        <button
+                                            onClick={() => handleRemoveShare(share.id)}
+                                            className="text-red-400 hover:text-red-600 transition-colors"
+                                            title="Remove access"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default ShareModal;

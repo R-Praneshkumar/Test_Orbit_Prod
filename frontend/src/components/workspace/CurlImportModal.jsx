@@ -64,8 +64,6 @@ export const CurlImportModal = ({ onClose }) => {
     const [parsed, setParsed] = useState(null);
     const [error, setError] = useState('');
 
-    const addRequest = useWorkspaceStore(state => state.addRequest);
-    const updateRequest = useWorkspaceStore(state => state.updateRequest);
     const activeCollectionId = useWorkspaceStore(state => state.activeCollectionId);
     const collections = useWorkspaceStore(state => state.collections);
 

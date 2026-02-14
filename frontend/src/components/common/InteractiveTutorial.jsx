@@ -1,37 +1,36 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Play, Pause, SkipForward, CheckCircle, Sparkles, ArrowRight, Server, MessageSquare, FlaskConical, ChevronRight } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { MOCK_BASE } from '../../config';
 
 /**
  * InteractiveTutorial - A component that runs live demos by performing real UI actions
  * It navigates to pages, types in fields, clicks buttons, and shows results
  */
 export function InteractiveTutorial() {
-    const [activeTutorial, setActiveTutorial] = useState(null);
     const [currentStep, setCurrentStep] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [stepStatus, setStepStatus] = useState('waiting'); // 'waiting', 'running', 'done'
+    const prevTutorialRef = React.useRef(null);
 
     // Store actions
     const setCurrentView = useWorkspaceStore(state => state.setCurrentView);
     const collections = useWorkspaceStore(state => state.collections);
     const setActiveCollection = useWorkspaceStore(state => state.setActiveCollection);
-    const addCollectionChatMessage = useWorkspaceStore(state => state.addCollectionChatMessage);
     const stopTutorial = useWorkspaceStore(state => state.stopTutorial);
-    const activeTutorialName = useWorkspaceStore(state => state.activeTutorial);
+    const activeTutorial = useWorkspaceStore(state => state.activeTutorial);
 
-    // When store's activeTutorial changes, start the tutorial
-    useEffect(() => {
-        if (activeTutorialName) {
-            setActiveTutorial(activeTutorialName);
+    // When store's activeTutorial changes, reset local state
+    if (activeTutorial !== prevTutorialRef.current) {
+        prevTutorialRef.current = activeTutorial;
+        if (activeTutorial) {
             setCurrentStep(0);
             setIsPlaying(true);
             setStepStatus('waiting');
         } else {
-            setActiveTutorial(null);
             setIsPlaying(false);
         }
-    }, [activeTutorialName]);
+    }
 
     // Tutorial Definitions - Each tutorial has steps with actions
     const tutorials = {
@@ -141,14 +140,14 @@ export function InteractiveTutorial() {
                         // We can't actually run curl from frontend, but we can show the concept
                         // Instead, let's make an actual fetch request
                         try {
-                            const response = await fetch('http://localhost:8000/mock-server/api/v1/products', {
+                            const response = await fetch(`${MOCK_BASE}/api/v1/products`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ name: 'Demo Product', price: 99.99 })
                             });
                             const data = await response.json();
                             console.log('Mock response:', data);
-                        } catch (e) {
+                        } catch {
                             console.log('Mock server demo - request sent');
                         }
                         await sleep(1000);
@@ -295,11 +294,11 @@ export function InteractiveTutorial() {
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     // Run the current step
-    const runStep = useCallback(async () => {
-        if (!activeTutorial || !tutorials[activeTutorial]) return;
+    const runStep = useCallback(async (tutorialKey, stepIdx) => {
+        if (!tutorialKey || !tutorials[tutorialKey]) return;
 
-        const tutorial = tutorials[activeTutorial];
-        const step = tutorial.steps[currentStep];
+        const tutorial = tutorials[tutorialKey];
+        const step = tutorial.steps[stepIdx];
 
         if (!step) return;
 
@@ -307,19 +306,20 @@ export function InteractiveTutorial() {
 
         try {
             await step.action();
-        } catch (e) {
-            console.error('Tutorial step error:', e);
+        } catch (err) {
+            console.error('Tutorial step error:', err);
         }
 
         setStepStatus('done');
-    }, [activeTutorial, currentStep]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [setCurrentView, collections, setActiveCollection]);
 
     // Auto-run steps when playing
     useEffect(() => {
         if (isPlaying && stepStatus === 'waiting' && activeTutorial) {
-            runStep();
+            runStep(activeTutorial, currentStep);
         }
-    }, [isPlaying, stepStatus, activeTutorial, runStep]);
+    }, [isPlaying, stepStatus, activeTutorial, currentStep, runStep]);
 
     // Auto-advance after step is done (with delay for reading)
     useEffect(() => {
@@ -332,15 +332,20 @@ export function InteractiveTutorial() {
                 }, 2000); // 2 second pause between steps
                 return () => clearTimeout(timer);
             } else {
-                // Tutorial finished
-                setIsPlaying(false);
+                // Tutorial finished — auto-close after a brief delay
+                const finishTimer = setTimeout(() => {
+                    setIsPlaying(false);
+                    setCurrentStep(0);
+                    if (stopTutorial) stopTutorial();
+                }, 2000);
+                return () => clearTimeout(finishTimer);
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [stepStatus, isPlaying, currentStep, activeTutorial]);
 
     // Close handler
     const handleClose = () => {
-        setActiveTutorial(null);
         setIsPlaying(false);
         setCurrentStep(0);
         if (stopTutorial) stopTutorial();

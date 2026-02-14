@@ -2,10 +2,10 @@ import React from 'react';
 import Joyride, { STATUS, ACTIONS, EVENTS } from 'react-joyride';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { X, ChevronRight, Check, ChevronLeft, Sparkles } from 'lucide-react';
+import { MOCK_BASE } from '../../config';
 
 // Custom Tooltip with Premium Design
 const CustomTooltip = ({
-    continuous,
     index,
     step,
     size,
@@ -194,7 +194,7 @@ export function TourGuide() {
                     <div>
                         <p className="mb-2">Just send any HTTP request to:</p>
                         <code className="block bg-slate-100 dark:bg-slate-700 p-2 rounded text-sm mb-2">
-                            POST http://localhost:8000/mock-server/api/v1/users
+                            POST {MOCK_BASE}/api/v1/users
                         </code>
                         <p>Gemini analyzes the path and method to generate a realistic JSON response. No setup needed!</p>
                     </div>
@@ -281,7 +281,7 @@ export function TourGuide() {
     const steps = tours[activeTour] || [];
 
     const handleCallback = (data) => {
-        const { status, action, type, index } = data;
+        const { status, type, index } = data;
 
         // Handle tour completion or skip
         if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {

@@ -4,14 +4,17 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
 import { EnvironmentManager } from './EnvironmentManager';
 import { CurlImportModal } from './CurlImportModal';
 import { ImportCollectionModal } from './ImportCollectionModal';
+import ShareModal from './ShareModal';
+import { Users } from 'lucide-react';
 
-const API_BASE = "http://localhost:8000/api/v1";
+import { API_BASE, authFetch } from '../../config';
 
 const SidebarItem = ({ item, level = 0 }) => {
     const [expanded, setExpanded] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
     const [isRenaming, setIsRenaming] = useState(false);
     const [renameValue, setRenameValue] = useState(item.name);
+    const [showShareModal, setShowShareModal] = useState(false);
     const menuRef = useRef(null);
     const renameRef = useRef(null);
 
@@ -74,6 +77,9 @@ const SidebarItem = ({ item, level = 0 }) => {
                 setRenameValue(item.name);
                 setIsRenaming(true);
                 break;
+            case 'share':
+                if (item.type === 'collection') setShowShareModal(true);
+                break;
             case 'duplicate':
                 if (item.type === 'request') duplicateRequest(item.id);
                 break;
@@ -90,7 +96,7 @@ const SidebarItem = ({ item, level = 0 }) => {
                         const baseUrl = col?.items?.[0]?.url || '';
                         const openApiSpec = col?.openApiSpec || '';
                         try {
-                            const res = await fetch(`${API_BASE}/generate`, {
+                            const res = await authFetch(`${API_BASE}/generate`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
@@ -240,12 +246,21 @@ const SidebarItem = ({ item, level = 0 }) => {
                                     </button>
                                 </>
                             )}
+
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleMenuAction('rename'); }}
                                 className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
                             >
                                 <Pencil size={11} /> Rename
                             </button>
+                            {item.type === 'collection' && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleMenuAction('share'); }}
+                                    className="w-full text-left px-3 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2"
+                                >
+                                    <Users size={11} /> Share
+                                </button>
+                            )}
                             {item.type === 'request' && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleMenuAction('duplicate'); }}
@@ -280,9 +295,17 @@ const SidebarItem = ({ item, level = 0 }) => {
                     ))}
                 </div>
             )}
+            {showShareModal && (
+                <ShareModal
+                    isOpen={showShareModal}
+                    onClose={() => setShowShareModal(false)}
+                    collectionName={item.name}
+                />
+            )}
         </div>
     );
 };
+
 
 export const Sidebar = () => {
     const collections = useWorkspaceStore(state => state.collections);

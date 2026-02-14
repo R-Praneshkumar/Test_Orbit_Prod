@@ -1,62 +1,66 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Request, Depends
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import asyncio
 import aiohttp
 import logging
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.services.ai_service import ai_service
 from app.services.test_runner import test_runner
+from app.core.config import get_settings
+from app.core.security import validate_proxy_url, verify_token
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
+_settings = get_settings()
 
 class GenerateRequest(BaseModel):
-    url: str
-    context: Optional[str] = None
-    openapi_spec: Optional[str] = None
-    user_instructions: Optional[str] = None
+    url: str = Field(..., max_length=2048)
+    context: Optional[str] = Field(None, max_length=5000)
+    openapi_spec: Optional[str] = Field(None, max_length=102400)  # 100KB
+    user_instructions: Optional[str] = Field(None, max_length=5000)
 
 class RunRequest(BaseModel):
-    base_url: str
+    base_url: str = Field(..., max_length=2048)
     tests: List[Dict[str, Any]]
 
 class VoiceCommand(BaseModel):
-    transcript: str
-    openapi_spec: Optional[str] = None
+    transcript: str = Field(..., max_length=5000)
+    openapi_spec: Optional[str] = Field(None, max_length=102400)
     conversation_history: Optional[List[Dict[str, str]]] = None
 
 class CodeGenRequest(BaseModel):
-    """Request to generate code snippets for an API request."""
-    method: str
-    url: str
+    method: str = Field(..., max_length=10)
+    url: str = Field(..., max_length=2048)
     headers: Optional[Dict[str, str]] = None
-    body: Optional[str] = None
-    language: str = "python"
-    variant: Optional[str] = None
+    body: Optional[str] = Field(None, max_length=1048576)  # 1MB
+    language: str = Field("python", max_length=30)
+    variant: Optional[str] = Field(None, max_length=30)
     include_tests: bool = False
 
 class DiagnoseRequest(BaseModel):
-    """Request to diagnose a failed API test."""
-    method: str
-    url: str
-    request_body: Optional[str] = None
+    method: str = Field(..., max_length=10)
+    url: str = Field(..., max_length=2048)
+    request_body: Optional[str] = Field(None, max_length=1048576)
     request_headers: Optional[Dict[str, str]] = None
     expected_status: int
     actual_status: int
-    response_body: Optional[str] = None
+    response_body: Optional[str] = Field(None, max_length=1048576)
     response_headers: Optional[Dict[str, str]] = None
-    openapi_spec: Optional[str] = None
+    openapi_spec: Optional[str] = Field(None, max_length=102400)
 
 class ProxyRequest(BaseModel):
-    """Request to proxy an HTTP call through the backend (avoids CORS)"""
-    url: str
-    method: str = "GET"
+    url: str = Field(..., max_length=2048)
+    method: str = Field("GET", max_length=10)
     headers: Optional[Dict[str, str]] = None
     body: Optional[Dict[str, Any]] = None
 
 @router.post("/generate")
-async def generate_tests(req: GenerateRequest):
+@limiter.limit(_settings.AI_RATE_LIMIT)
+async def generate_tests(request: Request, req: GenerateRequest, user: dict = Depends(verify_token)):
     """Generates test cases using Gemini 3."""
     context = f"{req.url} {req.context or ''}"
     result = await ai_service.generate_tests(
@@ -69,7 +73,7 @@ async def generate_tests(req: GenerateRequest):
     return result
 
 @router.post("/run")
-async def run_tests(req: RunRequest):
+async def run_tests(req: RunRequest, user: dict = Depends(verify_token)):
     """Runs tests in parallel using aiohttp."""
     logger.info(f"Running batch for {len(req.tests)} tests...")
     results = await test_runner.run_batch(req.tests, req.base_url)
@@ -97,17 +101,23 @@ async def run_tests(req: RunRequest):
     return {"results": results}
 
 @router.post("/voice")
-async def process_voice(cmd: VoiceCommand):
+@limiter.limit(_settings.AI_RATE_LIMIT)
+async def process_voice(request: Request, cmd: VoiceCommand, user: dict = Depends(verify_token)):
     """Processes natural language commands with optional OpenAPI spec and conversation history."""
-    result = await ai_service.generate_payload_from_intent(
-        cmd.transcript,
-        openapi_spec=cmd.openapi_spec,
-        conversation_history=cmd.conversation_history
-    )
-    return result
+    try:
+        result = await ai_service.generate_payload_from_intent(
+            cmd.transcript,
+            openapi_spec=cmd.openapi_spec,
+            conversation_history=cmd.conversation_history
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Voice processing error: {e}")
+        raise HTTPException(status_code=500, detail="Voice processing failed")
 
 @router.post("/codegen")
-async def generate_code(req: CodeGenRequest):
+@limiter.limit(_settings.AI_RATE_LIMIT)
+async def generate_code(request: Request, req: CodeGenRequest, user: dict = Depends(verify_token)):
     """Generates code snippets for a given API request using Gemini AI."""
     result = await ai_service.generate_code(
         method=req.method,
@@ -123,7 +133,8 @@ async def generate_code(req: CodeGenRequest):
     return result
 
 @router.post("/diagnose")
-async def diagnose_failure(req: DiagnoseRequest):
+@limiter.limit(_settings.AI_RATE_LIMIT)
+async def diagnose_failure(request: Request, req: DiagnoseRequest, user: dict = Depends(verify_token)):
     """Diagnoses why an API test failed using Gemini AI."""
     result = await ai_service.diagnose_failure(
         method=req.method,
@@ -141,11 +152,15 @@ async def diagnose_failure(req: DiagnoseRequest):
     return result
 
 @router.post("/proxy")
-async def proxy_request(req: ProxyRequest):
+@limiter.limit(_settings.PROXY_RATE_LIMIT)
+async def proxy_request(request: Request, req: ProxyRequest, user: dict = Depends(verify_token)):
     """
     Proxies HTTP requests to external APIs.
     This solves CORS issues by making the request from the backend.
     """
+    # SSRF protection: validate the target URL
+    validate_proxy_url(req.url)
+
     try:
         timeout = aiohttp.ClientTimeout(total=30)
         # Use auto_decompress=True to handle gzip/br automatically
@@ -174,7 +189,8 @@ async def proxy_request(req: ProxyRequest):
                     except Exception:
                         data = text
                 except Exception as e:
-                    data = f"Error reading response: {str(e)}"
+                    logger.error(f"Proxy response read error: {e}")
+                    data = "Error reading response"
                 
                 return {
                     "status": response.status,
@@ -190,10 +206,11 @@ async def proxy_request(req: ProxyRequest):
             "headers": {}
         }
     except Exception as e:
+        logger.error(f"Proxy request error: {e}")
         return {
             "status": 500,
             "statusText": "Proxy Error",
-            "data": f"Error: {str(e)}",
+            "data": "Proxy request failed",
             "headers": {}
         }
 

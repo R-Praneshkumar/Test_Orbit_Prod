@@ -11,7 +11,11 @@ import { DocsPanel } from './components/workspace/DocsPanel';
 import { TourGuide } from './components/common/TourGuide';
 import { InteractiveTutorial } from './components/common/InteractiveTutorial';
 import { useWorkspaceStore } from './store/workspaceStore';
-import { Layout, Zap, Home, Wrench, Server, Book, Sun, Moon } from 'lucide-react';
+import { Layout, Home, Wrench, Server, Book, Sun, Moon } from 'lucide-react';
+import AuthPage from './components/common/AuthPage';
+import ProfilePage from './components/common/ProfilePage';
+import UserMenu from './components/common/UserMenu';
+import GuestBanner from './components/common/GuestBanner';
 
 function App() {
   const activeTabId = useWorkspaceStore(state => state.activeTabId);
@@ -23,12 +27,15 @@ function App() {
   const setCurrentView = useWorkspaceStore(state => state.setCurrentView);
   const darkMode = useWorkspaceStore(state => state.darkMode);
   const toggleDarkMode = useWorkspaceStore(state => state.toggleDarkMode);
+  const initializeAuth = useWorkspaceStore(state => state.initializeAuth);
 
-  // Sync dark mode class with store state
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
-  }, [darkMode]);
+
+    // Init Supabase Auth
+    initializeAuth();
+  }, [darkMode, initializeAuth]);
 
   // Auto-start Welcome Tour
   const hasSeenWelcomeTour = useWorkspaceStore(state => state.hasSeenWelcomeTour);
@@ -66,6 +73,11 @@ function App() {
         if (colId) state.addRequest(colId);
       }
 
+      // Ctrl+S — prevent browser save dialog (data is auto-saved via Zustand persist)
+      if (isMod && e.key === 's') {
+        e.preventDefault();
+      }
+
       if (e.key === 'Escape') {
         const state = useWorkspaceStore.getState();
         if (state.runner) state.closeRunner();
@@ -75,11 +87,19 @@ function App() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Login and Profile views render without the header/nav chrome
+  if (currentView === 'login') {
+    return (
+      <div className="flex flex-col h-screen w-screen overflow-hidden bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
+        <AuthPage />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-corporate-100">
       <TourGuide />
       <InteractiveTutorial />
-
 
       {/* App Header */}
       <header className="h-12 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 shrink-0 z-20">
@@ -146,8 +166,9 @@ function App() {
           </button>
         </div>
 
-        {/* Right: Dark mode toggle */}
+        {/* Right: User Menu & Dark mode */}
         <div className="flex items-center gap-2">
+          <UserMenu />
           <button
             onClick={toggleDarkMode}
             className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
@@ -158,8 +179,13 @@ function App() {
         </div>
       </header>
 
+      {/* Guest Banner */}
+      <GuestBanner />
+
       {/* Main Content */}
-      {currentView === 'dashboard' ? (
+      {currentView === 'profile' ? (
+        <ProfilePage />
+      ) : currentView === 'dashboard' ? (
         <Dashboard />
       ) : currentView === 'mock-server' ? (
         <MockServerPanel />
