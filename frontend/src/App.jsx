@@ -8,8 +8,6 @@ import { WebSocketTester } from './components/workspace/WebSocketTester';
 import { Dashboard } from './components/workspace/Dashboard';
 import { MockServerPanel } from './components/workspace/MockServerPanel';
 import { DocsPanel } from './components/workspace/DocsPanel';
-import { TourGuide } from './components/common/TourGuide';
-import { InteractiveTutorial } from './components/common/InteractiveTutorial';
 import { useWorkspaceStore } from './store/workspaceStore';
 import { Layout, Home, Wrench, Server, Book, Sun, Moon } from 'lucide-react';
 import AuthPage from './components/common/AuthPage';
@@ -36,17 +34,6 @@ function App() {
     // Init Supabase Auth
     initializeAuth();
   }, [darkMode, initializeAuth]);
-
-  // Auto-start Welcome Tour
-  const hasSeenWelcomeTour = useWorkspaceStore(state => state.hasSeenWelcomeTour);
-  const startTour = useWorkspaceStore(state => state.startTour);
-
-  useEffect(() => {
-    if (!hasSeenWelcomeTour) {
-      // Small delay to ensure UI is ready
-      setTimeout(() => startTour('welcome'), 1000);
-    }
-  }, [hasSeenWelcomeTour, startTour]);
 
   // Check if activeTabId belongs to the current active collection
   const activeTabInCollection = (() => {
@@ -98,9 +85,6 @@ function App() {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-corporate-100">
-      <TourGuide />
-      <InteractiveTutorial />
-
       {/* App Header */}
       <header className="h-12 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 shrink-0 z-20">
         {/* Left: Logo */}
