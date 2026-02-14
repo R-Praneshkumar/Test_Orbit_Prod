@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../utils/supabaseClient';
+import yaml from 'js-yaml';
 
 /**
  * Workspace Store (The "Brain" of the App)
@@ -914,7 +915,12 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         try {
             spec = JSON.parse(specString);
         } catch {
-            return { error: 'Invalid JSON. Paste a valid OpenAPI spec in JSON format.' };
+            try {
+                spec = yaml.load(specString);
+                if (!spec || typeof spec !== 'object') throw new Error('Not a valid object');
+            } catch {
+                return { error: 'Invalid spec. Paste a valid OpenAPI spec in JSON or YAML format.' };
+            }
         }
 
         const baseUrl = baseUrlOverride || spec.servers?.[0]?.url || (spec.host ? `https://${spec.host}${spec.basePath || ''}` : '');

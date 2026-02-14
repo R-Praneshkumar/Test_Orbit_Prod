@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, ArrowRight, Zap, Activity, Play, FileText, ChevronDown, ChevronUp, Trash2, User, Download, Folder, MessageSquare, Code, FlaskConical } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { JsonViewer } from './JsonViewer';
+import yaml from 'js-yaml';
 
 import { API_BASE, authFetch } from '../../config';
 
@@ -502,7 +503,9 @@ export const IntelligencePanel = () => {
                     {/* Spec summary if loaded */}
                     {openApiSpec && (() => {
                         try {
-                            const parsed = JSON.parse(openApiSpec);
+                            let parsed;
+                            try { parsed = JSON.parse(openApiSpec); } catch { parsed = yaml.load(openApiSpec); }
+                            if (!parsed || typeof parsed !== 'object') return null;
                             const pathCount = Object.keys(parsed.paths || {}).length;
                             const title = parsed.info?.title || 'Unknown';
                             const baseUrl = parsed.servers?.[0]?.url || '';
@@ -537,20 +540,21 @@ export const IntelligencePanel = () => {
                             const val = e.target.value;
                             setLocalSpec(val);
                             setImportResult(null);
-                            // Auto-detect base URL from spec when valid JSON is pasted
+                            // Auto-detect base URL from spec (JSON or YAML)
                             try {
-                                const parsed = JSON.parse(val);
+                                let parsed;
+                                try { parsed = JSON.parse(val); } catch { parsed = yaml.load(val); }
                                 const specBaseUrl = parsed?.servers?.[0]?.url || '';
                                 if (specBaseUrl) {
                                     setLocalBaseUrl(specBaseUrl);
                                     setCollectionBaseUrl(specBaseUrl);
                                 }
-                            } catch { /* not valid JSON yet, ignore */ }
+                            } catch { /* not valid spec yet, ignore */ }
                         }}
                         onBlur={() => { if (localSpec.trim()) setCollectionOpenApiSpec(localSpec); }}
                         className="w-full text-[10px] p-3 border border-slate-200 dark:border-slate-600 rounded-lg font-mono bg-slate-50 dark:bg-slate-900 dark:text-slate-200 resize-none outline-none focus:ring-2 focus:ring-corporate-500"
                         rows={8}
-                        placeholder="Paste OpenAPI/Swagger spec (JSON)..."
+                        placeholder="Paste OpenAPI/Swagger spec (JSON or YAML)..."
                     />
 
                     <div className="flex gap-2 mt-2">
