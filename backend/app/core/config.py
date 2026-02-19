@@ -9,7 +9,8 @@ class Settings(BaseSettings):
     ENV: str = "development"  # development | staging | production
 
     # Supabase JWT verification
-    SUPABASE_JWT_SECRET: str = ""  # Required in production; from Supabase Dashboard → Settings → API → JWT Secret
+    SUPABASE_URL: str = ""          # e.g. https://yourproject.supabase.co — used to fetch JWKS for ES256/RS256 tokens
+    SUPABASE_JWT_SECRET: str = ""  # Required for HS256 tokens; from Supabase Dashboard → Settings → API → JWT Secret
     REQUIRE_AUTH: bool = False      # Set True in production to enforce JWT auth on all API routes
 
     # CORS — comma-separated in env, or use defaults for dev
