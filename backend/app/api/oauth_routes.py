@@ -5,7 +5,7 @@ import aiohttp
 import logging
 from app.api.routes import limiter
 from app.core.config import get_settings
-from app.core.security import verify_token
+from app.core.security import verify_token, validate_proxy_url
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -58,6 +58,9 @@ async def exchange_token(request: Request, req: TokenRequest, user: dict = Depen
             data["scope"] = req.scope
 
         logger.info(f"OAuth token exchange: {req.grant_type} → {req.token_url}")
+
+        # SSRF protection: validate the token URL
+        validate_proxy_url(req.token_url)
 
         timeout = aiohttp.ClientTimeout(total=15)
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -117,6 +120,9 @@ async def refresh_token(request: Request, req: RefreshRequest, user: dict = Depe
             data["client_secret"] = req.client_secret
 
         logger.info(f"OAuth token refresh → {req.token_url}")
+
+        # SSRF protection: validate the token URL
+        validate_proxy_url(req.token_url)
 
         timeout = aiohttp.ClientTimeout(total=15)
         async with aiohttp.ClientSession(timeout=timeout) as session:

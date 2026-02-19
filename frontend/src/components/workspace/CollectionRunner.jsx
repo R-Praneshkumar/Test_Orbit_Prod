@@ -30,6 +30,7 @@ export const CollectionRunner = () => {
     const setChainVar = useWorkspaceStore(state => state.setChainVar);
     const environments = useWorkspaceStore(state => state.environments);
     const activeEnv = useWorkspaceStore(state => state.activeEnv);
+    const updateRequest = useWorkspaceStore(state => state.updateRequest);
 
     const [isRunning, setIsRunning] = useState(false);
     const [parallel, setParallel] = useState(false);
@@ -128,6 +129,54 @@ export const CollectionRunner = () => {
                 (req.headers || []).forEach(h => {
                     if (h.enabled !== false && h.key) headers[resolveVariables(h.key)] = resolveVariables(h.value);
                 });
+
+                // Apply auth headers
+                if (req.authType === 'bearer' && req.authToken) {
+                    headers['Authorization'] = `Bearer ${resolveVariables(req.authToken)}`;
+                } else if (req.authType === 'basic' && req.authUsername) {
+                    headers['Authorization'] = `Basic ${btoa(`${resolveVariables(req.authUsername || '')}:${resolveVariables(req.authPassword || '')}`)}`;
+                } else if (req.authType === 'apikey' && req.authKeyValue) {
+                    headers[resolveVariables(req.authKeyName || 'X-API-Key')] = resolveVariables(req.authKeyValue);
+                } else if (req.authType === 'auto-auth' && req.autoAuthLoginUrl) {
+                    let token = req.autoAuthToken || '';
+                    const tokenAge = req.autoAuthTokenTime ? Date.now() - req.autoAuthTokenTime : Infinity;
+                    const needsRefresh = !token || tokenAge > 30 * 60 * 1000;
+                    if (needsRefresh) {
+                        try {
+                            let loginBody = null;
+                            const bodyStr = req.autoAuthBody || '';
+                            if (bodyStr.trim()) {
+                                try { loginBody = JSON.parse(bodyStr); } catch { loginBody = bodyStr; }
+                            }
+                            const loginRes = await authFetch(`${API_BASE}/proxy`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    url: req.autoAuthLoginUrl,
+                                    method: req.autoAuthMethod || 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: loginBody,
+                                })
+                            });
+                            const loginResult = await loginRes.json();
+                            if (loginRes.ok && loginResult.status < 400) {
+                                const tokenPath = (req.autoAuthTokenPath || 'token').split('.');
+                                let extracted = loginResult.data;
+                                for (const key of tokenPath) {
+                                    if (extracted && typeof extracted === 'object') extracted = extracted[key];
+                                    else { extracted = null; break; }
+                                }
+                                if (extracted && typeof extracted === 'string') {
+                                    token = extracted;
+                                    updateRequest(req.id, { autoAuthToken: token, autoAuthTokenTime: Date.now() });
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Auto-auth login failed:', e);
+                        }
+                    }
+                    if (token) headers['Authorization'] = `Bearer ${token}`;
+                }
 
                 let body = null;
                 if (req.method !== 'GET' && req.method !== 'HEAD') {

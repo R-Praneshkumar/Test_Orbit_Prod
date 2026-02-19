@@ -457,19 +457,22 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
     // --- Per-Collection Test Suites ---
 
-    addTestSuite: (colId, suite) => set((state) => ({
-        collections: state.collections.map(col =>
-            col.id === colId
-                ? {
-                    ...col,
-                    testSuites: [
-                        { id: uuidv4(), createdAt: Date.now(), ...suite },
-                        ...(col.testSuites || [])
-                    ]
-                }
-                : col
-        )
-    })),
+    addTestSuite: (colId, suite) => {
+        set((state) => ({
+            collections: state.collections.map(col =>
+                col.id === colId
+                    ? {
+                        ...col,
+                        testSuites: [
+                            { id: uuidv4(), createdAt: Date.now(), ...suite },
+                            ...(col.testSuites || [])
+                        ]
+                    }
+                    : col
+            )
+        }));
+        get().saveCollectionToSupabase(colId);
+    },
 
     deleteTestSuite: (colId, suiteId) => set((state) => ({
         collections: state.collections.map(col =>
@@ -584,7 +587,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     },
 
     // Add New WebSocket to a specific collection
-    addWebSocket: (collectionId = 'default-col') => set((state) => {
+    addWebSocket: (collectionId = 'default-col') => {
         const newId = uuidv4();
         const newWs = {
             id: newId,
@@ -595,20 +598,23 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             collectionId
         };
 
-        const newCollections = state.collections.map(col => {
-            if (col.id === collectionId) {
-                return { ...col, items: [...col.items, newWs] };
-            }
-            return col;
-        });
+        set((state) => {
+            const newCollections = state.collections.map(col => {
+                if (col.id === collectionId) {
+                    return { ...col, items: [...col.items, newWs] };
+                }
+                return col;
+            });
 
-        return {
-            collections: newCollections,
-            activeTabs: [...state.activeTabs, newWs],
-            activeTabId: newId,
-            activeCollectionId: collectionId
-        };
-    }),
+            return {
+                collections: newCollections,
+                activeTabs: [...state.activeTabs, newWs],
+                activeTabId: newId,
+                activeCollectionId: collectionId
+            };
+        });
+        get().saveCollectionToSupabase(collectionId);
+    },
 
     // Request Updates (Real-time syncing — single atomic set)
     updateRequest: (id, updates) => {
@@ -1035,6 +1041,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                         : col
                 )
             }));
+            get().saveCollectionToSupabase(targetId);
             return { success: true, count: items.length, title: targetCol.name };
         } else {
             // Fallback: create new collection if somehow no active collection
@@ -1046,15 +1053,17 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 }],
                 activeCollectionId: newColId
             }));
+            get().saveCollectionToSupabase(newColId);
             return { success: true, count: items.length, title };
         }
     },
 
     // Create request from AI suggestion — auto-targets active collection
-    createRequestFromAI: ({ method, url, body, name, collectionId }) => set((state) => {
+    createRequestFromAI: ({ method, url, body, name, collectionId }) => {
+        const state = get();
+        const targetCol = collectionId || state.activeCollectionId || state.collections[0]?.id;
         const newId = uuidv4();
         const rawUrl = url || '';
-        const targetCol = collectionId || state.activeCollectionId || state.collections[0]?.id;
 
         // Parse query params from URL automatically
         const parsedParams = [];
@@ -1088,20 +1097,22 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             collectionId: targetCol
         };
 
-        const newCollections = state.collections.map(col => {
-            if (col.id === targetCol) {
-                return { ...col, items: [...col.items, newReq] };
-            }
-            return col;
+        set((s) => {
+            const newCollections = s.collections.map(col => {
+                if (col.id === targetCol) {
+                    return { ...col, items: [...col.items, newReq] };
+                }
+                return col;
+            });
+            return {
+                collections: newCollections,
+                activeTabs: [...s.activeTabs, newReq],
+                activeTabId: newId,
+                activeCollectionId: targetCol
+            };
         });
-
-        return {
-            collections: newCollections,
-            activeTabs: [...state.activeTabs, newReq],
-            activeTabId: newId,
-            activeCollectionId: targetCol
-        };
-    })
+        get().saveCollectionToSupabase(targetCol);
+    }
 
 }), {
     name: 'gemini-workspace-storage',

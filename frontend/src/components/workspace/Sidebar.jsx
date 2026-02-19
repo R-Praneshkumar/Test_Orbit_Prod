@@ -105,8 +105,15 @@ const SidebarItem = ({ item, level = 0 }) => {
                                 })
                             });
                             const data = await res.json();
-                            if (!data.error) addTestSuite(item.id, data);
-                        } catch { /* silently fail */ }
+                            const errMsg = data.error || data.detail;
+                            if (!res.ok || errMsg) {
+                                alert(`Failed to generate tests: ${errMsg || 'Unknown error'}`);
+                            } else {
+                                addTestSuite(item.id, data);
+                            }
+                        } catch (err) {
+                            alert(`Failed to generate tests: ${err.message}`);
+                        }
                     })();
                 }
                 break;
@@ -300,6 +307,7 @@ const SidebarItem = ({ item, level = 0 }) => {
                     isOpen={showShareModal}
                     onClose={() => setShowShareModal(false)}
                     collectionName={item.name}
+                    collectionId={item.id}
                 />
             )}
         </div>
@@ -342,15 +350,20 @@ export const Sidebar = () => {
         }
     }, [showAddMenu]);
 
-    // Flatten all requests for search
+    // Flatten all requests for search (recursive to include requests inside folders)
     const flattenRequests = (collections) => {
         const results = [];
-        for (const col of collections) {
-            for (const item of (col.items || [])) {
+        const traverse = (items) => {
+            for (const item of (items || [])) {
                 if (item.type === 'request') {
                     results.push(item);
+                } else if (item.type === 'folder' && item.items) {
+                    traverse(item.items);
                 }
             }
+        };
+        for (const col of collections) {
+            traverse(col.items || []);
         }
         return results;
     };

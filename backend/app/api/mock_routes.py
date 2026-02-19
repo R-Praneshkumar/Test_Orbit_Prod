@@ -28,9 +28,9 @@ async def clear_mocks(request: Request):
     return {"status": "cleared"}
 
 
-@router.delete("/{path:path}")
+@router.delete("/_admin/{path:path}")
 async def delete_mock(path: str, request: Request):
-    """Delete a single mock by method + path."""
+    """Delete a single mock by method + path (admin endpoint)."""
     method = request.query_params.get("method", "GET").upper()
     deleted = mock_service.delete_mock(method, path)
     if not deleted:
@@ -57,6 +57,8 @@ async def handle_mock_request(request: Request, path: str):
             raise HTTPException(status_code=500, detail=generated_mock["error"])
         mock_service.add_mock(method, path, generated_mock)
         return generated_mock
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Mock generation error: {e}")
         raise HTTPException(status_code=500, detail="Mock generation failed")

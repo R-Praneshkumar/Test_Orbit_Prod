@@ -2,6 +2,7 @@ from google import genai
 from google.genai import types
 from app.core.config import get_settings
 import json
+import re
 import asyncio
 import logging
 
@@ -13,6 +14,15 @@ class AIService:
     def __init__(self):
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
         self.model_name = "gemini-2.0-flash"
+
+    @staticmethod
+    def _clean_json(text: str) -> str:
+        """Strip markdown code fences that Gemini sometimes wraps JSON in."""
+        text = text.strip()
+        if text.startswith("```"):
+            text = re.sub(r'^```(?:json)?\s*', '', text)
+            text = re.sub(r'\s*```$', '', text)
+        return text.strip()
 
     async def generate_tests(self, api_details: str, openapi_spec: str = None, user_instructions: str = None):
         """
@@ -84,7 +94,7 @@ class AIService:
                     response_mime_type="application/json"
                 )
             )
-            return json.loads(response.text)
+            return json.loads(self._clean_json(response.text))
         except Exception as e:
             logger.error(f"Test generation failed: {e}")
             return {"error": str(e)}
@@ -116,7 +126,7 @@ class AIService:
                     response_mime_type="application/json"
                 )
             )
-            return json.loads(response.text)
+            return json.loads(self._clean_json(response.text))
         except Exception as e:
              return []
 
@@ -165,7 +175,7 @@ class AIService:
                     response_mime_type="application/json"
                 )
             )
-            return json.loads(response.text)
+            return json.loads(self._clean_json(response.text))
         except Exception as e:
             logger.error(f"Diagnosis failed: {e}")
             return {"error": str(e)}
@@ -219,7 +229,7 @@ class AIService:
                     response_mime_type="application/json"
                 )
             )
-            return json.loads(response.text)
+            return json.loads(self._clean_json(response.text))
         except Exception as e:
             logger.error(f"Code generation failed: {e}")
             return {"error": str(e)}
@@ -290,8 +300,62 @@ class AIService:
                      response_mime_type="application/json"
                 )
             )
-            return json.loads(response.text)
+            return json.loads(self._clean_json(response.text))
         except Exception as e:
+            return {"error": str(e)}
+
+    async def chat(self, message: str, conversation_history: list = None, context: str = None):
+        """
+        Conversational AI assistant for API testing help.
+        """
+        history_context = ""
+        if conversation_history:
+            history_lines = []
+            for msg in conversation_history[-10:]:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                history_lines.append(f"{role}: {content}")
+            history_context = f"""
+        Previous conversation:
+        {chr(10).join(history_lines)}
+        """
+
+        spec_context = ""
+        if context:
+            spec_context = f"""
+        API Context (OpenAPI Spec):
+        ```
+        {context[:2000]}
+        ```
+        """
+
+        prompt = f"""You are an expert API testing assistant helping developers test and debug APIs.
+        {history_context}
+        {spec_context}
+        User: {message}
+
+        Provide a helpful, concise response. If they ask about an API, help them understand it.
+        If they need code examples, provide them. Keep responses focused on API testing.
+
+        Return JSON:
+        {{
+            "response": "Your helpful response here",
+            "type": "chat"
+        }}
+        """
+
+        try:
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
+                model=self.model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                )
+            )
+            return json.loads(self._clean_json(response.text))
+        except Exception as e:
+            logger.error(f"Chat failed: {e}")
             return {"error": str(e)}
 
     async def generate_mock_response(self, method: str, path: str):
@@ -320,7 +384,7 @@ class AIService:
                     response_mime_type="application/json"
                 )
             )
-            return json.loads(response.text)
+            return json.loads(self._clean_json(response.text))
         except Exception as e:
             logger.error(f"Mock generation failed: {e}")
             return {"error": "Failed to generate mock data", "details": str(e)}

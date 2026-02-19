@@ -52,11 +52,16 @@ class DiagnoseRequest(BaseModel):
     response_headers: Optional[Dict[str, str]] = None
     openapi_spec: Optional[str] = Field(None, max_length=102400)
 
+class ChatRequest(BaseModel):
+    message: str = Field(..., max_length=5000)
+    conversation_history: Optional[List[Dict[str, str]]] = None
+    context: Optional[str] = Field(None, max_length=102400)
+
 class ProxyRequest(BaseModel):
     url: str = Field(..., max_length=2048)
     method: str = Field("GET", max_length=10)
     headers: Optional[Dict[str, str]] = None
-    body: Optional[Dict[str, Any]] = None
+    body: Optional[Any] = None
 
 @router.post("/generate")
 @limiter.limit(_settings.AI_RATE_LIMIT)
@@ -73,7 +78,8 @@ async def generate_tests(request: Request, req: GenerateRequest, user: dict = De
     return result
 
 @router.post("/run")
-async def run_tests(req: RunRequest, user: dict = Depends(verify_token)):
+@limiter.limit(_settings.AI_RATE_LIMIT)
+async def run_tests(request: Request, req: RunRequest, user: dict = Depends(verify_token)):
     """Runs tests in parallel using aiohttp."""
     logger.info(f"Running batch for {len(req.tests)} tests...")
     results = await test_runner.run_batch(req.tests, req.base_url)
@@ -99,6 +105,21 @@ async def run_tests(req: RunRequest, user: dict = Depends(verify_token)):
         await asyncio.gather(*[analyze_and_attach(r) for r in candidates])
             
     return {"results": results}
+
+@router.post("/chat")
+@limiter.limit(_settings.AI_RATE_LIMIT)
+async def chat(request: Request, req: ChatRequest, user: dict = Depends(verify_token)):
+    """Conversational AI assistant for API testing help."""
+    try:
+        result = await ai_service.chat(
+            message=req.message,
+            conversation_history=req.conversation_history,
+            context=req.context,
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
+        raise HTTPException(status_code=500, detail="Chat failed")
 
 @router.post("/voice")
 @limiter.limit(_settings.AI_RATE_LIMIT)

@@ -27,13 +27,16 @@ function App() {
   const toggleDarkMode = useWorkspaceStore(state => state.toggleDarkMode);
   const initializeAuth = useWorkspaceStore(state => state.initializeAuth);
 
+  // Init Supabase Auth once on mount — must not re-run on dark mode change (auth listener leak)
+  useEffect(() => {
+    initializeAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
-
-    // Init Supabase Auth
-    initializeAuth();
-  }, [darkMode, initializeAuth]);
+  }, [darkMode]);
 
   // Check if activeTabId belongs to the current active collection
   const activeTabInCollection = (() => {

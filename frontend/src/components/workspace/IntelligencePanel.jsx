@@ -105,6 +105,9 @@ export const IntelligencePanel = () => {
             const history = messages.map(m => {
                 if (m.role === 'user') return { role: 'user', content: m.content };
                 if (m.role === 'assistant') {
+                    if (m.data?.type === 'chat') {
+                        return { role: 'assistant', content: m.data.response || '' };
+                    }
                     return {
                         role: 'assistant',
                         content: `${m.data?.explanation || ''} | Method: ${m.data?.method || ''} | URL: ${m.data?.extracted_url || ''}`
@@ -113,22 +116,54 @@ export const IntelligencePanel = () => {
                 return null;
             }).filter(Boolean);
 
-            const res = await authFetch(`${API_BASE}/voice`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    transcript: userMessage.content,
-                    openapi_spec: openApiSpec || null,
-                    conversation_history: history
-                })
-            });
-            const data = await res.json();
-            data.extracted_url = data.url || extractUrlFromPrompt(userMessage.content);
+            // Route based on message content: URL → payload generator (/voice), else → chat (/chat)
+            const hasUrl = /https?:\/\/[^\s]+/.test(userMessage.content);
 
-            if (data.error) {
-                addCollectionChatMessage({ role: 'error', content: data.error });
+            if (hasUrl) {
+                const res = await authFetch(`${API_BASE}/voice`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        transcript: userMessage.content,
+                        openapi_spec: openApiSpec || null,
+                        conversation_history: history
+                    })
+                });
+                if (!res.ok) {
+                    const errData = await res.json();
+                    const errMsg = errData.error?.message || errData.error || errData.detail || 'Request failed';
+                    addCollectionChatMessage({ role: 'error', content: errMsg });
+                    return;
+                }
+                const data = await res.json();
+                data.extracted_url = data.url || extractUrlFromPrompt(userMessage.content);
+                if (data.error) {
+                    addCollectionChatMessage({ role: 'error', content: data.error?.message || data.error });
+                } else {
+                    addCollectionChatMessage({ role: 'assistant', data });
+                }
             } else {
-                addCollectionChatMessage({ role: 'assistant', data });
+                const res = await authFetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: userMessage.content,
+                        conversation_history: history,
+                        context: openApiSpec || null
+                    })
+                });
+                if (!res.ok) {
+                    const errData = await res.json();
+                    const errMsg = errData.error?.message || errData.error || errData.detail || 'AI service error';
+                    addCollectionChatMessage({ role: 'error', content: errMsg });
+                    return;
+                }
+                const data = await res.json();
+                if (data.error) {
+                    addCollectionChatMessage({ role: 'error', content: data.error?.message || data.error });
+                } else {
+                    addCollectionChatMessage({ role: 'assistant', data: { type: 'chat', response: data.response } });
+                }
             }
         } catch (e) {
             console.error(e);
@@ -214,7 +249,7 @@ export const IntelligencePanel = () => {
         setGenerating(true);
         try {
             const col = activeCollection;
-            const baseUrl = col?.items?.[0]?.url || '';
+            const baseUrl = col?.baseUrl || col?.items?.[0]?.url || '';
             const context = `Collection: ${col?.name}, Endpoints: ${(col?.items || []).map(i => `${i.method} ${i.url}`).join(', ')}`;
             const res = await authFetch(`${API_BASE}/generate`, {
                 method: 'POST',
@@ -347,6 +382,15 @@ export const IntelligencePanel = () => {
                                                 <Sparkles size={10} className="text-corporate-600 dark:text-corporate-400" />
                                             </div>
                                             <div className="flex-1 min-w-0">
+                                                {msg.data?.type === 'chat' ? (
+                                                    <div className="bg-corporate-50 dark:bg-corporate-900/30 border border-corporate-100 dark:border-corporate-800 rounded-lg p-3">
+                                                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                                                            {idx === messages.length - 1
+                                                                ? <StreamingText text={msg.data.response} />
+                                                                : msg.data.response}
+                                                        </p>
+                                                    </div>
+                                                ) : (
                                                 <div className="bg-corporate-50 dark:bg-corporate-900/30 border border-corporate-100 dark:border-corporate-800 rounded-lg p-3">
                                                     <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1 flex justify-between">
                                                         <span>Suggestion</span>
@@ -384,6 +428,7 @@ export const IntelligencePanel = () => {
                                                         </button>
                                                     </div>
                                                 </div>
+                                                )}
 
                                                 {msg.executionResult && (
                                                     <div className={`mt-2 rounded-lg p-2 border text-[10px] ${msg.executionResult.success ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'}`}>
@@ -717,7 +762,13 @@ const TestItemRow = ({ test, methodColors, categoryColors }) => {
         return JSON.stringify(bodyStr, null, 2);
     })();
 
-    const headerEntries = test.headers ? Object.entries(typeof test.headers === 'string' ? JSON.parse(test.headers) : test.headers) : [];
+    const headerEntries = (() => {
+        try {
+            if (!test.headers) return [];
+            const h = typeof test.headers === 'string' ? JSON.parse(test.headers) : test.headers;
+            return Object.entries(h);
+        } catch { return []; }
+    })();
 
     return (
         <div className="border-b border-slate-100 dark:border-slate-800 last:border-0">

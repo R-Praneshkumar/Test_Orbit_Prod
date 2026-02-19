@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2, RefreshCw, Server, Copy, Check, ExternalLink, X } from 'lucide-react';
-import { MOCK_BASE } from '../../config';
+import { MOCK_BASE, authFetch } from '../../config';
 
 export function MockServerPanel() {
     const [mocks, setMocks] = useState([]);
@@ -11,7 +11,7 @@ export function MockServerPanel() {
     const fetchMocks = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${MOCK_BASE}/`);
+            const res = await authFetch(`${MOCK_BASE}/`);
             if (res.ok) {
                 const data = await res.json();
                 setMocks(data.mocks || []);
@@ -30,7 +30,7 @@ export function MockServerPanel() {
     const clearMocks = async () => {
         if (!confirm("Are you sure you want to clear all active mocks?")) return;
         try {
-            await fetch(`${MOCK_BASE}/`, { method: 'DELETE' });
+            await authFetch(`${MOCK_BASE}/`, { method: 'DELETE' });
             setError(null);
             fetchMocks();
         } catch (err) {
@@ -41,8 +41,7 @@ export function MockServerPanel() {
 
     const deleteMock = async (method, path) => {
         try {
-            const encodedPath = encodeURIComponent(path);
-            await fetch(`${MOCK_BASE}/${encodedPath}?method=${method}`, { method: 'DELETE' });
+            await authFetch(`${MOCK_BASE}/_admin/${path}?method=${method}`, { method: 'DELETE' });
             setError(null);
             fetchMocks();
         } catch (err) {

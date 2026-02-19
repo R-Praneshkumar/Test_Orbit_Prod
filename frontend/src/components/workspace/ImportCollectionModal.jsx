@@ -283,7 +283,11 @@ export const ImportCollectionModal = ({ onClose }) => {
             collections: [...store.collections, newCol],
             activeCollectionId: newCol.id,
         });
+        // Sync to Supabase
+        useWorkspaceStore.getState().saveCollectionToSupabase(newCol.id);
         setResult({ success: true, name: preview.name, count: countRequests(preview.items), format: preview.format });
+        // Close modal after brief success display
+        setTimeout(onClose, 1500);
     };
 
     const countRequests = (items) => {
