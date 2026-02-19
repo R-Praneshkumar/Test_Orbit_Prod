@@ -12,8 +12,7 @@ settings = get_settings()
 class AIService:
     def __init__(self):
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        # Using the cost-efficient, high-reasoning model
-        self.model_name = "gemini-3-flash-preview"
+        self.model_name = "gemini-2.0-flash"
 
     async def generate_tests(self, api_details: str, openapi_spec: str = None, user_instructions: str = None):
         """

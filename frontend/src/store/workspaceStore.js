@@ -980,7 +980,10 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 // Extract parameters
                 const params = [];
                 const headers = [];
-                for (const param of (op.parameters || pathItem.parameters || [])) {
+                const mergedParams = [...(pathItem.parameters || []), ...(op.parameters || [])];
+                const seenParams = new Set();
+                const allParams = mergedParams.filter(p => { const k = `${p.in}:${p.name}`; if (seenParams.has(k)) return false; seenParams.add(k); return true; });
+                for (const param of allParams) {
                     const val = param.example ?? param.schema?.example ?? '';
                     if (param.in === 'query') {
                         params.push({ key: param.name, value: String(val), enabled: !!param.required });
@@ -1009,7 +1012,10 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                     id: uuidv4(), name, type: 'request',
                     method: method.toUpperCase(), url: displayUrl,
                     headers, params,
-                    body: { type: 'json', content: bodyContent }
+                    body: { type: 'json', content: bodyContent },
+                    preScript: '', postScript: '', assertions: [],
+                    authType: 'none', authToken: '', authKeyName: '', authKeyValue: '',
+                    authUsername: '', authPassword: ''
                 });
             }
         }
@@ -1075,7 +1081,10 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             url: rawUrl,
             headers: [],
             params: parsedParams,
-            body: { type: 'json', content: typeof body === 'string' ? body : JSON.stringify(body, null, 2) },
+            body: { type: 'json', content: typeof body === 'string' ? body : JSON.stringify(body ?? null, null, 2) },
+            preScript: '', postScript: '', assertions: [],
+            authType: 'none', authToken: '', authKeyName: '', authKeyValue: '',
+            authUsername: '', authPassword: '',
             collectionId: targetCol
         };
 

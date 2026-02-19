@@ -160,13 +160,18 @@ export const IntelligencePanel = () => {
         if (shouldRun && url) {
             setExecuting(true);
             try {
+                const parsedBody = (() => {
+                    if (!body) return null;
+                    if (typeof body === 'string') { try { return JSON.parse(body); } catch { return null; } }
+                    return body;
+                })();
                 const proxyRes = await authFetch(`${API_BASE}/proxy`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         url,
                         method,
-                        body,
+                        body: parsedBody,
                         headers: { 'Content-Type': 'application/json' }
                     })
                 });
@@ -222,8 +227,9 @@ export const IntelligencePanel = () => {
                 })
             });
             const data = await res.json();
-            if (data.error) {
-                alert(`Test generation failed: ${data.error}`);
+            const errMsg = data.error || data.detail;
+            if (!res.ok || errMsg) {
+                alert(`Test generation failed: ${errMsg || 'Unknown error'}`);
             } else {
                 addTestSuite(activeCollectionId, data);
             }
