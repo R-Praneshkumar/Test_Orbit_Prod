@@ -2,19 +2,15 @@ import React, { useState } from 'react';
 import { X, LogIn } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 
-const DISMISS_KEY = 'testorbit-guest-banner-dismissed';
-
 const GuestBanner = () => {
     const user = useWorkspaceStore(state => state.user);
     const setCurrentView = useWorkspaceStore(state => state.setCurrentView);
-    const [dismissed, setDismissed] = useState(() => {
-        try { return localStorage.getItem(DISMISS_KEY) === 'true'; } catch { return false; }
-    });
+    // Session-scoped dismissal — not persisted so banner re-shows after logout
+    const [dismissed, setDismissed] = useState(false);
 
     if (user || dismissed) return null;
 
     const handleDismiss = () => {
-        try { localStorage.setItem(DISMISS_KEY, 'true'); } catch { /* private browsing */ }
         setDismissed(true);
     };
 

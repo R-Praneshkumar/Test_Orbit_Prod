@@ -15,9 +15,13 @@ export const JsonViewer = ({ data, language = 'json', maxHeight = '400px', showL
     const displayText = (!expanded && isLong) ? lines.slice(0, COLLAPSE_THRESHOLD).join('\n') : text;
 
     const handleCopy = async () => {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            // Clipboard unavailable (non-HTTPS or permission denied)
+        }
     };
 
     return (
@@ -66,9 +70,13 @@ export const CodeViewer = ({ code, language = 'python', filename }) => {
     const [copied, setCopied] = useState(false);
 
     const handleCopy = async () => {
-        await navigator.clipboard.writeText(code);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        try {
+            await navigator.clipboard.writeText(code);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            // Clipboard unavailable (non-HTTPS or permission denied)
+        }
     };
 
     return (

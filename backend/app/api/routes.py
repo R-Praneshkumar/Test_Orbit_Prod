@@ -180,7 +180,7 @@ async def proxy_request(request: Request, req: ProxyRequest, user: dict = Depend
     This solves CORS issues by making the request from the backend.
     """
     # SSRF protection: validate the target URL
-    validate_proxy_url(req.url)
+    await validate_proxy_url(req.url)
 
     try:
         timeout = aiohttp.ClientTimeout(total=30)

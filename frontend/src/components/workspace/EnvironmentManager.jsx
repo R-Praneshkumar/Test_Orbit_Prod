@@ -12,6 +12,9 @@ export const EnvironmentManager = ({ onClose }) => {
 
     const [selectedEnv, setSelectedEnv] = useState(activeEnv);
     const [showValues, setShowValues] = useState(false);
+    const [showNewEnvInput, setShowNewEnvInput] = useState(false);
+    const [newEnvName, setNewEnvName] = useState('');
+    const [confirmDelete, setConfirmDelete] = useState(false);
 
     const currentEnv = environments.find(e => e.name === selectedEnv);
     const vars = currentEnv?.vars || [];
@@ -30,12 +33,13 @@ export const EnvironmentManager = ({ onClose }) => {
         updateEnvVars(selectedEnv, vars.filter((_, i) => i !== index));
     };
 
-    const handleAddEnv = () => {
-        const name = prompt('Environment name:');
-        if (name?.trim()) {
-            addEnvironment(name.trim());
-            setSelectedEnv(name.trim());
+    const handleAddEnvSubmit = () => {
+        if (newEnvName.trim()) {
+            addEnvironment(newEnvName.trim());
+            setSelectedEnv(newEnvName.trim());
         }
+        setShowNewEnvInput(false);
+        setNewEnvName('');
     };
 
     return (
@@ -68,12 +72,41 @@ export const EnvironmentManager = ({ onClose }) => {
                             {env.name}
                         </button>
                     ))}
-                    <button
-                        onClick={handleAddEnv}
-                        className="px-2 py-1.5 text-xs text-slate-400 dark:text-slate-500 hover:text-corporate-600 dark:hover:text-corporate-400 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 hover:border-corporate-400 dark:hover:border-corporate-500 transition-colors"
-                    >
-                        <Plus size={12} />
-                    </button>
+                    {showNewEnvInput ? (
+                        <div className="flex items-center gap-1">
+                            <input
+                                autoFocus
+                                type="text"
+                                value={newEnvName}
+                                onChange={(e) => setNewEnvName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleAddEnvSubmit();
+                                    if (e.key === 'Escape') { setShowNewEnvInput(false); setNewEnvName(''); }
+                                }}
+                                placeholder="Env name..."
+                                className="text-[11px] px-2 py-1 border border-corporate-400 rounded outline-none focus:ring-1 focus:ring-corporate-500 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 w-28"
+                            />
+                            <button
+                                onClick={handleAddEnvSubmit}
+                                className="text-[10px] px-2 py-1 bg-corporate-600 text-white rounded hover:bg-corporate-700 transition-colors"
+                            >
+                                OK
+                            </button>
+                            <button
+                                onClick={() => { setShowNewEnvInput(false); setNewEnvName(''); }}
+                                className="text-[10px] px-1.5 py-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => { setShowNewEnvInput(true); setNewEnvName(''); }}
+                            className="px-2 py-1.5 text-xs text-slate-400 dark:text-slate-500 hover:text-corporate-600 dark:hover:text-corporate-400 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 hover:border-corporate-400 dark:hover:border-corporate-500 transition-colors"
+                        >
+                            <Plus size={12} />
+                        </button>
+                    )}
                 </div>
 
                 {/* Active Env Selector + Actions */}
@@ -91,17 +124,34 @@ export const EnvironmentManager = ({ onClose }) => {
                         </select>
                     </div>
                     {selectedEnv !== 'Global' && (
-                        <button
-                            onClick={() => {
-                                if (confirm(`Delete environment "${selectedEnv}"?`)) {
-                                    deleteEnvironment(selectedEnv);
-                                    setSelectedEnv('Global');
-                                }
-                            }}
-                            className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
-                        >
-                            <Trash2 size={11} /> Delete Env
-                        </button>
+                        confirmDelete ? (
+                            <div className="flex items-center gap-1.5 text-xs">
+                                <span className="text-red-600 dark:text-red-400">Delete &quot;{selectedEnv}&quot;?</span>
+                                <button
+                                    onClick={() => {
+                                        deleteEnvironment(selectedEnv);
+                                        setSelectedEnv('Global');
+                                        setConfirmDelete(false);
+                                    }}
+                                    className="px-2 py-0.5 bg-red-500 hover:bg-red-600 text-white rounded text-[10px] font-medium transition-colors"
+                                >
+                                    Yes
+                                </button>
+                                <button
+                                    onClick={() => setConfirmDelete(false)}
+                                    className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 rounded text-[10px] font-medium transition-colors"
+                                >
+                                    No
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setConfirmDelete(true)}
+                                className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
+                            >
+                                <Trash2 size={11} /> Delete Env
+                            </button>
+                        )
                     )}
                 </div>
 

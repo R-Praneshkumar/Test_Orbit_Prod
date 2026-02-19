@@ -60,7 +60,7 @@ async def exchange_token(request: Request, req: TokenRequest, user: dict = Depen
         logger.info(f"OAuth token exchange: {req.grant_type} → {req.token_url}")
 
         # SSRF protection: validate the token URL
-        validate_proxy_url(req.token_url)
+        await validate_proxy_url(req.token_url)
 
         timeout = aiohttp.ClientTimeout(total=15)
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -122,7 +122,7 @@ async def refresh_token(request: Request, req: RefreshRequest, user: dict = Depe
         logger.info(f"OAuth token refresh → {req.token_url}")
 
         # SSRF protection: validate the token URL
-        validate_proxy_url(req.token_url)
+        await validate_proxy_url(req.token_url)
 
         timeout = aiohttp.ClientTimeout(total=15)
         async with aiohttp.ClientSession(timeout=timeout) as session:

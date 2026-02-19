@@ -214,7 +214,7 @@ const buildUrlWithParams = (url, params) => {
     const base = getBaseUrl(url);
     const enabled = (params || []).filter(p => p.enabled !== false && p.key);
     if (enabled.length === 0) return base;
-    return `${base}?${enabled.map(p => `${p.key}=${p.value || ''}`).join('&')}`;
+    return `${base}?${enabled.map(p => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value || '')}`).join('&')}`;
 };
 
 export const RequestEditor = ({ tabId }) => {
@@ -697,7 +697,14 @@ export const RequestEditor = ({ tabId }) => {
                                             className="w-full text-xs font-mono p-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 outline-none focus:ring-1 focus:ring-corporate-500 resize-none text-slate-700 dark:text-slate-300"
                                             rows={3}
                                         />
-                                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Token will be sent as <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">Authorization: Bearer &lt;token&gt;</code></p>
+                                        {!request.authToken?.trim() && (
+                                            <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+                                                <AlertCircle size={10} /> Token is empty — no Authorization header will be sent
+                                            </p>
+                                        )}
+                                        {request.authToken?.trim() && (
+                                            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Token will be sent as <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">Authorization: Bearer &lt;token&gt;</code></p>
+                                        )}
                                     </div>
                                 )}
 
@@ -746,6 +753,11 @@ export const RequestEditor = ({ tabId }) => {
                                                 placeholder="Your API key or use {{api_key}}"
                                                 className="w-full text-xs font-mono px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 outline-none focus:ring-1 focus:ring-corporate-500 text-slate-700 dark:text-slate-300"
                                             />
+                                            {!request.authKeyValue?.trim() && (
+                                                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+                                                    <AlertCircle size={10} /> Key value is empty — no API key header will be sent
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 )}

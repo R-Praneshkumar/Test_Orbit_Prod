@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Save, LogOut, Shield, Github, Mail, Cloud, Lock, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../utils/supabaseClient';
 import { useWorkspaceStore } from '../../store/workspaceStore';
@@ -26,13 +26,18 @@ const ProfilePage = () => {
     const [passwordLoading, setPasswordLoading] = useState(false);
     const [passwordMsg, setPasswordMsg] = useState(null);
 
+    // Only sync profile → form on first load to prevent form reset on save
+    const hasLoaded = useRef(false);
     useEffect(() => {
-        if (profile) {
-            setEditName(profile.full_name || '');
-            setEditAvatar(profile.avatar_url || '');
-        } else if (user) {
-            setEditName(user.user_metadata?.full_name || '');
-            setEditAvatar(user.user_metadata?.avatar_url || '');
+        if (!hasLoaded.current && (profile || user)) {
+            if (profile) {
+                setEditName(profile.full_name || '');
+                setEditAvatar(profile.avatar_url || '');
+            } else if (user) {
+                setEditName(user.user_metadata?.full_name || '');
+                setEditAvatar(user.user_metadata?.avatar_url || '');
+            }
+            hasLoaded.current = true;
         }
     }, [profile, user]);
 

@@ -11,6 +11,8 @@ export const Dashboard = () => {
     const addCollection = useWorkspaceStore(state => state.addCollection);
     const [showCurlImport, setShowCurlImport] = useState(false);
     const [showCollectionImport, setShowCollectionImport] = useState(false);
+    const [showNewCollInput, setShowNewCollInput] = useState(false);
+    const [newCollName, setNewCollName] = useState('');
 
     const handleOpenCollection = (colId) => {
         setActiveCollection(colId);
@@ -18,10 +20,16 @@ export const Dashboard = () => {
     };
 
     const handleNewCollection = () => {
-        const name = prompt('Collection name:');
-        if (name?.trim()) {
-            addCollection(name.trim());
+        setShowNewCollInput(true);
+        setNewCollName('');
+    };
+
+    const handleNewCollSubmit = () => {
+        if (newCollName.trim()) {
+            addCollection(newCollName.trim());
         }
+        setShowNewCollInput(false);
+        setNewCollName('');
     };
 
     const getLastRunStats = (col) => {
@@ -68,14 +76,44 @@ export const Dashboard = () => {
                 </div>
 
                 {/* Quick Actions */}
-                <div className="flex gap-3 mb-8">
-                    <button
-                        onClick={handleNewCollection}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-corporate-600 hover:bg-corporate-700 text-white text-sm font-semibold rounded-lg shadow-md shadow-corporate-200 dark:shadow-none transition-all active:scale-95"
-                    >
-                        <Plus size={16} />
-                        New Collection
-                    </button>
+                <div className="flex flex-wrap gap-3 mb-8 items-center">
+                    {showNewCollInput ? (
+                        <div className="flex items-center gap-2">
+                            <input
+                                autoFocus
+                                type="text"
+                                value={newCollName}
+                                onChange={(e) => setNewCollName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleNewCollSubmit();
+                                    if (e.key === 'Escape') { setShowNewCollInput(false); setNewCollName(''); }
+                                }}
+                                placeholder="Collection name..."
+                                className="px-3 py-2 text-sm border border-corporate-400 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500/30 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 w-48"
+                            />
+                            <button
+                                onClick={handleNewCollSubmit}
+                                disabled={!newCollName.trim()}
+                                className="px-3 py-2 bg-corporate-600 hover:bg-corporate-700 disabled:bg-slate-300 dark:disabled:bg-slate-600 text-white text-sm font-semibold rounded-lg transition-colors"
+                            >
+                                Create
+                            </button>
+                            <button
+                                onClick={() => { setShowNewCollInput(false); setNewCollName(''); }}
+                                className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleNewCollection}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-corporate-600 hover:bg-corporate-700 text-white text-sm font-semibold rounded-lg shadow-md shadow-corporate-200 dark:shadow-none transition-all active:scale-95"
+                        >
+                            <Plus size={16} />
+                            New Collection
+                        </button>
+                    )}
                     <button
                         onClick={() => setShowCurlImport(true)}
                         className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"

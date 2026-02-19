@@ -330,6 +330,8 @@ export const Sidebar = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [showSearch, setShowSearch] = useState(false);
     const [showAddMenu, setShowAddMenu] = useState(false);
+    const [showInlineNewColl, setShowInlineNewColl] = useState(false);
+    const [inlineNewCollName, setInlineNewCollName] = useState('');
     const [showHistory, setShowHistory] = useState(false);
     const [showRequestHistory, setShowRequestHistory] = useState(false);
     const [showEnvManager, setShowEnvManager] = useState(false);
@@ -433,16 +435,51 @@ export const Sidebar = () => {
                                     >
                                         <Terminal size={12} /> Import cURL
                                     </button>
-                                    <button
-                                        onClick={() => {
-                                            const name = prompt('Collection name:');
-                                            if (name?.trim()) addCollection(name.trim());
-                                            setShowAddMenu(false);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
-                                    >
-                                        <FolderPlus size={12} /> New Collection
-                                    </button>
+                                    {showInlineNewColl ? (
+                                        <div className="px-3 py-2 flex items-center gap-1.5">
+                                            <input
+                                                autoFocus
+                                                type="text"
+                                                value={inlineNewCollName}
+                                                onChange={(e) => setInlineNewCollName(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        if (inlineNewCollName.trim()) addCollection(inlineNewCollName.trim());
+                                                        setShowInlineNewColl(false);
+                                                        setInlineNewCollName('');
+                                                        setShowAddMenu(false);
+                                                    }
+                                                    if (e.key === 'Escape') {
+                                                        setShowInlineNewColl(false);
+                                                        setInlineNewCollName('');
+                                                    }
+                                                }}
+                                                placeholder="Collection name..."
+                                                className="flex-1 text-[11px] px-2 py-1 border border-corporate-400 rounded outline-none focus:ring-1 focus:ring-corporate-500 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 min-w-0"
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    if (inlineNewCollName.trim()) addCollection(inlineNewCollName.trim());
+                                                    setShowInlineNewColl(false);
+                                                    setInlineNewCollName('');
+                                                    setShowAddMenu(false);
+                                                }}
+                                                className="text-[10px] px-2 py-1 bg-corporate-600 text-white rounded hover:bg-corporate-700 transition-colors shrink-0"
+                                            >
+                                                OK
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => {
+                                                setShowInlineNewColl(true);
+                                                setInlineNewCollName('');
+                                            }}
+                                            className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                        >
+                                            <FolderPlus size={12} /> New Collection
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         )}

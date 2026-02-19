@@ -58,7 +58,13 @@ export const WebSocketTester = ({ tabId }) => {
 
     const handleConnect = useCallback(() => {
         if (wsRef.current) {
+            // Null out handlers before closing to prevent stale callbacks firing
+            wsRef.current.onopen = null;
+            wsRef.current.onmessage = null;
+            wsRef.current.onerror = null;
+            wsRef.current.onclose = null;
             wsRef.current.close();
+            wsRef.current = null;
         }
 
         setStatus('connecting');

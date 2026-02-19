@@ -1,6 +1,7 @@
 """
 Security utilities: JWT auth, SSRF validation, security headers, secret masking.
 """
+import asyncio
 import ipaddress
 import logging
 import re
@@ -145,10 +146,11 @@ BLOCKED_HOSTNAMES = {
 }
 
 
-def validate_proxy_url(url: str) -> None:
+async def validate_proxy_url(url: str) -> None:
     """
     Validate a URL for the proxy endpoint.
     Raises HTTPException(400) if the URL is blocked.
+    DNS resolution is run in a thread pool to avoid blocking the async event loop.
     """
     try:
         parsed = urlparse(url)
@@ -168,9 +170,11 @@ def validate_proxy_url(url: str) -> None:
         raise HTTPException(status_code=400, detail=f"Hostname '{hostname}' is not allowed")
 
     # Resolve hostname to IP and check against blocked ranges
+    # Run blocking DNS lookup in executor to avoid blocking the event loop
     try:
         import socket
-        addr_info = socket.getaddrinfo(hostname, None)
+        loop = asyncio.get_event_loop()
+        addr_info = await loop.run_in_executor(None, socket.getaddrinfo, hostname, None)
         for _, _, _, _, sockaddr in addr_info:
             ip = ipaddress.ip_address(sockaddr[0])
             for network in BLOCKED_NETWORKS:
