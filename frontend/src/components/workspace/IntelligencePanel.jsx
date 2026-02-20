@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, ArrowRight, Zap, Activity, Play, FileText, ChevronDown, ChevronUp, Trash2, User, Download, Folder, MessageSquare, Code, FlaskConical } from 'lucide-react';
+import { Sparkles, ArrowRight, Zap, Activity, Play, FileText, ChevronDown, ChevronUp, Trash2, User, Download, Folder, MessageSquare, Code, FlaskConical, FileCode } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { JsonViewer } from './JsonViewer';
 import yaml from 'js-yaml';
@@ -48,6 +48,7 @@ export const IntelligencePanel = () => {
     const [executing, setExecuting] = useState(false);
     const [importResult, setImportResult] = useState(null);
     const [localSpec, setLocalSpec] = useState('');
+    const [useSpecContext, setUseSpecContext] = useState(true);
     const [localBaseUrl, setLocalBaseUrl] = useState('');
     const [generating, setGenerating] = useState(false);
     const [testPrompt, setTestPrompt] = useState('');
@@ -108,6 +109,9 @@ export const IntelligencePanel = () => {
                     if (m.data?.type === 'chat') {
                         return { role: 'assistant', content: m.data.response || '' };
                     }
+                    // Free chat mode: drop spec-derived voice suggestions from context
+                    // to prevent Gemini anchoring on stale spec endpoints
+                    if (!useSpecContext) return null;
                     return {
                         role: 'assistant',
                         content: `${m.data?.explanation || ''} | Method: ${m.data?.method || ''} | URL: ${m.data?.extracted_url || ''}`
@@ -117,7 +121,8 @@ export const IntelligencePanel = () => {
             }).filter(Boolean);
 
             // Route based on message content: URL → payload generator (/voice), else → chat (/chat)
-            const hasUrl = /https?:\/\/[^\s]+/.test(userMessage.content);
+            // In free chat mode, skip URL routing — always use plain chat
+            const hasUrl = useSpecContext && /https?:\/\/[^\s]+/.test(userMessage.content);
 
             if (hasUrl) {
                 const res = await authFetch(`${API_BASE}/voice`, {
@@ -125,7 +130,7 @@ export const IntelligencePanel = () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         transcript: userMessage.content,
-                        openapi_spec: openApiSpec || null,
+                        openapi_spec: useSpecContext ? (openApiSpec || null) : null,
                         conversation_history: history
                     })
                 });
@@ -149,7 +154,7 @@ export const IntelligencePanel = () => {
                     body: JSON.stringify({
                         message: userMessage.content,
                         conversation_history: history,
-                        context: openApiSpec || null
+                        context: useSpecContext ? (openApiSpec || null) : null
                     })
                 });
                 if (!res.ok) {
@@ -328,8 +333,8 @@ export const IntelligencePanel = () => {
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${activeTab === tab.id
-                                ? 'bg-corporate-50 text-corporate-700 dark:bg-corporate-900/30 dark:text-corporate-400'
-                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-800'
+                            ? 'bg-corporate-50 text-corporate-700 dark:bg-corporate-900/30 dark:text-corporate-400'
+                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-800'
                             }`}
                     >
                         <tab.icon size={12} />
@@ -353,9 +358,11 @@ export const IntelligencePanel = () => {
                                         AI Assistant
                                     </h4>
                                     <p className="text-corporate-600 dark:text-corporate-400 text-xs leading-5">
-                                        Tell me what API to test. I'll use this collection's OpenAPI spec as context.
+                                        {useSpecContext
+                                            ? "Tell me what API to test. I'll use this collection's OpenAPI spec as context."
+                                            : "Free chat mode — I'll answer based on your input only. No spec context used."}
                                     </p>
-                                    {openApiSpec && (
+                                    {useSpecContext && openApiSpec && (
                                         <p className="text-corporate-500 text-[10px] mt-1 flex items-center gap-1">
                                             <Code size={10} /> Spec loaded — AI will use it for accurate suggestions
                                         </p>
@@ -386,48 +393,48 @@ export const IntelligencePanel = () => {
                                                     <div className="bg-corporate-50 dark:bg-corporate-900/30 border border-corporate-100 dark:border-corporate-800 rounded-lg p-3">
                                                         <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
                                                             {idx === messages.length - 1
-                                                                ? <StreamingText text={msg.data.response} />
-                                                                : msg.data.response}
+                                                                ? <StreamingText text={typeof msg.data.response === 'string' ? msg.data.response : JSON.stringify(msg.data.response, null, 2)} />
+                                                                : (typeof msg.data.response === 'string' ? msg.data.response : JSON.stringify(msg.data.response, null, 2))}
                                                         </p>
                                                     </div>
                                                 ) : (
-                                                <div className="bg-corporate-50 dark:bg-corporate-900/30 border border-corporate-100 dark:border-corporate-800 rounded-lg p-3">
-                                                    <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1 flex justify-between">
-                                                        <span>Suggestion</span>
-                                                        <span className="text-corporate-600 dark:text-corporate-400">{msg.data.method}</span>
-                                                    </div>
-                                                    <p className="text-xs text-slate-700 dark:text-slate-300 mb-2">
-                                                        {idx === messages.length - 1 && msg.role === 'assistant'
-                                                            ? <StreamingText text={msg.data.explanation} />
-                                                            : msg.data.explanation}
-                                                    </p>
-                                                    {msg.data.extracted_url && (
-                                                        <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-2 font-mono break-all">
-                                                            {msg.data.extracted_url}
+                                                    <div className="bg-corporate-50 dark:bg-corporate-900/30 border border-corporate-100 dark:border-corporate-800 rounded-lg p-3">
+                                                        <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1 flex justify-between">
+                                                            <span>Suggestion</span>
+                                                            <span className="text-corporate-600 dark:text-corporate-400">{msg.data.method}</span>
                                                         </div>
-                                                    )}
-                                                    {msg.data.suggested_body && (
-                                                        <div className="mt-1">
-                                                            <JsonViewer data={msg.data.suggested_body} maxHeight="120px" showLineNumbers={false} />
+                                                        <p className="text-xs text-slate-700 dark:text-slate-300 mb-2">
+                                                            {idx === messages.length - 1 && msg.role === 'assistant'
+                                                                ? <StreamingText text={typeof msg.data.explanation === 'string' ? msg.data.explanation : JSON.stringify(msg.data.explanation, null, 2)} />
+                                                                : (typeof msg.data.explanation === 'string' ? msg.data.explanation : JSON.stringify(msg.data.explanation, null, 2))}
+                                                        </p>
+                                                        {msg.data.extracted_url && (
+                                                            <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-2 font-mono break-all">
+                                                                {msg.data.extracted_url}
+                                                            </div>
+                                                        )}
+                                                        {msg.data.suggested_body && (
+                                                            <div className="mt-1">
+                                                                <JsonViewer data={msg.data.suggested_body} maxHeight="120px" showLineNumbers={false} />
+                                                            </div>
+                                                        )}
+                                                        <div className="mt-2 flex gap-2">
+                                                            <button
+                                                                onClick={() => handleApplyAndRun(idx, true)}
+                                                                disabled={executing || !msg.data.extracted_url}
+                                                                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-[10px] font-bold py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
+                                                            >
+                                                                {executing ? <Activity size={10} className="animate-spin" /> : <Play size={10} className="fill-current" />}
+                                                                <span>Run</span>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleApplyAndRun(idx, false)}
+                                                                className="flex-1 bg-corporate-600 hover:bg-corporate-700 text-white text-[10px] font-bold py-1.5 rounded transition-colors"
+                                                            >
+                                                                Apply
+                                                            </button>
                                                         </div>
-                                                    )}
-                                                    <div className="mt-2 flex gap-2">
-                                                        <button
-                                                            onClick={() => handleApplyAndRun(idx, true)}
-                                                            disabled={executing || !msg.data.extracted_url}
-                                                            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-[10px] font-bold py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
-                                                        >
-                                                            {executing ? <Activity size={10} className="animate-spin" /> : <Play size={10} className="fill-current" />}
-                                                            <span>Run</span>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleApplyAndRun(idx, false)}
-                                                            className="flex-1 bg-corporate-600 hover:bg-corporate-700 text-white text-[10px] font-bold py-1.5 rounded transition-colors"
-                                                        >
-                                                            Apply
-                                                        </button>
                                                     </div>
-                                                </div>
                                                 )}
 
                                                 {msg.executionResult && (
@@ -518,6 +525,25 @@ export const IntelligencePanel = () => {
                                 </button>
                             </div>
                         )}
+                        {/* Spec / Free Chat toggle */}
+                        <div className="flex items-center gap-2 mb-2">
+                            <button
+                                onClick={() => setUseSpecContext(v => !v)}
+                                className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors ${useSpecContext
+                                        ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-300'
+                                        : 'bg-gray-100 border-gray-300 text-gray-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400'
+                                    }`}
+                                title={useSpecContext
+                                    ? 'Spec mode: AI uses loaded spec + URL detection. Click for free chat.'
+                                    : 'Free chat: no spec, no URL routing. Click to re-enable spec.'}
+                            >
+                                {useSpecContext ? <FileCode size={11} /> : <MessageSquare size={11} />}
+                                {useSpecContext ? 'Using Spec' : 'Free Chat'}
+                            </button>
+                            {useSpecContext && !openApiSpec && (
+                                <span className="text-[10px] text-amber-500 dark:text-amber-400">No spec loaded</span>
+                            )}
+                        </div>
                         <textarea
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
@@ -632,8 +658,8 @@ export const IntelligencePanel = () => {
 
                     {importResult && (
                         <div className={`mt-2 text-[10px] px-2 py-1.5 rounded ${importResult.success
-                                ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
-                                : 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
+                            ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
+                            : 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
                             }`}>
                             {importResult.saved
                                 ? 'Spec saved as AI context for this collection'
