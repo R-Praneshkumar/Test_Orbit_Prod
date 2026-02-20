@@ -608,13 +608,12 @@ export const RequestEditor = ({ tabId }) => {
             <div className="flex-1 flex overflow-hidden">
                 {/* Left: Request Params/Body */}
                 <div className="w-1/2 border-r border-slate-200 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-900">
-                    <div className="h-10 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center px-1 gap-1">
+                    <div className="h-10 border-b border-slate-200 dark:border-slate-700 flex items-center px-1 text-xs font-semibold text-slate-500 dark:text-slate-400 overflow-x-auto scrollbar-hide shrink min-w-0">
                         {['params', 'headers', 'body', 'auth', 'scripts', 'assertions'].map(tab => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveSubTab(tab)}
-                                className={`
-                            px-4 h-full text-xs font-semibold capitalize relative transition-colors
+                                className={`px-3 h-full whitespace-nowrap shrink-0 capitalize relative transition-colors
                             ${activeSubTab === tab ? 'text-corporate-600 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-corporate-600' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}
                         `}
                             >
@@ -978,12 +977,12 @@ export const RequestEditor = ({ tabId }) => {
                 {/* Right: Response */}
                 <div className="w-1/2 flex flex-col bg-slate-50 dark:bg-slate-800">
                     <div className="h-10 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center px-1 text-xs font-semibold text-slate-500 dark:text-slate-400 justify-between">
-                        <div className="flex items-center gap-1 h-full">
+                        <div className="flex items-center gap-1 h-full overflow-x-auto scrollbar-hide shrink min-w-0">
                             {['body', 'headers', ...(scriptResults ? ['tests'] : []), ...(assertionResults?.total > 0 ? ['assertions'] : [])].map(tab => (
                                 <button
                                     key={tab}
                                     onClick={() => setResponseTab(tab)}
-                                    className={`px-3 h-full text-xs font-semibold capitalize relative transition-colors ${responseTab === tab
+                                    className={`px-3 h-full text-xs font-semibold capitalize relative transition-colors whitespace-nowrap shrink-0 ${responseTab === tab
                                         ? 'text-corporate-600 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-corporate-600'
                                         : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
                                         }`}
@@ -993,8 +992,8 @@ export const RequestEditor = ({ tabId }) => {
                             ))}
                         </div>
                         {response && (
-                            <div className="flex gap-3 items-center pr-3">
-                                <span className={`font-bold ${getStatusColor(response.status)}`}>
+                            <div className="flex gap-3 items-center pr-3 shrink-0 ml-2">
+                                <span className={`font-bold whitespace-nowrap ${getStatusColor(response.status)}`}>
                                     {response.status} {response.statusText}
                                 </span>
                                 {responseTime && (
