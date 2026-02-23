@@ -325,7 +325,7 @@ class AIService:
             spec_context = f"""
         API Context (OpenAPI Spec):
         ```
-        {context[:2000]}
+        {context}
         ```
         """
 

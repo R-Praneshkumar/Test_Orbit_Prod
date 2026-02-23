@@ -137,11 +137,14 @@ export const IntelligencePanel = () => {
                 return null;
             }).filter(Boolean);
 
-            // Route based on message content: URL → payload generator (/voice), else → chat (/chat)
-            // In free chat mode, skip URL routing — always use plain chat
+            // Route based on message content:
+            // - URL in message → /voice (payload generator with Apply/Run)
+            // - Endpoint/test intent keywords → /voice (structured endpoint response)
+            // - Everything else → /chat (conversational)
             const hasUrl = useSpecContext && /https?:\/\/[^\s]+/.test(userMessage.content);
+            const hasEndpointIntent = useSpecContext && openApiSpec && /\b(endpoint|test|give\s+me|try|run|send|hit|call|request|fetch|get|post|put|patch|delete|create|update|list|retrieve)\b/i.test(userMessage.content);
 
-            if (hasUrl) {
+            if (hasUrl || hasEndpointIntent) {
                 const res = await authFetch(`${API_BASE}/voice`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
