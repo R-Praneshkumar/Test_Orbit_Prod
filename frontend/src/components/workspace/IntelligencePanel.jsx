@@ -406,15 +406,71 @@ export const IntelligencePanel = () => {
                                                 <Sparkles size={10} className="text-corporate-600 dark:text-corporate-400" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                {msg.data?.type === 'chat' ? (
-                                                    <div className="bg-corporate-50 dark:bg-corporate-900/30 border border-corporate-100 dark:border-corporate-800 rounded-lg p-3">
-                                                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-                                                            {idx === messages.length - 1
-                                                                ? <StreamingText text={typeof msg.data.response === 'string' ? msg.data.response : JSON.stringify(msg.data.response, null, 2)} />
-                                                                : (typeof msg.data.response === 'string' ? msg.data.response : JSON.stringify(msg.data.response, null, 2))}
-                                                        </p>
-                                                    </div>
-                                                ) : (
+                                                {msg.data?.type === 'chat' ? (() => {
+                                                    const responseText = typeof msg.data.response === 'string' ? msg.data.response : JSON.stringify(msg.data.response, null, 2);
+                                                    // Try to extract an HTTP method + URL from the response text
+                                                    const methodUrlMatch = responseText.match(/\b(GET|POST|PUT|PATCH|DELETE)\b[^\S\n]+([`'"]?(https?:\/\/[^\s`'")\]]+|\/[^\s`'")\]]+)[`'"]?)/i);
+                                                    const standaloneUrlMatch = responseText.match(/https?:\/\/[^\s`'")\]]+/);
+                                                    const extractedMethod = methodUrlMatch ? methodUrlMatch[1].toUpperCase() : 'POST';
+                                                    const extractedUrl = methodUrlMatch
+                                                        ? methodUrlMatch[2].replace(/[`'"]/g, '')
+                                                        : (standaloneUrlMatch ? standaloneUrlMatch[0] : null);
+                                                    // Try to extract a JSON body from code blocks
+                                                    const bodyMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+                                                    const extractedBody = bodyMatch ? bodyMatch[1] : null;
+
+                                                    return (
+                                                        <div className="bg-corporate-50 dark:bg-corporate-900/30 border border-corporate-100 dark:border-corporate-800 rounded-lg p-3">
+                                                            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                                                                {idx === messages.length - 1
+                                                                    ? <StreamingText text={responseText} />
+                                                                    : responseText}
+                                                            </p>
+                                                            {extractedUrl && (
+                                                                <div className="mt-3 border-t border-corporate-100 dark:border-corporate-800 pt-2">
+                                                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 mb-2 font-mono">
+                                                                        <span className="font-bold text-corporate-600 dark:text-corporate-400">{extractedMethod}</span>
+                                                                        <span className="break-all">{extractedUrl}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                createRequestFromAI({
+                                                                                    method: extractedMethod,
+                                                                                    url: extractedUrl,
+                                                                                    body: extractedBody,
+                                                                                    name: `AI: ${extractedMethod} ${extractedUrl.split('/').pop() || 'Request'}`
+                                                                                });
+                                                                            }}
+                                                                            className="flex-1 bg-corporate-600 hover:bg-corporate-700 text-white text-[10px] font-bold py-1.5 rounded transition-colors"
+                                                                        >
+                                                                            Apply
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={async () => {
+                                                                                createRequestFromAI({
+                                                                                    method: extractedMethod,
+                                                                                    url: extractedUrl,
+                                                                                    body: extractedBody,
+                                                                                    name: `AI: ${extractedMethod} ${extractedUrl.split('/').pop() || 'Request'}`
+                                                                                });
+                                                                                // Small delay to let the tab open, then trigger run
+                                                                                setTimeout(() => {
+                                                                                    const runBtn = document.querySelector('[data-run-btn="true"]');
+                                                                                    if (runBtn) runBtn.click();
+                                                                                }, 300);
+                                                                            }}
+                                                                            className="flex-1 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
+                                                                        >
+                                                                            <Play size={10} className="fill-current" />
+                                                                            <span>Apply & Run</span>
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })() : (
                                                     <div className="bg-corporate-50 dark:bg-corporate-900/30 border border-corporate-100 dark:border-corporate-800 rounded-lg p-3">
                                                         <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1 flex justify-between">
                                                             <span>Suggestion</span>
