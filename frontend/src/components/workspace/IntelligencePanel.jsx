@@ -161,7 +161,13 @@ export const IntelligencePanel = () => {
                     return;
                 }
                 const data = await res.json();
-                data.extracted_url = data.url || extractUrlFromPrompt(userMessage.content);
+                let rawUrl = data.url || extractUrlFromPrompt(userMessage.content);
+                // If the AI returned a relative path (e.g. /v1/banks), prepend the collection's base URL
+                const collectionBaseUrl = activeCollection?.baseUrl || '';
+                if (rawUrl && !rawUrl.startsWith('http') && collectionBaseUrl) {
+                    rawUrl = collectionBaseUrl.replace(/\/+$/, '') + (rawUrl.startsWith('/') ? '' : '/') + rawUrl;
+                }
+                data.extracted_url = rawUrl;
                 if (data.error) {
                     addCollectionChatMessage({ role: 'error', content: safeErrorMessage(data.error?.message || data.error) });
                 } else {
