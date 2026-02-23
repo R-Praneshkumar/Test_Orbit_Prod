@@ -50,6 +50,31 @@ const ShareModal = ({ isOpen, onClose, collectionId, collectionName }) => {
         }
 
         try {
+            // Ensure the collection exists in Supabase (it's stored locally, but shares need it in the DB)
+            const { error: syncError } = await supabase
+                .from('collections')
+                .upsert({
+                    id: collectionId,
+                    name: collectionName || 'Untitled',
+                    owner_id: user?.id,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'id' });
+
+            if (syncError) {
+                console.warn('Collection sync warning:', syncError.message);
+                // Try insert if upsert fails (no unique constraint edge case)
+                const { error: insertErr } = await supabase
+                    .from('collections')
+                    .insert({
+                        id: collectionId,
+                        name: collectionName || 'Untitled',
+                        owner_id: user?.id
+                    });
+                if (insertErr && !insertErr.message.includes('duplicate')) {
+                    throw new Error(`Could not sync collection: ${insertErr.message}`);
+                }
+            }
+
             // Check if this email already has a share for this collection
             const { data: existing } = await supabase
                 .from('collection_shares')
