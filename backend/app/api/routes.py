@@ -20,7 +20,7 @@ _settings = get_settings()
 class GenerateRequest(BaseModel):
     url: str = Field(..., max_length=2048)
     context: Optional[str] = Field(None, max_length=5000)
-    openapi_spec: Optional[str] = Field(None, max_length=102400)  # 100KB
+    openapi_spec: Optional[str] = Field(None, max_length=2097152)  # 2MB
     user_instructions: Optional[str] = Field(None, max_length=5000)
 
 class RunRequest(BaseModel):
@@ -29,7 +29,7 @@ class RunRequest(BaseModel):
 
 class VoiceCommand(BaseModel):
     transcript: str = Field(..., max_length=5000)
-    openapi_spec: Optional[str] = Field(None, max_length=102400)
+    openapi_spec: Optional[str] = Field(None, max_length=2097152)  # 2MB
     conversation_history: Optional[List[Dict[str, str]]] = None
 
 class CodeGenRequest(BaseModel):
@@ -50,12 +50,12 @@ class DiagnoseRequest(BaseModel):
     actual_status: int
     response_body: Optional[str] = Field(None, max_length=1048576)
     response_headers: Optional[Dict[str, str]] = None
-    openapi_spec: Optional[str] = Field(None, max_length=102400)
+    openapi_spec: Optional[str] = Field(None, max_length=2097152)  # 2MB
 
 class ChatRequest(BaseModel):
     message: str = Field(..., max_length=5000)
     conversation_history: Optional[List[Dict[str, str]]] = None
-    context: Optional[str] = Field(None, max_length=102400)
+    context: Optional[str] = Field(None, max_length=2097152)  # 2MB
 
 class ProxyRequest(BaseModel):
     url: str = Field(..., max_length=2048)
