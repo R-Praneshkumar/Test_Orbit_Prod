@@ -26,13 +26,19 @@ const AutoAuthPanel = ({ request, handleChange }) => {
                 try { loginBody = JSON.parse(bodyStr); } catch { loginBody = bodyStr; }
             }
 
+            // Build custom login headers from the configured key-value pairs
+            const loginHeaders = { 'Content-Type': 'application/json' };
+            (request.autoAuthLoginHeaders || []).forEach(h => {
+                if (h.key && h.key.trim()) loginHeaders[h.key.trim()] = h.value || '';
+            });
+
             const res = await authFetch(`${API_BASE}/proxy`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     url: request.autoAuthLoginUrl,
                     method: request.autoAuthMethod || 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: loginHeaders,
                     body: loginBody,
                 })
             });
@@ -104,6 +110,50 @@ const AutoAuthPanel = ({ request, handleChange }) => {
                     <option value="PUT">PUT</option>
                     <option value="GET">GET</option>
                 </select>
+            </div>
+
+            {/* Login Request Headers */}
+            <div>
+                <label className={labelClass}>Login Request Headers (Optional)</label>
+                <p className="text-[9px] text-slate-400 dark:text-slate-500 mb-1.5">
+                    Headers sent <strong>with the login request</strong> (e.g. Supabase requires <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">apikey</code>).
+                </p>
+                <div className="space-y-1.5">
+                    {(request.autoAuthLoginHeaders || []).map((h, idx) => (
+                        <div key={idx} className="flex gap-1.5 items-center">
+                            <input
+                                type="text"
+                                value={h.key || ''}
+                                onChange={e => {
+                                    const updated = [...(request.autoAuthLoginHeaders || [])];
+                                    updated[idx] = { ...updated[idx], key: e.target.value };
+                                    handleChange('autoAuthLoginHeaders', updated);
+                                }}
+                                placeholder="Header name (e.g. apikey)"
+                                className={`${inputClass} flex-1`}
+                            />
+                            <input
+                                type="text"
+                                value={h.value || ''}
+                                onChange={e => {
+                                    const updated = [...(request.autoAuthLoginHeaders || [])];
+                                    updated[idx] = { ...updated[idx], value: e.target.value };
+                                    handleChange('autoAuthLoginHeaders', updated);
+                                }}
+                                placeholder="Value"
+                                className={`${inputClass} flex-1 font-mono`}
+                            />
+                            <button
+                                onClick={() => handleChange('autoAuthLoginHeaders', (request.autoAuthLoginHeaders || []).filter((_, i) => i !== idx))}
+                                className="text-slate-400 hover:text-red-500 transition-colors shrink-0 text-xs px-1"
+                            >✕</button>
+                        </div>
+                    ))}
+                    <button
+                        onClick={() => handleChange('autoAuthLoginHeaders', [...(request.autoAuthLoginHeaders || []), { key: '', value: '' }])}
+                        className="text-[10px] text-corporate-600 dark:text-corporate-400 hover:underline"
+                    >+ Add Header</button>
+                </div>
             </div>
 
             {/* Login Body */}
@@ -356,13 +406,18 @@ export const RequestEditor = ({ tabId }) => {
                         if (bodyStr.trim()) {
                             try { loginBody = JSON.parse(bodyStr); } catch { loginBody = bodyStr; }
                         }
+                        // Build custom login headers (e.g. Supabase apikey)
+                        const loginHeaders = { 'Content-Type': 'application/json' };
+                        (request.autoAuthLoginHeaders || []).forEach(h => {
+                            if (h.key && h.key.trim()) loginHeaders[h.key.trim()] = h.value || '';
+                        });
                         const loginRes = await authFetch(`${API_BASE}/proxy`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 url: request.autoAuthLoginUrl,
                                 method: request.autoAuthMethod || 'POST',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: loginHeaders,
                                 body: loginBody,
                             })
                         });
