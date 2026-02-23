@@ -93,6 +93,23 @@ export const IntelligencePanel = () => {
         return urlMatch ? urlMatch[0] : '';
     };
 
+    // Safely convert any error value (string, array, object) to a displayable string
+    const safeErrorMessage = (err) => {
+        if (!err) return 'Unknown error';
+        if (typeof err === 'string') return err;
+        // Pydantic validation errors come as an array of {type, loc, msg, input, ctx}
+        if (Array.isArray(err)) {
+            return err.map(e => {
+                if (typeof e === 'string') return e;
+                if (e?.msg) return `${e.loc ? e.loc.join(' \u2192 ') + ': ' : ''}${e.msg}`;
+                return JSON.stringify(e);
+            }).join('\n');
+        }
+        if (err?.message) return err.message;
+        if (err?.msg) return err.msg;
+        return JSON.stringify(err, null, 2);
+    };
+
     const handleExecute = async () => {
         if (!prompt.trim() || !activeCollectionId || loading) return;
 
@@ -136,14 +153,14 @@ export const IntelligencePanel = () => {
                 });
                 if (!res.ok) {
                     const errData = await res.json();
-                    const errMsg = errData.error?.message || errData.error || errData.detail || 'Request failed';
+                    const errMsg = safeErrorMessage(errData.error?.message || errData.error || errData.detail || 'Request failed');
                     addCollectionChatMessage({ role: 'error', content: errMsg });
                     return;
                 }
                 const data = await res.json();
                 data.extracted_url = data.url || extractUrlFromPrompt(userMessage.content);
                 if (data.error) {
-                    addCollectionChatMessage({ role: 'error', content: data.error?.message || data.error });
+                    addCollectionChatMessage({ role: 'error', content: safeErrorMessage(data.error?.message || data.error) });
                 } else {
                     addCollectionChatMessage({ role: 'assistant', data });
                 }
@@ -159,13 +176,13 @@ export const IntelligencePanel = () => {
                 });
                 if (!res.ok) {
                     const errData = await res.json();
-                    const errMsg = errData.error?.message || errData.error || errData.detail || 'AI service error';
+                    const errMsg = safeErrorMessage(errData.error?.message || errData.error || errData.detail || 'AI service error');
                     addCollectionChatMessage({ role: 'error', content: errMsg });
                     return;
                 }
                 const data = await res.json();
                 if (data.error) {
-                    addCollectionChatMessage({ role: 'error', content: data.error?.message || data.error });
+                    addCollectionChatMessage({ role: 'error', content: safeErrorMessage(data.error?.message || data.error) });
                 } else {
                     addCollectionChatMessage({ role: 'assistant', data: { type: 'chat', response: data.response } });
                 }
@@ -472,8 +489,8 @@ export const IntelligencePanel = () => {
                                             <div className="w-5 h-5 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0 mt-0.5">
                                                 <Sparkles size={10} className="text-red-500" />
                                             </div>
-                                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 text-xs text-red-700 dark:text-red-400 max-w-full break-words">
-                                                {msg.content}
+                                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 text-xs text-red-700 dark:text-red-400 max-w-full break-words whitespace-pre-wrap">
+                                                {typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content, null, 2)}
                                             </div>
                                         </div>
                                     )}
@@ -530,8 +547,8 @@ export const IntelligencePanel = () => {
                             <button
                                 onClick={() => setUseSpecContext(v => !v)}
                                 className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors ${useSpecContext
-                                        ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-300'
-                                        : 'bg-gray-100 border-gray-300 text-gray-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400'
+                                    ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-300'
+                                    : 'bg-gray-100 border-gray-300 text-gray-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400'
                                     }`}
                                 title={useSpecContext
                                     ? 'Spec mode: AI uses loaded spec + URL detection. Click for free chat.'

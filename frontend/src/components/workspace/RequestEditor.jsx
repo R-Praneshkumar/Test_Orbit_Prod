@@ -162,7 +162,7 @@ const AutoAuthPanel = ({ request, handleChange }) => {
                         <span className="text-[9px] text-green-600 dark:text-green-400">at {lastTokenTime}</span>
                     </div>
                     <code className="text-[10px] text-green-800 dark:text-green-300 break-all block max-h-16 overflow-auto font-mono">
-                        {request.autoAuthToken.length > 80 ? request.autoAuthToken.slice(0, 80) + '...' : request.autoAuthToken}
+                        {request.autoAuthToken?.length > 80 ? request.autoAuthToken.slice(0, 80) + '...' : request.autoAuthToken}
                     </code>
                 </div>
             )}
