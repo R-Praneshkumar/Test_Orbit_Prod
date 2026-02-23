@@ -50,11 +50,31 @@ const ShareModal = ({ isOpen, onClose, collectionId, collectionName }) => {
         }
 
         try {
-            const { error } = await supabase.from('collection_shares').upsert({
-                collection_id: collectionId,
-                user_email: email,
-                role: role
-            }, { onConflict: 'collection_id,user_email' });
+            // Check if this email already has a share for this collection
+            const { data: existing } = await supabase
+                .from('collection_shares')
+                .select('id')
+                .eq('collection_id', collectionId)
+                .eq('user_email', email)
+                .maybeSingle();
+
+            let error;
+            if (existing) {
+                // Update existing share role
+                ({ error } = await supabase
+                    .from('collection_shares')
+                    .update({ role })
+                    .eq('id', existing.id));
+            } else {
+                // Insert new share
+                ({ error } = await supabase
+                    .from('collection_shares')
+                    .insert({
+                        collection_id: collectionId,
+                        user_email: email,
+                        role: role
+                    }));
+            }
 
             if (error) throw error;
 
