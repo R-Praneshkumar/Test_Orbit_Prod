@@ -282,13 +282,24 @@ class AIService:
         4. If it looks like an OTP login, use dummy numbers like +1234567890.
         5. Generate realistic test data (names, emails, etc.)
 
-        Return JSON ONLY:
+        If the user asks for MULTIPLE endpoints, return a JSON array of objects.
+        If the user asks for ONE endpoint, return a single object.
+
+        Single endpoint format:
         {{
             "method": "POST",
             "url": "https://api.example.com/v1/endpoint",
-            "suggested_body": {{ ...json content... }},
+            "suggested_body": {{ ...json content or null if GET... }},
             "explanation": "Brief reasoning"
         }}
+
+        Multiple endpoints format:
+        [
+            {{ "method": "GET", "url": "https://api.example.com/v1/users", "suggested_body": null, "explanation": "List all users" }},
+            {{ "method": "POST", "url": "https://api.example.com/v1/users", "suggested_body": {{ "name": "John" }}, "explanation": "Create a user" }}
+        ]
+
+        IMPORTANT: Every object MUST have "method", "url", and "explanation" fields.
         """
 
         try:
@@ -300,7 +311,21 @@ class AIService:
                      response_mime_type="application/json"
                 )
             )
-            return json.loads(self._clean_json(response.text))
+            parsed = json.loads(self._clean_json(response.text))
+
+            # Normalize: if Gemini returned an array, wrap it so the frontend can handle both
+            if isinstance(parsed, list):
+                return {
+                    "method": parsed[0].get("method", "GET") if parsed else "GET",
+                    "url": parsed[0].get("url", "") if parsed else "",
+                    "suggested_body": parsed[0].get("suggested_body") if parsed else None,
+                    "explanation": "\n".join(
+                        f"• **{item.get('method', '?')} {item.get('url', '?')}** — {item.get('explanation', '')}"
+                        for item in parsed
+                    ),
+                    "endpoints": parsed,
+                }
+            return parsed
         except Exception as e:
             return {"error": str(e)}
 

@@ -160,7 +160,17 @@ export const IntelligencePanel = () => {
                     addCollectionChatMessage({ role: 'error', content: errMsg });
                     return;
                 }
-                const data = await res.json();
+                let data = await res.json();
+                // Defensive: if Gemini returned a raw array, normalize to expected shape
+                if (Array.isArray(data)) {
+                    data = {
+                        method: data[0]?.method || 'GET',
+                        url: data[0]?.url || '',
+                        suggested_body: data[0]?.suggested_body || null,
+                        explanation: data.map(ep => `• **${ep.method || '?'} ${ep.url || '?'}** — ${ep.explanation || ''}`).join('\n'),
+                        endpoints: data,
+                    };
+                }
                 let rawUrl = data.url || extractUrlFromPrompt(userMessage.content);
                 // If the AI returned a relative path (e.g. /v1/banks), prepend the collection's base URL
                 const collectionBaseUrl = activeCollection?.baseUrl || '';
@@ -168,6 +178,16 @@ export const IntelligencePanel = () => {
                     rawUrl = collectionBaseUrl.replace(/\/+$/, '') + (rawUrl.startsWith('/') ? '' : '/') + rawUrl;
                 }
                 data.extracted_url = rawUrl;
+                // Also resolve relative URLs in individual endpoints
+                if (data.endpoints) {
+                    data.endpoints = data.endpoints.map(ep => {
+                        let epUrl = ep.url || '';
+                        if (epUrl && !epUrl.startsWith('http') && collectionBaseUrl) {
+                            epUrl = collectionBaseUrl.replace(/\/+$/, '') + (epUrl.startsWith('/') ? '' : '/') + epUrl;
+                        }
+                        return { ...ep, url: epUrl };
+                    });
+                }
                 if (data.error) {
                     addCollectionChatMessage({ role: 'error', content: safeErrorMessage(data.error?.message || data.error) });
                 } else {
@@ -485,37 +505,76 @@ export const IntelligencePanel = () => {
                                                             <span>Suggestion</span>
                                                             <span className="text-corporate-600 dark:text-corporate-400">{msg.data.method}</span>
                                                         </div>
-                                                        <p className="text-xs text-slate-700 dark:text-slate-300 mb-2">
+                                                        <div className="text-xs text-slate-700 dark:text-slate-300 mb-2 leading-relaxed whitespace-pre-wrap">
                                                             {idx === messages.length - 1 && msg.role === 'assistant'
-                                                                ? <StreamingText text={typeof msg.data.explanation === 'string' ? msg.data.explanation : JSON.stringify(msg.data.explanation, null, 2)} />
-                                                                : (typeof msg.data.explanation === 'string' ? msg.data.explanation : JSON.stringify(msg.data.explanation, null, 2))}
-                                                        </p>
-                                                        {msg.data.extracted_url && (
-                                                            <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-2 font-mono break-all">
-                                                                {msg.data.extracted_url}
-                                                            </div>
-                                                        )}
-                                                        {msg.data.suggested_body && (
-                                                            <div className="mt-1">
-                                                                <JsonViewer data={msg.data.suggested_body} maxHeight="120px" showLineNumbers={false} />
-                                                            </div>
-                                                        )}
-                                                        <div className="mt-2 flex gap-2">
-                                                            <button
-                                                                onClick={() => handleApplyAndRun(idx, true)}
-                                                                disabled={executing || !msg.data.extracted_url}
-                                                                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-[10px] font-bold py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
-                                                            >
-                                                                {executing ? <Activity size={10} className="animate-spin" /> : <Play size={10} className="fill-current" />}
-                                                                <span>Run</span>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleApplyAndRun(idx, false)}
-                                                                className="flex-1 bg-corporate-600 hover:bg-corporate-700 text-white text-[10px] font-bold py-1.5 rounded transition-colors"
-                                                            >
-                                                                Apply
-                                                            </button>
+                                                                ? <StreamingText text={typeof msg.data.explanation === 'string' ? msg.data.explanation : JSON.stringify(msg.data.explanation ?? '', null, 2)} />
+                                                                : (typeof msg.data.explanation === 'string' ? msg.data.explanation : JSON.stringify(msg.data.explanation ?? '', null, 2))}
                                                         </div>
+
+                                                        {/* Multi-endpoint list: show each endpoint with its own Apply button */}
+                                                        {msg.data.endpoints && msg.data.endpoints.length > 1 ? (
+                                                            <div className="space-y-2 mt-1">
+                                                                {msg.data.endpoints.map((ep, epIdx) => (
+                                                                    <div key={epIdx} className="bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 p-2">
+                                                                        <div className="flex items-center gap-1.5 text-[10px] mb-1">
+                                                                            <span className={`font-bold px-1 py-0.5 rounded ${
+                                                                                ep.method === 'GET' ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30'
+                                                                                : ep.method === 'POST' ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/30'
+                                                                                : ep.method === 'PUT' ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30'
+                                                                                : ep.method === 'DELETE' ? 'text-rose-600 bg-rose-50 dark:bg-rose-900/30'
+                                                                                : 'text-slate-600 bg-slate-50 dark:bg-slate-800'
+                                                                            }`}>{ep.method}</span>
+                                                                            <span className="text-slate-500 dark:text-slate-400 font-mono break-all flex-1">{ep.url}</span>
+                                                                        </div>
+                                                                        {ep.explanation && (
+                                                                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-1.5">{ep.explanation}</p>
+                                                                        )}
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                createRequestFromAI({
+                                                                                    method: ep.method || 'GET',
+                                                                                    url: ep.url || '',
+                                                                                    body: ep.suggested_body ? JSON.stringify(ep.suggested_body, null, 2) : null,
+                                                                                    name: `AI: ${ep.method} ${(ep.url || '').split('/').pop() || 'Request'}`
+                                                                                });
+                                                                            }}
+                                                                            className="w-full bg-corporate-600 hover:bg-corporate-700 text-white text-[10px] font-bold py-1 rounded transition-colors"
+                                                                        >
+                                                                            Apply
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                {msg.data.extracted_url && (
+                                                                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-2 font-mono break-all">
+                                                                        {msg.data.extracted_url}
+                                                                    </div>
+                                                                )}
+                                                                {msg.data.suggested_body && (
+                                                                    <div className="mt-1">
+                                                                        <JsonViewer data={msg.data.suggested_body} maxHeight="120px" showLineNumbers={false} />
+                                                                    </div>
+                                                                )}
+                                                                <div className="mt-2 flex gap-2">
+                                                                    <button
+                                                                        onClick={() => handleApplyAndRun(idx, true)}
+                                                                        disabled={executing || !msg.data.extracted_url}
+                                                                        className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-[10px] font-bold py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
+                                                                    >
+                                                                        {executing ? <Activity size={10} className="animate-spin" /> : <Play size={10} className="fill-current" />}
+                                                                        <span>Run</span>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleApplyAndRun(idx, false)}
+                                                                        className="flex-1 bg-corporate-600 hover:bg-corporate-700 text-white text-[10px] font-bold py-1.5 rounded transition-colors"
+                                                                    >
+                                                                        Apply
+                                                                    </button>
+                                                                </div>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 )}
 
