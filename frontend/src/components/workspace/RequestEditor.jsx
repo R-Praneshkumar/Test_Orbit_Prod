@@ -277,8 +277,11 @@ export const RequestEditor = ({ tabId }) => {
     const environments = useWorkspaceStore(state => state.environments);
     const activeEnv = useWorkspaceStore(state => state.activeEnv);
     const addRequestHistory = useWorkspaceStore(state => state.addRequestHistory);
+    const updateEnvVars = useWorkspaceStore(state => state.updateEnvVars);
     const request = useWorkspaceStore(state => state.activeTabs.find(t => t.id === tabId));
     const responseEntry = useWorkspaceStore(state => state.responses[tabId]);
+    const collections = useWorkspaceStore(state => state.collections);
+    const activeCollectionId = useWorkspaceStore(state => state.activeCollectionId);
 
     // Derived from store
     const loading = responseEntry?.loading || false;
@@ -335,6 +338,30 @@ export const RequestEditor = ({ tabId }) => {
         return vars;
     };
 
+    // Apply environment variable changes from script execution back to the store
+    const applyEnvVarChanges = (updatedEnvVars) => {
+        if (!updatedEnvVars) return;
+        const targetEnv = activeEnv || 'Global';
+        const currentEnvObj = environments.find(e => e.name === targetEnv);
+        const currentVars = currentEnvObj?.vars || [];
+
+        // Merge updated values into the existing vars array
+        const existingKeys = new Set(currentVars.map(v => v.key));
+        const newVars = currentVars.map(v => {
+            if (v.key && updatedEnvVars[v.key] !== undefined && updatedEnvVars[v.key] !== v.value) {
+                return { ...v, value: updatedEnvVars[v.key] };
+            }
+            return v;
+        });
+        // Add any new keys that were set by the script
+        Object.entries(updatedEnvVars).forEach(([key, value]) => {
+            if (key && !existingKeys.has(key)) {
+                newVars.push({ key, value, enabled: true });
+            }
+        });
+        updateEnvVars(targetEnv, newVars);
+    };
+
     // Actually execute the HTTP request via backend proxy
     const handleRun = async () => {
         if (!localUrl) {
@@ -364,6 +391,10 @@ export const RequestEditor = ({ tabId }) => {
                     if (chainVars[k] !== v) setChainVar(k, v);
                 });
             }
+            // Apply environment variable changes from pre-script (pm.environment.set)
+            if (preResult.updatedEnvVars) {
+                applyEnvVarChanges(preResult.updatedEnvVars);
+            }
             if (!preResult.success) {
                 const elapsed = Date.now() - startTime;
                 setScriptResults({ pre: preResult, post: null });
@@ -386,44 +417,59 @@ export const RequestEditor = ({ tabId }) => {
                 }
             });
 
-            // Apply auth headers
-            if (request.authType === 'bearer' && request.authToken) {
-                headers['Authorization'] = `Bearer ${resolveVariables(request.authToken)}`;
-            } else if (request.authType === 'basic' && request.authUsername) {
-                headers['Authorization'] = `Basic ${btoa(`${resolveVariables(request.authUsername || '')}:${resolveVariables(request.authPassword || '')}`)}`;
-            } else if (request.authType === 'apikey' && request.authKeyValue) {
-                headers[resolveVariables(request.authKeyName || 'X-API-Key')] = resolveVariables(request.authKeyValue);
-            } else if (request.authType === 'auto-auth' && request.autoAuthLoginUrl) {
+            // Apply auth headers (with collection-level inheritance support)
+            let effectiveAuthType = request.authType;
+            let authSource = request;
+
+            // If inherit, resolve from collection
+            if (effectiveAuthType === 'inherit') {
+                const col = collections.find(c => c.id === activeCollectionId);
+                if (col && col.authType && col.authType !== 'none') {
+                    effectiveAuthType = col.authType;
+                    authSource = col;
+                } else {
+                    effectiveAuthType = 'none';
+                }
+            }
+
+            if (effectiveAuthType === 'bearer' && authSource.authToken) {
+                headers['Authorization'] = `Bearer ${resolveVariables(authSource.authToken)}`;
+            } else if (effectiveAuthType === 'basic' && authSource.authUsername) {
+                headers['Authorization'] = `Basic ${btoa(`${resolveVariables(authSource.authUsername || '')}:${resolveVariables(authSource.authPassword || '')}`)}`;
+            } else if (effectiveAuthType === 'apikey' && authSource.authKeyValue) {
+                headers[resolveVariables(authSource.authKeyName || 'X-API-Key')] = resolveVariables(authSource.authKeyValue);
+            } else if (effectiveAuthType === 'auto-auth' && authSource.autoAuthLoginUrl) {
                 // Auto-Auth: automatically call login endpoint to get a fresh token
-                let token = request.autoAuthToken || '';
-                const tokenAge = request.autoAuthTokenTime ? Date.now() - request.autoAuthTokenTime : Infinity;
+                // authSource is either the request itself or the collection (when inheriting)
+                let token = authSource.autoAuthToken || '';
+                const tokenAge = authSource.autoAuthTokenTime ? Date.now() - authSource.autoAuthTokenTime : Infinity;
                 const needsRefresh = !token || tokenAge > 30 * 60 * 1000; // Refresh if >30 min old or missing
 
                 if (needsRefresh) {
                     try {
                         let loginBody = null;
-                        const bodyStr = request.autoAuthBody || '';
+                        const bodyStr = authSource.autoAuthBody || '';
                         if (bodyStr.trim()) {
                             try { loginBody = JSON.parse(bodyStr); } catch { loginBody = bodyStr; }
                         }
                         // Build custom login headers (e.g. Supabase apikey)
                         const loginHeaders = { 'Content-Type': 'application/json' };
-                        (request.autoAuthLoginHeaders || []).forEach(h => {
+                        (authSource.autoAuthLoginHeaders || []).forEach(h => {
                             if (h.key && h.key.trim()) loginHeaders[h.key.trim()] = h.value || '';
                         });
                         const loginRes = await authFetch(`${API_BASE}/proxy`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                url: request.autoAuthLoginUrl,
-                                method: request.autoAuthMethod || 'POST',
+                                url: authSource.autoAuthLoginUrl,
+                                method: authSource.autoAuthMethod || 'POST',
                                 headers: loginHeaders,
                                 body: loginBody,
                             })
                         });
                         const loginResult = await loginRes.json();
                         if (loginRes.ok && loginResult.status < 400) {
-                            const tokenPath = (request.autoAuthTokenPath || 'token').split('.');
+                            const tokenPath = (authSource.autoAuthTokenPath || 'token').split('.');
                             let extracted = loginResult.data;
                             for (const key of tokenPath) {
                                 if (extracted && typeof extracted === 'object') extracted = extracted[key];
@@ -431,7 +477,13 @@ export const RequestEditor = ({ tabId }) => {
                             }
                             if (extracted && typeof extracted === 'string') {
                                 token = extracted;
-                                updateRequest(request.id, { autoAuthToken: token, autoAuthTokenTime: Date.now() });
+                                // Cache token on the source (request or collection)
+                                if (request.authType === 'inherit') {
+                                    const updateCollection = useWorkspaceStore.getState().updateCollection;
+                                    updateCollection(activeCollectionId, { autoAuthToken: token, autoAuthTokenTime: Date.now() });
+                                } else {
+                                    updateRequest(request.id, { autoAuthToken: token, autoAuthTokenTime: Date.now() });
+                                }
                             }
                         }
                     } catch (e) {
@@ -516,6 +568,10 @@ export const RequestEditor = ({ tabId }) => {
                     Object.entries(postResult.updatedVars).forEach(([k, v]) => {
                         if (chainVars[k] !== v) setChainVar(k, v);
                     });
+                }
+                // Apply environment variable changes from post-script (pm.environment.set)
+                if (postResult.updatedEnvVars) {
+                    applyEnvVarChanges(postResult.updatedEnvVars);
                 }
             }
 
@@ -640,6 +696,7 @@ export const RequestEditor = ({ tabId }) => {
                 </button>
 
                 <button
+                    data-run-btn="true"
                     onClick={handleRun}
                     disabled={loading}
                     className="bg-gradient-to-r from-corporate-600 to-corporate-500 hover:from-corporate-700 hover:to-corporate-600 disabled:from-corporate-300 disabled:to-corporate-300 text-white px-6 py-2 rounded-lg font-semibold text-sm flex items-center gap-2 shadow-md shadow-corporate-200 dark:shadow-none transition-all active:scale-95 min-w-[100px] justify-center"
@@ -734,12 +791,19 @@ export const RequestEditor = ({ tabId }) => {
                                         className="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1.5 outline-none focus:ring-1 focus:ring-corporate-500 text-slate-700 dark:text-slate-300"
                                     >
                                         <option value="none">No Auth</option>
+                                        <option value="inherit">Inherit from Collection</option>
                                         <option value="bearer">Bearer Token</option>
                                         <option value="basic">Basic Auth</option>
                                         <option value="apikey">API Key</option>
                                         <option value="auto-auth">Auto-Auth (Login → Token)</option>
                                     </select>
                                 </div>
+
+                                {request.authType === 'inherit' && (
+                                    <p className="text-[10px] text-slate-400 dark:text-slate-500 italic">
+                                        This request will use the auth configured on its parent collection.
+                                    </p>
+                                )}
 
                                 {request.authType === 'bearer' && (
                                     <div>

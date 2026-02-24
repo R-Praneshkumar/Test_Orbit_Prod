@@ -15,7 +15,10 @@ install_secret_masking()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    # Disable OpenAPI spec in production to reduce attack surface
+    openapi_url=f"{settings.API_V1_STR}/openapi.json" if settings.ENV != "production" else None,
+    docs_url="/docs" if settings.ENV != "production" else None,
+    redoc_url="/redoc" if settings.ENV != "production" else None,
 )
 
 # Security headers middleware
@@ -59,16 +62,19 @@ app.include_router(oauth_router, prefix=settings.API_V1_STR, tags=["OAuth 2.0"])
 @app.get("/")
 async def root():
     uptime = int(time.time() - _start_time)
-    gemini_ok = bool(settings.GEMINI_API_KEY)
-    return {
+    response = {
         "message": "TestOrbit Backend is Running",
         "version": "1.0.0",
-        "env": settings.ENV,
-        "docs": "/docs",
         "uptime_seconds": uptime,
-        "services": {
+    }
+    # Only expose detailed service info in non-production environments
+    if settings.ENV != "production":
+        gemini_ok = bool(settings.GEMINI_API_KEY)
+        response["env"] = settings.ENV
+        response["docs"] = "/docs"
+        response["services"] = {
             "gemini": "configured" if gemini_ok else "missing_key",
             "auth": "enabled" if settings.REQUIRE_AUTH else "disabled",
         }
-    }
+    return response
 

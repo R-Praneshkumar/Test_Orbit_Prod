@@ -74,6 +74,55 @@ export const CollectionRunner = () => {
         return vars;
     }, [environments, activeEnv]);
 
+    /**
+     * Get the effective auth config for a request.
+     * If the request has its own auth (authType !== 'none' and not empty), use it.
+     * Otherwise, inherit from the collection's auth settings.
+     */
+    const getEffectiveAuth = (req, col) => {
+        // Check if request has its own auth configured
+        const hasOwnAuth = req.authType && req.authType !== 'none' && req.authType !== 'inherit';
+        if (hasOwnAuth) {
+            return {
+                type: req.authType,
+                token: req.authToken,
+                username: req.authUsername,
+                password: req.authPassword,
+                keyName: req.authKeyName,
+                keyValue: req.authKeyValue,
+                // Auto-auth fields
+                autoAuthLoginUrl: req.autoAuthLoginUrl,
+                autoAuthMethod: req.autoAuthMethod,
+                autoAuthBody: req.autoAuthBody,
+                autoAuthTokenPath: req.autoAuthTokenPath,
+                autoAuthLoginHeaders: req.autoAuthLoginHeaders,
+                autoAuthToken: req.autoAuthToken,
+                autoAuthTokenTime: req.autoAuthTokenTime,
+            };
+        }
+
+        // Inherit from collection
+        if (col?.authType && col.authType !== 'none') {
+            return {
+                type: col.authType,
+                token: col.authToken,
+                username: col.authUsername,
+                password: col.authPassword,
+                keyName: col.authKeyName,
+                keyValue: col.authKeyValue,
+                autoAuthLoginUrl: col.autoAuthLoginUrl,
+                autoAuthMethod: col.autoAuthMethod,
+                autoAuthBody: col.autoAuthBody,
+                autoAuthTokenPath: col.autoAuthTokenPath,
+                autoAuthLoginHeaders: col.autoAuthLoginHeaders,
+                autoAuthToken: col.autoAuthToken,
+                autoAuthTokenTime: col.autoAuthTokenTime,
+            };
+        }
+
+        return { type: 'none' };
+    };
+
     // Sequential execution via /proxy (supports request chaining + scripts)
     const runSequential = useCallback(async () => {
         if (!runner || isRunning) return;
@@ -130,37 +179,44 @@ export const CollectionRunner = () => {
                     if (h.enabled !== false && h.key) headers[resolveVariables(h.key)] = resolveVariables(h.value);
                 });
 
-                // Apply auth headers
-                if (req.authType === 'bearer' && req.authToken) {
-                    headers['Authorization'] = `Bearer ${resolveVariables(req.authToken)}`;
-                } else if (req.authType === 'basic' && req.authUsername) {
-                    headers['Authorization'] = `Basic ${btoa(`${resolveVariables(req.authUsername || '')}:${resolveVariables(req.authPassword || '')}`)}`;
-                } else if (req.authType === 'apikey' && req.authKeyValue) {
-                    headers[resolveVariables(req.authKeyName || 'X-API-Key')] = resolveVariables(req.authKeyValue);
-                } else if (req.authType === 'auto-auth' && req.autoAuthLoginUrl) {
-                    let token = req.autoAuthToken || '';
-                    const tokenAge = req.autoAuthTokenTime ? Date.now() - req.autoAuthTokenTime : Infinity;
+                // Apply auth headers (with collection-level inheritance)
+                const currentCol = collections.find(c => c.id === runner.collectionId);
+                const effectiveAuth = getEffectiveAuth(req, currentCol);
+                if (effectiveAuth.type === 'bearer' && effectiveAuth.token) {
+                    headers['Authorization'] = `Bearer ${resolveVariables(effectiveAuth.token)}`;
+                } else if (effectiveAuth.type === 'basic' && effectiveAuth.username) {
+                    headers['Authorization'] = `Basic ${btoa(`${resolveVariables(effectiveAuth.username || '')}:${resolveVariables(effectiveAuth.password || '')}`)}`;
+                } else if (effectiveAuth.type === 'apikey' && effectiveAuth.keyValue) {
+                    headers[resolveVariables(effectiveAuth.keyName || 'X-API-Key')] = resolveVariables(effectiveAuth.keyValue);
+                } else if (effectiveAuth.type === 'auto-auth' && effectiveAuth.autoAuthLoginUrl) {
+                    let token = effectiveAuth.autoAuthToken || '';
+                    const tokenAge = effectiveAuth.autoAuthTokenTime ? Date.now() - effectiveAuth.autoAuthTokenTime : Infinity;
                     const needsRefresh = !token || tokenAge > 30 * 60 * 1000;
                     if (needsRefresh) {
                         try {
                             let loginBody = null;
-                            const bodyStr = req.autoAuthBody || '';
+                            const bodyStr = effectiveAuth.autoAuthBody || '';
                             if (bodyStr.trim()) {
                                 try { loginBody = JSON.parse(bodyStr); } catch { loginBody = bodyStr; }
                             }
+                            // Build custom login headers
+                            const loginHeaders = { 'Content-Type': 'application/json' };
+                            (effectiveAuth.autoAuthLoginHeaders || []).forEach(h => {
+                                if (h.key && h.key.trim()) loginHeaders[h.key.trim()] = h.value || '';
+                            });
                             const loginRes = await authFetch(`${API_BASE}/proxy`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    url: req.autoAuthLoginUrl,
-                                    method: req.autoAuthMethod || 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
+                                    url: effectiveAuth.autoAuthLoginUrl,
+                                    method: effectiveAuth.autoAuthMethod || 'POST',
+                                    headers: loginHeaders,
                                     body: loginBody,
                                 })
                             });
                             const loginResult = await loginRes.json();
                             if (loginRes.ok && loginResult.status < 400) {
-                                const tokenPath = (req.autoAuthTokenPath || 'token').split('.');
+                                const tokenPath = (effectiveAuth.autoAuthTokenPath || 'token').split('.');
                                 let extracted = loginResult.data;
                                 for (const key of tokenPath) {
                                     if (extracted && typeof extracted === 'object') extracted = extracted[key];
@@ -168,7 +224,14 @@ export const CollectionRunner = () => {
                                 }
                                 if (extracted && typeof extracted === 'string') {
                                     token = extracted;
-                                    updateRequest(req.id, { autoAuthToken: token, autoAuthTokenTime: Date.now() });
+                                    // Cache token: on the collection if inherited, otherwise on the request
+                                    const isInherited = !req.authType || req.authType === 'none' || req.authType === 'inherit';
+                                    if (isInherited && currentCol) {
+                                        const updateCol = useWorkspaceStore.getState().updateCollection;
+                                        updateCol(currentCol.id, { autoAuthToken: token, autoAuthTokenTime: Date.now() });
+                                    } else {
+                                        updateRequest(req.id, { autoAuthToken: token, autoAuthTokenTime: Date.now() });
+                                    }
                                 }
                             }
                         } catch (e) {
@@ -273,6 +336,17 @@ export const CollectionRunner = () => {
                 (req.headers || []).forEach(h => {
                     if (h.enabled !== false && h.key) headers[resolveVariables(h.key)] = resolveVariables(h.value);
                 });
+
+                // Apply auth headers (same logic as sequential mode)
+                // Determine effective auth: per-request auth or inherit from collection
+                const effectiveAuth = getEffectiveAuth(req, col);
+                if (effectiveAuth.type === 'bearer' && effectiveAuth.token) {
+                    headers['Authorization'] = `Bearer ${resolveVariables(effectiveAuth.token)}`;
+                } else if (effectiveAuth.type === 'basic' && effectiveAuth.username) {
+                    headers['Authorization'] = `Basic ${btoa(`${resolveVariables(effectiveAuth.username || '')}:${resolveVariables(effectiveAuth.password || '')}`)}`;
+                } else if (effectiveAuth.type === 'apikey' && effectiveAuth.keyValue) {
+                    headers[resolveVariables(effectiveAuth.keyName || 'X-API-Key')] = resolveVariables(effectiveAuth.keyValue);
+                }
 
                 let payload = null;
                 if (req.method !== 'GET' && req.method !== 'HEAD') {

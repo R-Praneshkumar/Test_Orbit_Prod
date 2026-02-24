@@ -280,9 +280,13 @@ async def validate_proxy_url(url: str) -> None:
                     )
     except HTTPException:
         raise
-    except Exception:
-        # If DNS resolution fails, let it through (aiohttp will handle the error)
-        pass
+    except Exception as e:
+        # DNS resolution failed — reject the request to prevent SSRF bypass via DNS instability
+        logger.warning(f"DNS resolution failed for {hostname}: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail="Could not resolve hostname. DNS lookup failed."
+        )
 
 
 # --- Security Headers Middleware ---

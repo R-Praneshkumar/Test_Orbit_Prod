@@ -1,6 +1,6 @@
 # TestOrbit — SaaS Product Roadmap
 
-> **Last updated:** 2026-02-14
+> **Last updated:** 2026-02-24
 > **Status:** Hackathon complete. Transitioning to production SaaS.
 > **Goal:** Transform TestOrbit from a hackathon project into a live, paid SaaS product.
 
@@ -12,13 +12,16 @@
 2. [Current Status](#2-current-status)
 3. [Known Issues & Bugs](#3-known-issues--bugs)
 4. [Security Vulnerabilities](#4-security-vulnerabilities)
-5. [Phase 1: Auth & UI Overhaul](#5-phase-1--auth--ui-overhaul)
-6. [Phase 2: Production Ready](#6-phase-2--production-ready)
-7. [Phase 3: SaaS Infrastructure](#7-phase-3--saas-infrastructure)
-8. [Phase 4: Product Improvements](#8-phase-4--product-improvements)
-9. [Phase 5: Collaboration & Enterprise](#9-phase-5--collaboration--enterprise)
-10. [Future Roadmap](#10-future-roadmap)
-11. [Codebase Stats](#11-codebase-stats)
+5. [Competitive Gap Analysis](#5-competitive-gap-analysis)
+6. [UI Logic Bugs (Feb 2026 Audit)](#6-ui-logic-bugs-feb-2026-audit)
+7. [Top 10 Immediate Priorities](#7-top-10-immediate-priorities)
+8. [Phase 1: Auth & UI Overhaul](#8-phase-1--auth--ui-overhaul)
+9. [Phase 2: Production Ready](#9-phase-2--production-ready)
+10. [Phase 3: SaaS Infrastructure](#10-phase-3--saas-infrastructure)
+11. [Phase 4: Product Improvements](#11-phase-4--product-improvements)
+12. [Phase 5: Collaboration & Enterprise](#12-phase-5--collaboration--enterprise)
+13. [Future Roadmap](#13-future-roadmap)
+14. [Codebase Stats](#14-codebase-stats)
 
 ---
 
@@ -276,7 +279,205 @@ These MUST be fixed before deploying to production.
 
 ---
 
-## 5. Phase 1 — Auth & UI Overhaul
+## 5. Competitive Gap Analysis
+
+> **Date:** 2026-02-24
+> **Compared Against:** Postman (full platform), Bruno (offline-first client), Beeceptor (mock server)
+> **Overall Feature Completeness:** ~25-30% of combined feature set
+
+### 5.1 Protocol & Request Support Gaps
+
+| Feature | Postman | Bruno | Beeceptor | TestOrbit | Priority |
+|---------|---------|-------|-----------|-----------|----------|
+| GraphQL (dedicated UI + introspection) | Full | Full | Mock only | **MISSING** | Phase 4 |
+| gRPC support (unary + streaming) | Full | Full | Mock only | **MISSING** | Phase 4 |
+| SOAP/WSDL support | Full | Full | Mock only | **MISSING** | Phase 4 |
+| Socket.IO support | Yes | No | No | **MISSING** | Low |
+| File upload (multipart/form-data) | Yes | Yes | No | **MISSING** | Phase 2 |
+| Binary request body | Yes | Yes | No | **MISSING** | Phase 2 |
+| x-www-form-urlencoded body | Yes | Yes | No | **MISSING** | Phase 2 |
+| XML body editor | Yes | Yes | No | **MISSING** | Phase 3 |
+| Path variables (`:id` in URL) | Yes | Yes | No | **MISSING** | Phase 2 |
+
+### 5.2 Authentication Types Gaps
+
+| Auth Type | Postman | Bruno | TestOrbit | Priority |
+|-----------|---------|-------|-----------|----------|
+| Bearer Token | Yes | Yes | **Yes** | Done |
+| Basic Auth | Yes | Yes | **Yes** | Done |
+| API Key | Yes | Yes | **Yes** | Done |
+| Auto-Auth (login flow) | No | No | **Yes** | Done |
+| OAuth 2.0 (full: PKCE, all grants) | Full | Partial | **Token exchange only** | Phase 2 |
+| OAuth 1.0 | Yes | No | **MISSING** | Low |
+| Digest Auth | Yes | Yes | **MISSING** | Phase 3 |
+| AWS Signature v4 | Yes | Yes | **MISSING** | Phase 3 |
+| NTLM Auth | Yes | Yes | **MISSING** | Low |
+| Hawk / Akamai EdgeGrid | Yes | No | **MISSING** | Low |
+| JWT Bearer (generate tokens) | Yes | No | **MISSING** | Phase 3 |
+| **Collection-level auth inheritance** | **Yes** | **Yes** | **MISSING** | **IMMEDIATE** |
+
+### 5.3 Variables System Gaps
+
+| Feature | Postman | Bruno | TestOrbit | Priority |
+|---------|---------|-------|-----------|----------|
+| Global + Environment variables | Yes | Yes | **Yes** | Done |
+| Collection-scoped variables | Yes | Yes | **MISSING** | Phase 2 |
+| Data-driven testing (CSV/JSON) | Yes | Yes | **MISSING** | Phase 2 |
+| Dynamic variables (`{{$randomEmail}}`) | 50+ faker | Yes | **MISSING** | Phase 3 |
+| Secret vault (local-only) | Yes | OS keychain | **MISSING** | Phase 3 |
+| Variable quick-look preview | Yes | No | **MISSING** | Phase 2 |
+
+### 5.4 Scripting & Testing Gaps
+
+| Feature | Postman | Bruno | TestOrbit | Priority |
+|---------|---------|-------|-----------|----------|
+| Pre/post request scripts | Yes | Yes | **Yes (BROKEN)** | **IMMEDIATE** |
+| `pm.sendRequest()` (nested requests) | Yes | No | **MISSING** | Phase 3 |
+| `setNextRequest()` (execution flow) | Yes | Yes | **MISSING** | Phase 3 |
+| Built-in libraries (Lodash, CryptoJS) | 10+ | 6+ | **MISSING** | Phase 3 |
+| JSON Schema validation | Yes | Yes | **MISSING** | Phase 2 |
+| Full Chai.js assertions | Full | Full | **Partial (BROKEN)** | **IMMEDIATE** |
+| Data-driven testing (CSV iterations) | Yes | Yes | **MISSING** | Phase 2 |
+| Run cancellation/abort | Yes | Yes | **MISSING** | **IMMEDIATE** |
+
+### 5.5 Mock Server Gaps (vs Beeceptor)
+
+| Feature | Beeceptor | TestOrbit | Priority |
+|---------|-----------|-----------|----------|
+| AI-generated mock responses | AI rules | **Yes** | Done |
+| Rule-based routing (regex, path, body) | Yes | **MISSING** | Phase 2 |
+| Response templates (Handlebars + Faker) | 300+ helpers | **MISSING** | Phase 3 |
+| Stateful mocking (counters, datastore) | Yes | **MISSING** | Phase 3 |
+| Response delay/timeout simulation | Yes | **MISSING** | Phase 2 |
+| Rate limit simulation | Yes | **MISSING** | Phase 3 |
+| CRUD simulation (auto-DB) | Yes | **MISSING** | Phase 3 |
+| Local tunneling (expose localhost) | Yes | **MISSING** | Phase 4 |
+| Webhook testing/inspection | Yes | **MISSING** | Phase 3 |
+| Proxy mode (forward to real API) | Yes | **MISSING** | Phase 3 |
+| Custom status codes per rule | Yes | **MISSING** | Phase 2 |
+
+### 5.6 Collaboration & Workspace Gaps
+
+| Feature | Postman | Bruno | TestOrbit | Priority |
+|---------|---------|-------|-----------|----------|
+| Team workspaces | Cloud | Git | **Partial (Supabase sync)** | Phase 3 |
+| In-line commenting | Yes | No | **MISSING** | Phase 5 |
+| Forking & merging collections | Yes | Git | **MISSING** | Phase 4 |
+| Changelog / activity feed | Yes | Git log | **MISSING** | Phase 4 |
+| Version control (Git) integration | Yes | Native | **MISSING** | Phase 4 |
+| Conflict resolution | Yes | Git merge | **MISSING (last-write-wins)** | Phase 3 |
+
+### 5.7 Other Major Gaps
+
+| Feature | Available In | TestOrbit | Priority |
+|---------|-------------|-----------|----------|
+| API documentation generation | Postman, Bruno | **MISSING** | Phase 3 |
+| Scheduled monitors/health checks | Postman | **MISSING** | Phase 4 |
+| Performance/load testing | Postman | **MISSING** | Phase 4 |
+| Contract testing (schema validation) | Postman | **MISSING** | Phase 3 |
+| Cookie jar management | Postman, Bruno | **MISSING** | Phase 2 |
+| Client certificates (mTLS) | Postman, Bruno, Beeceptor | **MISSING** | Phase 4 |
+| Proxy settings (HTTP/SOCKS) | Postman, Bruno | **MISSING** | Phase 4 |
+| CLI reporters (JUnit, HTML) | Postman (Newman), Bruno CLI | **JSON only** | Phase 2 |
+
+---
+
+## 6. UI Logic Bugs (Feb 2026 Audit)
+
+> **Date:** 2026-02-24
+> **Audit Method:** Full source code review of all frontend components, store, and utility files
+
+### CRITICAL Bugs
+
+| # | Component | File | Description | Status |
+|---|-----------|------|-------------|--------|
+| B1 | IntelligencePanel + RequestEditor | `IntelligencePanel.jsx:468`, `RequestEditor.jsx:642` | **"Apply & Run" never fires.** Chat "Apply & Run" button does `document.querySelector('[data-run-btn="true"]').click()` but Send button has no `data-run-btn` attribute. Dead feature. | `[ ]` Fix |
+| B2 | scriptEngine | `scriptEngine.js:102-103` | **`pm.expect(v).to.be.true` always crashes.** `.true` and `.false` are IIFEs that both execute when `.be` is accessed. For any value, one always throws. All boolean assertions broken. | `[ ]` Fix |
+| B3 | Dashboard | `Dashboard.jsx:188,238` | **Pass/fail counts never display.** Accesses `run.passed`/`run.failed` but data stored at `run.summary.passed`/`run.summary.failed`. Stats always show undefined. | `[ ]` Fix |
+| B4 | scriptEngine | `scriptEngine.js:47-48` | **`pm.environment.set()` is a no-op.** Changes written to local `envMap` copy but never propagated back to environment store. Scripts that set env vars silently fail. | `[ ]` Fix |
+
+### HIGH Bugs
+
+| # | Component | File | Description | Status |
+|---|-----------|------|-------------|--------|
+| B5 | CollectionRunner | `CollectionRunner.jsx:255-341` | **Parallel mode drops all auth headers.** Sequential mode applies Bearer/Basic/API Key; parallel mode sends to `/run` without auth applied. | `[ ]` Fix |
+| B6 | CollectionRunner | `CollectionRunner.jsx:78-252` | **No run cancellation.** No AbortController, no cancel flag. Network requests continue even after unmount. | `[ ]` Fix |
+| B7 | Sidebar | `Sidebar.jsx:87-88` | **No confirmation for collection deletion.** One click permanently deletes all requests, chat, run history, test suites. Irreversible. | `[ ]` Fix |
+| B8 | workspaceStore | `workspaceStore.js` (multiple) | **No Supabase sync debouncing.** Every keystroke in URL/header/env triggers `saveCollectionToSupabase()`. 50-char URL = 50 concurrent upserts. | `[ ]` Fix |
+| B9 | CollectionRunner + Store | `workspaceStore.js:421-436` | **Run history saved to wrong collection.** Uses `state.activeCollectionId`, not the runner's collection. Switching collections mid-run saves to wrong place. | `[ ]` Fix |
+| B10 | workspaceStore | `workspaceStore.js:230,334` | **Realtime sync overwrites local edits.** Remote changes trigger full collection replacement, discarding unsaved edits. No conflict resolution. | `[ ]` Fix |
+
+### MEDIUM Bugs
+
+| # | Component | File | Description | Status |
+|---|-----------|------|-------------|--------|
+| B11 | WebSocketTester | `WebSocketTester.jsx:50,98,141` | **Memory leak on long sessions.** Messages array grows unboundedly. High-frequency feeds cause tab crash. | `[ ]` Fix |
+| B12 | IntelligencePanel | `IntelligencePanel.jsx:368` | **Chat messages grow unboundedly.** No cap (unlike runHistory capped at 20). Bloats localStorage and Supabase. | `[ ]` Fix |
+| B13 | WebSocketTester | `WebSocketTester.jsx:89-105` | **Binary messages not handled.** Assumes string data. Binary (Blob/ArrayBuffer) displays as `[object Blob]`. | `[ ]` Fix |
+| B14 | EnvironmentManager | `workspaceStore.js:866-872` | **Duplicate environment names allowed.** No uniqueness check. Two "Production" envs cause undefined behavior. | `[ ]` Fix |
+| B15 | EnvironmentManager | `EnvironmentManager.jsx:17` | **Delete confirmation persists on tab switch.** Clicking delete then switching envs keeps confirmation, targets wrong env. | `[ ]` Fix |
+| B16 | Sidebar | `Sidebar.jsx:128` | **Export ignores nested folder requests.** Only maps top-level `item.items`, nested folders excluded from export. | `[ ]` Fix |
+| B17 | Sidebar | `Sidebar.jsx:356-371` | **Search excludes WebSocket items.** Only matches `type === 'request'`, WS entries unfindable via search. | `[ ]` Fix |
+| B18 | Dashboard | `Dashboard.jsx:55-63` | **Stale time-ago display.** `useMemo(() => Date.now(), [])` computes once. After 30min on dashboard, times never update. | `[ ]` Fix |
+| B19 | workspaceStore | `workspaceStore.js:94` | **Auth listener leaks in dev mode.** `onAuthStateChange` subscription never cleaned up. React 18 StrictMode registers two. | `[ ]` Fix |
+| B20 | WebSocketTester | `WebSocketTester.jsx:21` | **Auto-scroll cannot be disabled.** State has no setter — always true. Users can't read old messages. | `[ ]` Fix |
+
+### LOW Bugs
+
+| # | Component | Description | Status |
+|---|-----------|-------------|--------|
+| B21 | workspaceStore | Variable resolution regex `\w+` doesn't support hyphens in `{{my-var}}` | `[ ]` |
+| B22 | WebSocketTester | Message IDs `Date.now() + Math.random()` — not guaranteed unique, React key collisions | `[ ]` |
+| B23 | IntelligencePanel | Spec/Free chat toggle is local state, resets on refresh | `[ ]` |
+| B24 | MockServerPanel | Manual refresh + auto-interval can cause concurrent fetches and UI flicker | `[ ]` |
+| B25 | ImportCollectionModal | `setTimeout(onClose, 1500)` can fire after unmount | `[ ]` |
+| B26 | RequestEditor | `localUrl` state doesn't sync when URL changed externally while tab is open | `[ ]` |
+
+---
+
+## 7. Top 10 Immediate Priorities
+
+> **Date:** 2026-02-24
+> **Goal:** Fix all critical security vulnerabilities and breaking bugs before any new features
+> **Why:** 4 critical security issues, 4 critical UI bugs, and several high-severity problems make the app unsafe and partially broken
+
+| # | Type | Item | Impact | Status |
+|---|------|------|--------|--------|
+| 1 | Security | **Add SSRF validation to `test_runner.py`** — Zero URL validation lets attackers scan internal networks, access cloud metadata | CRITICAL | `[x]` |
+| 2 | Security | **Replace `new Function()` with proper sandbox** in `scriptEngine.js` — Scripts access `window`, `document`, `localStorage`, `fetch` | CRITICAL | `[x]` |
+| 3 | Bug | **Fix `pm.expect().to.be.true/false`** IIFEs in `scriptEngine.js` — All boolean assertions broken | CRITICAL | `[x]` |
+| 4 | Security | **Add auth to mock server routes** — All mock endpoints unauthenticated. Anyone can list/delete/generate mocks | HIGH | `[x]` |
+| 5 | Security | **Set `REQUIRE_AUTH=True` as default** — All deployments completely open by default | HIGH | `[x]` |
+| 6 | Bug | **Fix Dashboard data shape** — `run.passed` should be `run.summary.passed`. Stats never display | CRITICAL | `[x]` |
+| 7 | Bug | **Add `data-run-btn="true"` to Send button** — "Apply & Run" from chat is completely dead | CRITICAL | `[x]` |
+| 8 | Bug+Feature | **Fix parallel runner auth + Add collection-level auth** — Parallel mode drops auth. Add collection-level auth inheritance for testing all endpoints with one auth config | HIGH | `[x]` |
+| 9 | Bug | **Add Supabase sync debouncing** — Every keystroke fires network request | HIGH | `[x]` |
+| 10 | Bug | **Add collection deletion confirmation** — One click permanently deletes all data, no undo | HIGH | `[x]` |
+
+### New Security Vulnerabilities (Feb 2026 Audit)
+
+| # | Vulnerability | Severity | File | Description |
+|---|--------------|----------|------|-------------|
+| S1 | ~~**SSRF in test runner**~~ | CRITICAL | `test_runner.py` | **FIXED** — Added `validate_proxy_url()` calls, HTTP method validation, MAX_CONCURRENT_TESTS=50 limit |
+| S2 | ~~**Script sandbox escape**~~ | CRITICAL | `scriptEngine.js` | **FIXED** — Shadowed dangerous globals (window, document, fetch, localStorage, etc.) in Function constructor |
+| S3 | ~~**Mock server no auth**~~ | HIGH | `mock_routes.py` | **FIXED** — Added `Depends(verify_token)` to list_mocks, clear_mocks, delete_mock endpoints |
+| S4 | ~~**Auth disabled by default**~~ | HIGH | `config.py` | **FIXED** — Changed `REQUIRE_AUTH=True`, disabled OpenAPI/docs in production, reduced info leakage |
+| S5 | ~~**DNS failure passthrough**~~ | HIGH | `security.py` | **FIXED** — DNS failures now reject with 400 error instead of silent passthrough |
+| S6 | **DNS rebinding (TOCTOU)** | HIGH | `security.py:269-285` | DNS validated once, `aiohttp` resolves independently. Attacker can rebind DNS between check and request. |
+| S7 | **Prompt injection** | HIGH | `ai_service.py` (all) | All user inputs directly interpolated into AI prompts. Can leak system prompts, generate malicious content. |
+| S8 | **Open relay via proxy** | HIGH | `routes.py:175-236` | Proxy forwards all response headers (leaks `Server`, `Set-Cookie`, internal IPs). Accepts all request headers. |
+| S9 | **LocalStorage secrets** | HIGH | `workspaceStore.js:13` | Entire store persisted including API keys, auth tokens, env secrets. Accessible to any XSS. |
+| S10 | **Token forgery via JWKS** | HIGH | `security.py:175-180` | Without `SUPABASE_URL`, JWKS URL from unverified JWT `iss` claim. Attacker points to own JWKS server. |
+| S11 | **No script timeout** | HIGH | `scriptEngine.js:162-189` | No timeout. `while(true){}` freezes browser permanently. No resource limits. |
+| S12 | ~~**DoS amplification**~~ | HIGH | `test_runner.py` | **FIXED** — Added MAX_CONCURRENT_TESTS=50 limit, batch truncation |
+| S13 | **Proxy no body size limit** | MEDIUM | `routes.py:64` | `body: Optional[Any]` with no size constraint. Multi-GB payloads exhaust memory. |
+| S14 | ~~**Root endpoint info leak**~~ | MEDIUM | `main.py` | **FIXED** — Service details only shown in non-production environments |
+| S15 | **OAuth no state param** | MEDIUM | `oauth_routes.py:50-55` | No CSRF protection via state parameter in authorization code flow. |
+| S16 | ~~**OpenAPI spec public**~~ | MEDIUM | `main.py` | **FIXED** — Disabled OpenAPI spec, /docs, /redoc in production environment |
+
+---
+
+## 8. Phase 1 — Auth & UI Overhaul
 
 > **Priority:** DO FIRST
 > **Goal:** Replace the basic auth modal with a professional SaaS-grade auth experience
@@ -436,7 +637,7 @@ Critical bugs found during code review and fixed:
 
 ---
 
-## 6. Phase 2 — Production Ready
+## 9. Phase 2 — Production Ready
 
 > **Priority:** Fix before going live
 > **Goal:** Make the app safe and deployable
@@ -581,7 +782,7 @@ Critical bugs found during code review and fixed:
 
 ---
 
-## 7. Phase 3 — SaaS Infrastructure
+## 10. Phase 3 — SaaS Infrastructure
 
 > **Priority:** After production-ready
 > **Goal:** Turn TestOrbit into a paid product
@@ -669,7 +870,7 @@ Critical bugs found during code review and fixed:
 
 ---
 
-## 8. Phase 4 — Product Improvements
+## 11. Phase 4 — Product Improvements
 
 > **Priority:** After SaaS launch
 > **Goal:** Features that make users stay and love the product
@@ -782,7 +983,7 @@ Critical bugs found during code review and fixed:
 
 ---
 
-## 9. Phase 5 — Collaboration & Enterprise
+## 12. Phase 5 — Collaboration & Enterprise
 
 > **Priority:** Growth phase
 > **Goal:** Features that make companies adopt TestOrbit
@@ -873,7 +1074,7 @@ Critical bugs found during code review and fixed:
 
 ---
 
-## 10. Future Roadmap
+## 13. Future Roadmap
 
 > **Priority:** Long-term vision, post-SaaS establishment
 > **Goal:** Make TestOrbit the definitive API testing platform
@@ -996,7 +1197,7 @@ Critical bugs found during code review and fixed:
 
 ---
 
-## 11. Codebase Stats
+## 14. Codebase Stats
 
 ### Current Numbers (as of 2026-02-14)
 

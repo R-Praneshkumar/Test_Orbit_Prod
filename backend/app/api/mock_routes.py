@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from app.services.mock_service import mock_service
 from app.services.ai_service import ai_service
 from app.api.routes import limiter
 from app.core.config import get_settings
+from app.core.security import verify_token
 import logging
 
 router = APIRouter()
@@ -12,8 +13,8 @@ _settings = get_settings()
 
 @router.get("/")
 @limiter.limit(_settings.MOCK_RATE_LIMIT)
-async def list_mocks(request: Request):
-    """List all registered mocks with metadata."""
+async def list_mocks(request: Request, _user: dict = Depends(verify_token)):
+    """List all registered mocks with metadata. Requires authentication."""
     return {
         "mocks": mock_service.list_mocks(),
         "count": len(mock_service.list_mocks()),
@@ -22,15 +23,15 @@ async def list_mocks(request: Request):
 
 @router.delete("/")
 @limiter.limit(_settings.MOCK_RATE_LIMIT)
-async def clear_mocks(request: Request):
-    """Clear all mocks and delete the persistence file."""
+async def clear_mocks(request: Request, _user: dict = Depends(verify_token)):
+    """Clear all mocks and delete the persistence file. Requires authentication."""
     mock_service.clear_mocks()
     return {"status": "cleared"}
 
 
 @router.delete("/_admin/{path:path}")
-async def delete_mock(path: str, request: Request):
-    """Delete a single mock by method + path (admin endpoint)."""
+async def delete_mock(path: str, request: Request, _user: dict = Depends(verify_token)):
+    """Delete a single mock by method + path (admin endpoint). Requires authentication."""
     method = request.query_params.get("method", "GET").upper()
     deleted = mock_service.delete_mock(method, path)
     if not deleted:

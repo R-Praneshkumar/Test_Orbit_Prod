@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     # Supabase JWT verification
     SUPABASE_URL: str = ""          # e.g. https://yourproject.supabase.co — used to fetch JWKS for ES256/RS256 tokens
     SUPABASE_JWT_SECRET: str = ""  # Required for HS256 tokens; from Supabase Dashboard → Settings → API → JWT Secret
-    REQUIRE_AUTH: bool = False      # Set True in production to enforce JWT auth on all API routes
+    REQUIRE_AUTH: bool = True       # JWT auth enforced by default. Set False only for local development without Supabase.
 
     # CORS — comma-separated in env, or use defaults for dev
     ALLOWED_ORIGINS: str = ""

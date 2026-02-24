@@ -10,6 +10,10 @@ import yaml from 'js-yaml';
  * v2 Data Model: Collection = Workspace
  * Each collection owns its own chatMessages, openApiSpec, runHistory, testSuites.
  */
+
+// Debounce timers for Supabase sync (per collection)
+const _syncTimers = {};
+const SYNC_DEBOUNCE_MS = 1500;
 export const useWorkspaceStore = create(persist((set, get) => ({
     // --- Data ---
     collections: [
@@ -267,6 +271,15 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         });
     },
 
+    // Debounced version — waits for inactivity before syncing (for keystroke-heavy operations)
+    debouncedSaveToSupabase: (colId) => {
+        if (_syncTimers[colId]) clearTimeout(_syncTimers[colId]);
+        _syncTimers[colId] = setTimeout(() => {
+            delete _syncTimers[colId];
+            get().saveCollectionToSupabase(colId);
+        }, SYNC_DEBOUNCE_MS);
+    },
+
     // --- Environment Sync ---
 
     fetchRemoteEnvironments: async () => {
@@ -345,17 +358,6 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     getActiveCollection: () => {
         const state = get();
         return state.collections.find(c => c.id === state.activeCollectionId) || null;
-    },
-
-    // Generic collection updater
-    updateCollection: (colId, updates) => {
-        set((state) => ({
-            collections: state.collections.map(col =>
-                col.id === colId ? { ...col, ...updates } : col
-            )
-        }));
-        // Trigger sync
-        get().saveCollectionToSupabase(colId);
     },
 
     // --- Per-Collection Chat Actions ---
@@ -580,10 +582,35 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 baseUrl: '',
                 runHistory: [],
                 testSuites: [],
+                // Collection-level auth (inherited by all requests unless overridden)
+                authType: 'none',
+                authToken: '',
+                authUsername: '',
+                authPassword: '',
+                authKeyName: '',
+                authKeyValue: '',
+                // Auto-auth fields (collection-level)
+                autoAuthLoginUrl: '',
+                autoAuthMethod: 'POST',
+                autoAuthBody: '',
+                autoAuthTokenPath: 'token',
+                autoAuthLoginHeaders: [],
+                autoAuthToken: '',
+                autoAuthTokenTime: null,
             }],
             activeCollectionId: newId
         }));
         get().saveCollectionToSupabase(newId);
+    },
+
+    // Update collection-level properties (auth, baseUrl, etc.)
+    updateCollection: (colId, updates) => {
+        set((state) => ({
+            collections: state.collections.map(col =>
+                col.id === colId ? { ...col, ...updates } : col
+            )
+        }));
+        get().debouncedSaveToSupabase(colId);
     },
 
     // Add New WebSocket to a specific collection
@@ -643,7 +670,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         });
 
         const colId = get().findCollectionForRequest(id);
-        if (colId) get().saveCollectionToSupabase(colId);
+        if (colId) get().debouncedSaveToSupabase(colId);
     },
 
     // Add New Request to a specific collection

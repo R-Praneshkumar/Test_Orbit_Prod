@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Folder, Play, FlaskConical, CheckCircle, XCircle, Plus, Terminal, Upload, Clock, ArrowRight, Zap, FileText } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { CurlImportModal } from './CurlImportModal';
@@ -51,8 +51,13 @@ export const Dashboard = () => {
 
     const recentRuns = getAllRecentRuns();
 
-    // eslint-disable-next-line react-hooks/purity
-    const now = useMemo(() => Date.now(), []);
+    // Update time reference every 60 seconds for fresh "ago" displays
+    const [now, setNow] = useState(Date.now());
+    React.useEffect(() => {
+        const interval = setInterval(() => setNow(Date.now()), 60000);
+        return () => clearInterval(interval);
+    }, []);
+
     const formatTimeAgo = (ts) => {
         if (!ts) return '';
         const diff = now - ts;
@@ -184,14 +189,14 @@ export const Dashboard = () => {
                                                 <div className="flex items-center justify-between text-[10px]">
                                                     <span className="text-slate-400 dark:text-slate-500">Last run</span>
                                                     <div className="flex items-center gap-2">
-                                                        {lastRun.passed !== undefined && (
+                                                        {lastRun.summary?.passed !== undefined && (
                                                             <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
-                                                                <CheckCircle size={10} /> {lastRun.passed}
+                                                                <CheckCircle size={10} /> {lastRun.summary.passed}
                                                             </span>
                                                         )}
-                                                        {lastRun.failed !== undefined && lastRun.failed > 0 && (
+                                                        {lastRun.summary?.failed !== undefined && lastRun.summary.failed > 0 && (
                                                             <span className="flex items-center gap-0.5 text-red-500 dark:text-red-400">
-                                                                <XCircle size={10} /> {lastRun.failed}
+                                                                <XCircle size={10} /> {lastRun.summary.failed}
                                                             </span>
                                                         )}
                                                         <span className="text-slate-400 dark:text-slate-500">
@@ -230,16 +235,16 @@ export const Dashboard = () => {
                                         }`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-2 h-2 rounded-full ${run.failed > 0 ? 'bg-amber-400' : 'bg-green-400'
+                                        <div className={`w-2 h-2 rounded-full ${(run.summary?.failed || 0) > 0 ? 'bg-amber-400' : 'bg-green-400'
                                             }`} />
                                         <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{run.collectionName}</span>
                                     </div>
                                     <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
-                                        {run.passed !== undefined && (
-                                            <span className="text-green-600 dark:text-green-400">{run.passed} passed</span>
+                                        {run.summary?.passed !== undefined && (
+                                            <span className="text-green-600 dark:text-green-400">{run.summary.passed} passed</span>
                                         )}
-                                        {run.failed > 0 && (
-                                            <span className="text-red-500 dark:text-red-400">{run.failed} failed</span>
+                                        {(run.summary?.failed || 0) > 0 && (
+                                            <span className="text-red-500 dark:text-red-400">{run.summary.failed} failed</span>
                                         )}
                                         <span className="flex items-center gap-1 text-slate-400">
                                             <Clock size={10} />
