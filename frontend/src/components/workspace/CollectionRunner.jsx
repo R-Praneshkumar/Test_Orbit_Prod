@@ -44,6 +44,12 @@ export const CollectionRunner = () => {
         if (diagnosing[result.id]) return;
         setDiagnosing(prev => ({ ...prev, [result.id]: true }));
         try {
+            // Get collection's OpenAPI spec for richer diagnosis context
+            const col = collections.find(c => c.id === runner?.collectionId);
+            const responseBodyStr = result.responseBody
+                ? (typeof result.responseBody === 'string' ? result.responseBody : JSON.stringify(result.responseBody))
+                : (result.error || '');
+
             const res = await authFetch(`${API_BASE}/diagnose`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -52,10 +58,21 @@ export const CollectionRunner = () => {
                     url: result.url,
                     expected_status: result.expected_status || 200,
                     actual_status: result.status,
-                    response_body: typeof result.responseBody === 'string' ? result.responseBody : JSON.stringify(result.responseBody || ''),
+                    response_body: responseBodyStr,
+                    response_headers: result.responseHeaders || null,
+                    openapi_spec: col?.openApiSpec || null,
                 })
             });
             const data = await res.json();
+            // Validate diagnosis has content — if all fields empty, show a fallback
+            if (data && !data.error && !data.root_cause && !data.explanation && !data.suggested_fix) {
+                data.root_cause = `HTTP ${result.status} returned`;
+                data.explanation = result.status === 404
+                    ? 'The requested resource was not found. The endpoint path or resource ID may be incorrect.'
+                    : `The server returned status ${result.status} instead of the expected ${result.expected_status || 200}.`;
+                data.suggested_fix = 'Verify the endpoint URL, resource ID, and request parameters are correct.';
+                data.confidence = 'low';
+            }
             setDiagnoses(prev => ({ ...prev, [result.id]: data }));
         } catch (err) {
             setDiagnoses(prev => ({ ...prev, [result.id]: { error: err.message } }));
@@ -262,7 +279,7 @@ export const CollectionRunner = () => {
                     }
                 }
 
-                let status, responseBody, elapsed, resHeaders = {};
+                let status, responseBody, elapsed, resHeaders = {}, statusText = '';
 
                 if (localMode) {
                     // --- Local Mode: direct browser fetch ---
@@ -276,6 +293,7 @@ export const CollectionRunner = () => {
                         const directRes = await fetch(resolvedUrl, fetchOpts);
                         elapsed = Date.now() - startTime;
                         status = directRes.status;
+                        statusText = directRes.statusText || (status >= 200 && status < 300 ? 'OK' : `${status}`);
                         const ct = directRes.headers.get('content-type') || '';
                         const txt = await directRes.text();
                         responseBody = ct.includes('json') ? (() => { try { return JSON.parse(txt); } catch { return txt; } })() : txt;
@@ -283,6 +301,7 @@ export const CollectionRunner = () => {
                     } catch (fetchErr) {
                         elapsed = Date.now() - startTime;
                         status = 0;
+                        statusText = 'Network Error';
                         responseBody = fetchErr.message?.includes('Failed to fetch')
                             ? `CORS Error: ${resolvedUrl} blocked the request. Add CORS headers or disable Local Mode.`
                             : `Request failed: ${fetchErr.message}`;
@@ -302,6 +321,7 @@ export const CollectionRunner = () => {
                     const data = await proxyRes.json();
                     elapsed = Date.now() - startTime;
                     status = proxyRes.ok ? data.status : proxyRes.status;
+                    statusText = proxyRes.ok ? (data.statusText || 'OK') : 'Proxy Error';
                     responseBody = proxyRes.ok ? data.data : (data.detail || data);
                     resHeaders = data.headers || {};
                 }
@@ -333,10 +353,10 @@ export const CollectionRunner = () => {
 
                 result = {
                     id: req.id, name: req.name, method: req.method, url: req.url,
-                    status, statusText: proxyRes.ok ? data.statusText : 'Proxy Error',
+                    status, statusText,
                     time: elapsed, size, success,
                     expected_status: req.expected_status, category: req.category,
-                    responseBody,
+                    responseBody, responseHeaders: resHeaders,
                     scriptTests: scriptTestResults.length > 0 ? scriptTestResults : undefined,
                 };
             } catch (err) {
@@ -481,6 +501,7 @@ export const CollectionRunner = () => {
                         const ct = r.headers.get('content-type') || '';
                         const txt = await r.text();
                         const size = new Blob([txt]).size;
+                        let responseBody = ct.includes('json') ? (() => { try { return JSON.parse(txt); } catch { return txt; } })() : txt;
                         return {
                             id: requests[idx]?.id || `r-${idx}`,
                             name: t.name, method: t.method, url: t.url,
@@ -491,6 +512,7 @@ export const CollectionRunner = () => {
                                 : (r.status >= 200 && r.status < 300),
                             expected_status: requests[idx]?.expected_status,
                             category: requests[idx]?.category,
+                            responseBody,
                         };
                     } catch (err) {
                         return {
@@ -500,6 +522,7 @@ export const CollectionRunner = () => {
                             time: Date.now() - start, size: 0, success: false,
                             expected_status: requests[idx]?.expected_status,
                             category: requests[idx]?.category,
+                            error: err.message,
                         };
                     }
                 });
@@ -514,22 +537,31 @@ export const CollectionRunner = () => {
 
                 const data = await res.json();
 
-                results = (data.results || []).map((r, idx) => ({
-                    id: requests[idx]?.id || `r-${idx}`,
-                    name: r.test_name || requests[idx]?.name || `Test ${idx + 1}`,
-                    method: requests[idx]?.method || 'GET',
-                    url: requests[idx]?.url || '',
-                    status: r.status_code || 0,
-                    statusText: r.status_code >= 200 && r.status_code < 300 ? 'OK' : (r.status_code ? `${r.status_code}` : 'Failed'),
-                    time: r.duration_ms || 0,
-                    size: r.size_bytes || 0,
-                    success: requests[idx]?.expected_status
-                        ? (r.status_code === requests[idx].expected_status)
-                        : (r.status_code >= 200 && r.status_code < 300),
-                    expected_status: requests[idx]?.expected_status,
-                    category: requests[idx]?.category,
-                    optimization: r.optimization || null,
-                }));
+                results = (data.results || []).map((r, idx) => {
+                    // Parse response body (backend sends as string)
+                    let responseBody = r.response_body || null;
+                    if (responseBody && typeof responseBody === 'string') {
+                        try { responseBody = JSON.parse(responseBody); } catch { /* keep as string */ }
+                    }
+                    return {
+                        id: requests[idx]?.id || `r-${idx}`,
+                        name: r.test_name || requests[idx]?.name || `Test ${idx + 1}`,
+                        method: requests[idx]?.method || 'GET',
+                        url: requests[idx]?.url || '',
+                        status: r.status_code || 0,
+                        statusText: r.status_code >= 200 && r.status_code < 300 ? 'OK' : (r.status_code ? `${r.status_code}` : 'Failed'),
+                        time: r.duration_ms || 0,
+                        size: r.size_bytes || 0,
+                        success: requests[idx]?.expected_status
+                            ? (r.status_code === requests[idx].expected_status)
+                            : (r.status_code >= 200 && r.status_code < 300),
+                        expected_status: requests[idx]?.expected_status,
+                        category: requests[idx]?.category,
+                        responseBody,
+                        error: r.error || null,
+                        optimization: r.optimization || null,
+                    };
+                });
 
                 // Collect optimization suggestions
                 const opts = results.filter(r => r.optimization && r.optimization.length > 0);

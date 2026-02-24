@@ -61,7 +61,13 @@ class TestRunner:
             async with session.request(method, url, headers=headers, json=payload, timeout=timeout) as response:
                 content = await response.read()
                 duration = (time.perf_counter() - start_time) * 1000  # ms
-                
+
+                # Decode response body (truncate to 50KB to avoid memory issues)
+                try:
+                    body_text = content[:51200].decode('utf-8', errors='replace')
+                except Exception:
+                    body_text = None
+
                 return {
                     "test_name": test_case.get("name"),
                     "status_code": response.status,
@@ -69,6 +75,7 @@ class TestRunner:
                     "duration_ms": int(duration),
                     "size_bytes": len(content),
                     "passed": response.status == test_case.get("expected_status"),
+                    "response_body": body_text,
                     "error": None
                 }
         except Exception as e:
