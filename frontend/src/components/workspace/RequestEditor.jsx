@@ -282,6 +282,7 @@ export const RequestEditor = ({ tabId }) => {
     const responseEntry = useWorkspaceStore(state => state.responses[tabId]);
     const collections = useWorkspaceStore(state => state.collections);
     const activeCollectionId = useWorkspaceStore(state => state.activeCollectionId);
+    const localMode = useWorkspaceStore(state => state.localMode);
 
     // Derived from store
     const loading = responseEntry?.loading || false;
@@ -509,48 +510,110 @@ export const RequestEditor = ({ tabId }) => {
                 }
             }
 
-            // Use the proxy endpoint to avoid CORS issues
-            const proxyRes = await authFetch(`${API_BASE}/proxy`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    url: resolvedUrl,
-                    method: request.method || 'GET',
-                    headers: { 'Content-Type': 'application/json', ...headers },
-                    body: body
-                })
-            });
-
-            const result = await proxyRes.json();
-            const elapsed = Date.now() - startTime;
-
             let responseData;
-            if (proxyRes.ok) {
-                const success = result.status >= 200 && result.status < 300;
-                responseData = {
-                    status: result.status,
-                    statusText: result.statusText,
-                    data: result.data,
-                    headers: result.headers,
-                    success
-                };
-                setResponseData(tabId, responseData, elapsed);
-                addRequestHistory({
-                    name: request.name, method: request.method, url: resolvedUrl,
-                    status: result.status, time: elapsed, success
-                });
+            let elapsed;
+
+            if (localMode) {
+                // --- Local Mode: direct browser fetch (enables localhost testing) ---
+                try {
+                    const fetchHeaders = { ...headers };
+                    if (!fetchHeaders['Content-Type']) fetchHeaders['Content-Type'] = 'application/json';
+                    const fetchOpts = {
+                        method: request.method || 'GET',
+                        headers: fetchHeaders,
+                    };
+                    if (body && request.method !== 'GET' && request.method !== 'HEAD') {
+                        fetchOpts.body = typeof body === 'string' ? body : JSON.stringify(body);
+                    }
+                    const directRes = await fetch(resolvedUrl, fetchOpts);
+                    elapsed = Date.now() - startTime;
+
+                    let resData;
+                    const contentType = directRes.headers.get('content-type') || '';
+                    const resText = await directRes.text();
+                    if (contentType.includes('json')) {
+                        try { resData = JSON.parse(resText); } catch { resData = resText; }
+                    } else {
+                        resData = resText;
+                    }
+
+                    // Collect response headers
+                    const resHeaders = {};
+                    directRes.headers.forEach((v, k) => { resHeaders[k] = v; });
+
+                    const success = directRes.status >= 200 && directRes.status < 300;
+                    responseData = {
+                        status: directRes.status,
+                        statusText: directRes.statusText || (success ? 'OK' : 'Error'),
+                        data: resData,
+                        headers: resHeaders,
+                        success,
+                    };
+                    setResponseData(tabId, responseData, elapsed);
+                    addRequestHistory({
+                        name: request.name, method: request.method, url: resolvedUrl,
+                        status: directRes.status, time: elapsed, success
+                    });
+                } catch (fetchErr) {
+                    elapsed = Date.now() - startTime;
+                    const isCors = fetchErr.message?.includes('Failed to fetch') || fetchErr.name === 'TypeError';
+                    responseData = {
+                        status: 0,
+                        statusText: 'Network Error',
+                        data: isCors
+                            ? `CORS Error: The server at ${resolvedUrl} did not allow this request.\n\nFix: Add CORS headers to your dev server (e.g. Access-Control-Allow-Origin: *).\nAlternative: Disable Local Mode to route through the cloud proxy.`
+                            : `Direct request failed: ${fetchErr.message}`,
+                        success: false,
+                    };
+                    setResponseData(tabId, responseData, elapsed);
+                    addRequestHistory({
+                        name: request.name, method: request.method, url: resolvedUrl,
+                        status: 0, time: elapsed, success: false
+                    });
+                }
             } else {
-                responseData = {
-                    status: proxyRes.status,
-                    statusText: 'Proxy Error',
-                    data: result.detail || result,
-                    success: false
-                };
-                setResponseData(tabId, responseData, elapsed);
-                addRequestHistory({
-                    name: request.name, method: request.method, url: resolvedUrl,
-                    status: proxyRes.status, time: elapsed, success: false
+                // --- Cloud Proxy Mode: route through backend /proxy ---
+                const proxyRes = await authFetch(`${API_BASE}/proxy`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: resolvedUrl,
+                        method: request.method || 'GET',
+                        headers: { 'Content-Type': 'application/json', ...headers },
+                        body: body
+                    })
                 });
+
+                const result = await proxyRes.json();
+                elapsed = Date.now() - startTime;
+
+                if (proxyRes.ok) {
+                    const success = result.status >= 200 && result.status < 300;
+                    responseData = {
+                        status: result.status,
+                        statusText: result.statusText,
+                        data: result.data,
+                        headers: result.headers,
+                        success
+                    };
+                    setResponseData(tabId, responseData, elapsed);
+                    addRequestHistory({
+                        name: request.name, method: request.method, url: resolvedUrl,
+                        status: result.status, time: elapsed, success
+                    });
+                } else {
+                    responseData = {
+                        status: proxyRes.status,
+                        statusText: 'Proxy Error',
+                        data: result.detail || result,
+                        success: false
+                    };
+                    setResponseData(tabId, responseData, elapsed);
+                    addRequestHistory({
+                        name: request.name, method: request.method, url: resolvedUrl,
+                        status: proxyRes.status, time: elapsed, success: false
+                    });
+                }
             }
 
             // --- Run Post-response Script ---

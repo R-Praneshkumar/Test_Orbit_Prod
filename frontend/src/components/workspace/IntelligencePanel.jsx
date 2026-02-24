@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, ArrowRight, Zap, Activity, Play, FileText, ChevronDown, ChevronUp, Trash2, User, Download, Folder, MessageSquare, Code, FlaskConical, FileCode } from 'lucide-react';
+import { Sparkles, ArrowRight, Zap, Activity, Play, FileText, ChevronDown, ChevronUp, Trash2, User, Download, Folder, MessageSquare, Code, FlaskConical, FileCode, CheckCircle, XCircle, FolderInput } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { JsonViewer } from './JsonViewer';
 import yaml from 'js-yaml';
@@ -151,7 +151,8 @@ export const IntelligencePanel = () => {
                     body: JSON.stringify({
                         transcript: userMessage.content,
                         openapi_spec: useSpecContext ? (openApiSpec || null) : null,
-                        conversation_history: history
+                        conversation_history: history,
+                        base_url: activeCollection?.baseUrl || null,
                     })
                 });
                 if (!res.ok) {
@@ -309,7 +310,8 @@ export const IntelligencePanel = () => {
                     url: baseUrl,
                     context,
                     openapi_spec: openApiSpec || undefined,
-                    user_instructions: testPrompt.trim() || undefined
+                    user_instructions: testPrompt.trim() || undefined,
+                    base_url: col?.baseUrl || undefined,
                 })
             });
             const data = await res.json();
@@ -860,6 +862,11 @@ export const IntelligencePanel = () => {
                                 colId={activeCollectionId}
                                 onDelete={() => deleteTestSuite(activeCollectionId, suite.id)}
                                 onRun={() => openRunnerForTestSuite(activeCollectionId, suite)}
+                                onImport={() => {
+                                    const importTests = useWorkspaceStore.getState().importTestsToCollection;
+                                    const result = importTests(activeCollectionId, suite.tests || []);
+                                    alert(`Imported ${result.imported} requests${result.skipped ? ` (${result.skipped} duplicates skipped)` : ''}`);
+                                }}
                                 categoryColors={CATEGORY_COLORS}
                                 methodColors={METHOD_COLORS}
                             />
@@ -872,9 +879,10 @@ export const IntelligencePanel = () => {
 };
 
 // Extracted component for test suite cards
-const TestSuiteCard = ({ suite, onDelete, onRun, categoryColors, methodColors }) => {
+const TestSuiteCard = ({ suite, colId, onDelete, onRun, onImport, categoryColors, methodColors }) => {
     const [expanded, setExpanded] = useState(false);
     const tests = suite.tests || [];
+    const lrs = suite.lastRunSummary;
 
     return (
         <div className="mb-3 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
@@ -885,9 +893,33 @@ const TestSuiteCard = ({ suite, onDelete, onRun, categoryColors, methodColors })
                 {expanded ? <ChevronDown size={12} className="text-slate-400 dark:text-slate-500" /> : <ChevronUp size={12} className="text-slate-400 dark:text-slate-500 rotate-180" />}
                 <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{suite.test_suite_name || 'Test Suite'}</div>
-                    <div className="text-[10px] text-slate-400 dark:text-slate-500">{tests.length} tests</div>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-slate-500">
+                        <span>{tests.length} tests</span>
+                        {lrs && (
+                            <>
+                                <span className="text-green-600 dark:text-green-400 flex items-center gap-0.5">
+                                    <CheckCircle size={9} /> {lrs.passed}
+                                </span>
+                                {lrs.failed > 0 && (
+                                    <span className="text-red-500 dark:text-red-400 flex items-center gap-0.5">
+                                        <XCircle size={9} /> {lrs.failed}
+                                    </span>
+                                )}
+                                <span className={`font-semibold ${lrs.passRate >= 80 ? 'text-green-600 dark:text-green-400' : lrs.passRate >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500 dark:text-red-400'}`}>
+                                    {lrs.passRate}%
+                                </span>
+                            </>
+                        )}
+                    </div>
                 </div>
                 <div className="flex items-center gap-1.5">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onImport(); }}
+                        className="p-1 text-corporate-600 hover:bg-corporate-50 dark:hover:bg-corporate-900/20 rounded transition-colors"
+                        title="Import all tests as collection requests"
+                    >
+                        <FolderInput size={12} />
+                    </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); onRun(); }}
                         className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
@@ -908,7 +940,7 @@ const TestSuiteCard = ({ suite, onDelete, onRun, categoryColors, methodColors })
             {expanded && (
                 <div className="border-t border-slate-200 dark:border-slate-700">
                     {tests.map((test, idx) => (
-                        <TestItemRow key={idx} test={test} methodColors={methodColors} categoryColors={categoryColors} />
+                        <TestItemRow key={idx} test={test} colId={colId} methodColors={methodColors} categoryColors={categoryColors} />
                     ))}
                 </div>
             )}
@@ -917,7 +949,7 @@ const TestSuiteCard = ({ suite, onDelete, onRun, categoryColors, methodColors })
 };
 
 // Individual test row — click to expand and see URL, headers, body
-const TestItemRow = ({ test, methodColors, categoryColors }) => {
+const TestItemRow = ({ test, colId, methodColors, categoryColors }) => {
     const [open, setOpen] = useState(false);
 
     const bodyStr = test.payload || test.body;
@@ -993,9 +1025,24 @@ const TestItemRow = ({ test, methodColors, categoryColors }) => {
                         </div>
                     )}
 
-                    {/* Expected Status */}
-                    <div className="text-[10px] text-slate-400 dark:text-slate-500">
-                        Expected: <span className="font-mono font-bold text-slate-500 dark:text-slate-400">{test.expected_status}</span>
+                    {/* Expected Status + Import */}
+                    <div className="flex items-center justify-between">
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                            Expected: <span className="font-mono font-bold text-slate-500 dark:text-slate-400">{test.expected_status}</span>
+                        </div>
+                        {colId && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const importTests = useWorkspaceStore.getState().importTestsToCollection;
+                                    const result = importTests(colId, [test]);
+                                    alert(result.imported ? 'Imported as request' : 'Already exists in collection');
+                                }}
+                                className="text-[9px] text-corporate-600 dark:text-corporate-400 hover:underline flex items-center gap-0.5"
+                            >
+                                <FolderInput size={9} /> Import as Request
+                            </button>
+                        )}
                     </div>
                 </div>
             )}

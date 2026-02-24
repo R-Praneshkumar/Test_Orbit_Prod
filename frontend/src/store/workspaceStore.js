@@ -46,6 +46,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     activeCollectionId: 'default-col',
     currentView: 'dashboard', // 'dashboard' | 'workspace' | 'mock-server' | 'docs'
     darkMode: false,
+    localMode: false, // When true, requests are sent directly from browser (bypasses /proxy — enables localhost testing)
 
     // Tour State
     activeTour: null,
@@ -484,6 +485,63 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         )
     })),
 
+    // Import test suite endpoints as collection requests
+    importTestsToCollection: (colId, tests) => {
+        const state = get();
+        const col = state.collections.find(c => c.id === colId);
+        if (!col) return { imported: 0, skipped: 0 };
+
+        const existingKeys = new Set(
+            (col.items || []).filter(i => i.type === 'request').map(i => `${i.method}::${i.url}`)
+        );
+
+        let imported = 0, skipped = 0;
+        const newItems = [];
+
+        for (const test of tests) {
+            const key = `${(test.method || 'GET').toUpperCase()}::${test.endpoint || test.url || ''}`;
+            if (existingKeys.has(key)) { skipped++; continue; }
+
+            newItems.push({
+                id: `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                name: test.name || `${test.method} ${test.endpoint || ''}`,
+                type: 'request',
+                method: (test.method || 'GET').toUpperCase(),
+                url: test.endpoint || test.url || '',
+                headers: Object.entries(test.headers || {}).map(([k, v]) => ({ key: k, value: v, enabled: true })),
+                params: [],
+                body: { type: 'json', content: test.payload ? JSON.stringify(test.payload, null, 2) : '' },
+                assertions: test.expected_status ? [{ type: 'status', comparison: 'equals', expected: String(test.expected_status), enabled: true }] : [],
+            });
+            existingKeys.add(key);
+            imported++;
+        }
+
+        if (newItems.length > 0) {
+            set((s) => ({
+                collections: s.collections.map(c =>
+                    c.id === colId ? { ...c, items: [...(c.items || []), ...newItems] } : c
+                )
+            }));
+            get().debouncedSaveToSupabase(colId);
+        }
+        return { imported, skipped };
+    },
+
+    // Save test suite run summary for inline display
+    updateTestSuiteSummary: (colId, suiteId, summary) => set((state) => ({
+        collections: state.collections.map(col =>
+            col.id === colId
+                ? {
+                    ...col,
+                    testSuites: (col.testSuites || []).map(s =>
+                        s.id === suiteId ? { ...s, lastRunSummary: summary } : s
+                    )
+                }
+                : col
+        )
+    })),
+
     // --- Actions ---
 
     // Tabs
@@ -542,6 +600,8 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         else document.documentElement.classList.remove('dark');
         return { darkMode: next };
     }),
+
+    toggleLocalMode: () => set((state) => ({ localMode: !state.localMode })),
 
     // Tour Actions
     startTour: (tourName) => set(() => {
@@ -885,6 +945,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             results: [],
             summary: null,
             isTestSuite: true,
+            suiteId: suite.id,
         }
     })),
 

@@ -98,15 +98,18 @@ const SidebarItem = ({ item, level = 0 }) => {
                 if (item.type === 'collection') {
                     (async () => {
                         const col = collections.find(c => c.id === item.id);
-                        const baseUrl = col?.items?.[0]?.url || '';
+                        const colBaseUrl = col?.baseUrl || col?.items?.[0]?.url || '';
                         const openApiSpec = col?.openApiSpec || '';
+                        const endpointList = (col?.items || []).map(i => `${i.method} ${i.url}`).join(', ');
                         try {
                             const res = await authFetch(`${API_BASE}/generate`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    url: baseUrl,
-                                    context: openApiSpec || `Collection: ${col?.name}, Endpoints: ${(col?.items || []).map(i => `${i.method} ${i.url}`).join(', ')}`
+                                    url: colBaseUrl,
+                                    context: `Collection: ${col?.name}, Endpoints: ${endpointList}`,
+                                    openapi_spec: openApiSpec || undefined,
+                                    base_url: col?.baseUrl || undefined,
                                 })
                             });
                             const data = await res.json();

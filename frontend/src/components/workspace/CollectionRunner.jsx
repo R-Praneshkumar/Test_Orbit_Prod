@@ -31,6 +31,7 @@ export const CollectionRunner = () => {
     const environments = useWorkspaceStore(state => state.environments);
     const activeEnv = useWorkspaceStore(state => state.activeEnv);
     const updateRequest = useWorkspaceStore(state => state.updateRequest);
+    const localMode = useWorkspaceStore(state => state.localMode);
 
     const [isRunning, setIsRunning] = useState(false);
     const [parallel, setParallel] = useState(false);
@@ -250,29 +251,60 @@ export const CollectionRunner = () => {
                     }
                 }
 
-                const proxyRes = await authFetch(`${API_BASE}/proxy`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        url: resolvedUrl,
-                        method: req.method || 'GET',
-                        headers: { 'Content-Type': 'application/json', ...headers },
-                        body
-                    })
-                });
+                let status, responseBody, elapsed, resHeaders = {};
 
-                const data = await proxyRes.json();
-                const elapsed = Date.now() - startTime;
-                const status = proxyRes.ok ? data.status : proxyRes.status;
-                const success = status >= 200 && status < 300;
-                const responseBody = proxyRes.ok ? data.data : (data.detail || data);
+                if (localMode) {
+                    // --- Local Mode: direct browser fetch ---
+                    const fetchHeaders = { ...headers };
+                    if (!fetchHeaders['Content-Type']) fetchHeaders['Content-Type'] = 'application/json';
+                    const fetchOpts = { method: req.method || 'GET', headers: fetchHeaders };
+                    if (body && req.method !== 'GET' && req.method !== 'HEAD') {
+                        fetchOpts.body = typeof body === 'string' ? body : JSON.stringify(body);
+                    }
+                    try {
+                        const directRes = await fetch(resolvedUrl, fetchOpts);
+                        elapsed = Date.now() - startTime;
+                        status = directRes.status;
+                        const ct = directRes.headers.get('content-type') || '';
+                        const txt = await directRes.text();
+                        responseBody = ct.includes('json') ? (() => { try { return JSON.parse(txt); } catch { return txt; } })() : txt;
+                        directRes.headers.forEach((v, k) => { resHeaders[k] = v; });
+                    } catch (fetchErr) {
+                        elapsed = Date.now() - startTime;
+                        status = 0;
+                        responseBody = fetchErr.message?.includes('Failed to fetch')
+                            ? `CORS Error: ${resolvedUrl} blocked the request. Add CORS headers or disable Local Mode.`
+                            : `Request failed: ${fetchErr.message}`;
+                    }
+                } else {
+                    // --- Cloud Proxy Mode ---
+                    const proxyRes = await authFetch(`${API_BASE}/proxy`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            url: resolvedUrl,
+                            method: req.method || 'GET',
+                            headers: { 'Content-Type': 'application/json', ...headers },
+                            body
+                        })
+                    });
+                    const data = await proxyRes.json();
+                    elapsed = Date.now() - startTime;
+                    status = proxyRes.ok ? data.status : proxyRes.status;
+                    responseBody = proxyRes.ok ? data.data : (data.detail || data);
+                    resHeaders = data.headers || {};
+                }
+
+                const success = req.expected_status
+                    ? (status === req.expected_status)
+                    : (status >= 200 && status < 300);
                 const size = responseBody ? new Blob([typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody)]).size : 0;
 
                 // --- Run Post-response Script ---
                 if (req.postScript?.trim()) {
                     const responseData = {
-                        status, statusText: proxyRes.ok ? data.statusText : 'Proxy Error',
-                        data: responseBody, headers: data.headers || {},
+                        status, statusText: success ? 'OK' : (status ? `${status}` : 'Error'),
+                        data: responseBody, headers: resHeaders,
                     };
                     const postResult = runPostResponseScript(req.postScript, {
                         variables: runningVars,
@@ -383,10 +415,12 @@ export const CollectionRunner = () => {
                 method: requests[idx]?.method || 'GET',
                 url: requests[idx]?.url || '',
                 status: r.status_code || 0,
-                statusText: r.status_code >= 200 && r.status_code < 300 ? 'OK' : 'Failed',
+                statusText: r.status_code >= 200 && r.status_code < 300 ? 'OK' : (r.status_code ? `${r.status_code}` : 'Failed'),
                 time: r.duration_ms || 0,
                 size: r.size_bytes || 0,
-                success: r.status_code >= 200 && r.status_code < 300,
+                success: requests[idx]?.expected_status
+                    ? (r.status_code === requests[idx].expected_status)
+                    : (r.status_code >= 200 && r.status_code < 300),
                 expected_status: requests[idx]?.expected_status,
                 category: requests[idx]?.category,
                 optimization: r.optimization || null,
@@ -434,7 +468,19 @@ export const CollectionRunner = () => {
         setRunnerState({ running: false, summary });
         setIsRunning(false);
 
-        saveRunToCollection({ collectionName: runner.collectionName, results, summary });
+        saveRunToCollection({
+            collectionName: runner.isTestSuite ? `[Test Suite] ${runner.collectionName}` : runner.collectionName,
+            results, summary
+        });
+
+        // Save inline summary on the test suite object for display in IntelligencePanel
+        if (runner.isTestSuite && runner.suiteId) {
+            const updateTestSuiteSummary = useWorkspaceStore.getState().updateTestSuiteSummary;
+            updateTestSuiteSummary(runner.collectionId, runner.suiteId, {
+                lastRunAt: Date.now(), passed, failed,
+                total: results.length, passRate: summary.passRate,
+            });
+        }
     };
 
     const runAll = parallel ? runParallel : runSequential;

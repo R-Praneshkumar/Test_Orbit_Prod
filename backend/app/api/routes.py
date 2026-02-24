@@ -22,6 +22,7 @@ class GenerateRequest(BaseModel):
     context: Optional[str] = Field(None, max_length=5000)
     openapi_spec: Optional[str] = Field(None, max_length=2097152)  # 2MB
     user_instructions: Optional[str] = Field(None, max_length=5000)
+    base_url: Optional[str] = Field(None, max_length=2048)
 
 class RunRequest(BaseModel):
     base_url: str = Field(..., max_length=2048)
@@ -31,6 +32,7 @@ class VoiceCommand(BaseModel):
     transcript: str = Field(..., max_length=5000)
     openapi_spec: Optional[str] = Field(None, max_length=2097152)  # 2MB
     conversation_history: Optional[List[Dict[str, str]]] = None
+    base_url: Optional[str] = Field(None, max_length=2048)
 
 class CodeGenRequest(BaseModel):
     method: str = Field(..., max_length=10)
@@ -71,7 +73,8 @@ async def generate_tests(request: Request, req: GenerateRequest, user: dict = De
     result = await ai_service.generate_tests(
         context,
         openapi_spec=req.openapi_spec,
-        user_instructions=req.user_instructions
+        user_instructions=req.user_instructions,
+        base_url=req.base_url,
     )
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
@@ -129,7 +132,8 @@ async def process_voice(request: Request, cmd: VoiceCommand, user: dict = Depend
         result = await ai_service.generate_payload_from_intent(
             cmd.transcript,
             openapi_spec=cmd.openapi_spec,
-            conversation_history=cmd.conversation_history
+            conversation_history=cmd.conversation_history,
+            base_url=cmd.base_url,
         )
         return result
     except Exception as e:

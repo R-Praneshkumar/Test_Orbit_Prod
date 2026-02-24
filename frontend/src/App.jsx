@@ -9,7 +9,7 @@ import { Dashboard } from './components/workspace/Dashboard';
 import { MockServerPanel } from './components/workspace/MockServerPanel';
 import { DocsPanel } from './components/workspace/DocsPanel';
 import { useWorkspaceStore } from './store/workspaceStore';
-import { Layout, Home, Wrench, Server, Book, Sun, Moon } from 'lucide-react';
+import { Layout, Home, Wrench, Server, Book, Sun, Moon, Wifi, WifiOff } from 'lucide-react';
 import AuthPage from './components/common/AuthPage';
 import ProfilePage from './components/common/ProfilePage';
 import UserMenu from './components/common/UserMenu';
@@ -25,6 +25,8 @@ function App() {
   const setCurrentView = useWorkspaceStore(state => state.setCurrentView);
   const darkMode = useWorkspaceStore(state => state.darkMode);
   const toggleDarkMode = useWorkspaceStore(state => state.toggleDarkMode);
+  const localMode = useWorkspaceStore(state => state.localMode);
+  const toggleLocalMode = useWorkspaceStore(state => state.toggleLocalMode);
   const initializeAuth = useWorkspaceStore(state => state.initializeAuth);
 
   // Init Supabase Auth once on mount — must not re-run on dark mode change (auth listener leak)
@@ -153,9 +155,21 @@ function App() {
           </button>
         </div>
 
-        {/* Right: User Menu & Dark mode */}
+        {/* Right: User Menu, Local Mode & Dark mode */}
         <div className="flex items-center gap-2">
           <UserMenu />
+          <button
+            onClick={toggleLocalMode}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
+              localMode
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+            title={localMode ? 'Local Mode ON — requests sent directly from browser (supports localhost)' : 'Cloud Mode — requests routed through server proxy'}
+          >
+            {localMode ? <Wifi size={13} /> : <WifiOff size={13} />}
+            {localMode ? 'Local' : 'Cloud'}
+          </button>
           <button
             onClick={toggleDarkMode}
             className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
