@@ -14,10 +14,20 @@ MAX_CONCURRENT_TESTS = 50
 
 class TestRunner:
     async def run_single_test(self, session: aiohttp.ClientSession, test_case: Dict[str, Any]):
-        url = test_case.get("url")  # User provided base URL + endpoint
+        url = test_case.get("url") or test_case.get("endpoint", "")
         method = test_case.get("method", "GET").upper()
         headers = test_case.get("headers", {})
         payload = test_case.get("payload", None)
+
+        if not url:
+            return {
+                "test_name": test_case.get("name"),
+                "status_code": 0,
+                "passed": False,
+                "error": "No URL provided for this test",
+                "duration_ms": 0,
+                "size_bytes": 0
+            }
 
         # Validate URL against SSRF before making the request
         try:
@@ -91,10 +101,14 @@ class TestRunner:
                     "size_bytes": 0
                 }]
 
-        # Normalize URLs
+        # Normalize URLs — frontend sends URL in "endpoint" field, backend expects "url"
         for t in test_cases:
-            if not t.get("url", "").startswith("http"):
-                 t["url"] = f"{base_url}{t.get('endpoint', '')}"
+            # Use "url" if present, otherwise fall back to "endpoint"
+            if not t.get("url"):
+                t["url"] = t.get("endpoint", "")
+            # Only prepend base_url if the URL is relative (not already absolute)
+            if t["url"] and not t["url"].startswith("http"):
+                t["url"] = f"{base_url.rstrip('/')}/{t['url'].lstrip('/')}" if base_url else t["url"]
 
         async with aiohttp.ClientSession() as session:
             tasks = [self.run_single_test(session, t) for t in test_cases]

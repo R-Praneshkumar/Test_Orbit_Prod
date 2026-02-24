@@ -422,7 +422,30 @@ Previous conversation:
 Continue this conversation using the context above.
 """
 
-        # --- Step 4: Build the prompt ---
+        # --- Step 4: Detect requested count from user message ---
+        count_hint = ""
+        number_words = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+                        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+        requested_count = None
+        lower_prompt = prompt_text.lower()
+        # Check for digit patterns like "5 endpoints", "give me 3"
+        digit_match = re.search(r'(\d+)\s*(?:endpoint|api|request|route|url|test)', lower_prompt)
+        if digit_match:
+            requested_count = int(digit_match.group(1))
+        else:
+            # Check for word patterns like "five endpoints"
+            for word, num in number_words.items():
+                if re.search(rf'\b{word}\b', lower_prompt):
+                    requested_count = num
+                    break
+        if requested_count and requested_count > 1:
+            count_hint = f"""
+CRITICAL: The user is asking for EXACTLY {requested_count} endpoints.
+You MUST return a JSON array with EXACTLY {requested_count} endpoint objects. Not 1, not {requested_count - 1}, but exactly {requested_count}.
+Pick {requested_count} different endpoints from the API specification.
+"""
+
+        # --- Step 5: Build the prompt ---
         base_url_rule = ""
         if resolved_base_url:
             base_url_rule = f"""
@@ -436,6 +459,7 @@ Example: "{resolved_base_url}/v1/users" — NOT just "/v1/users".
 User Request: "{prompt_text}"
 {spec_context}
 {base_url_rule}
+{count_hint}
 INSTRUCTIONS:
 1. Match the user's intent to endpoints from the spec (if provided).
 2. For each endpoint, provide the full absolute URL, HTTP method, realistic request body (if applicable), and a brief explanation.
@@ -445,22 +469,13 @@ INSTRUCTIONS:
 
 OUTPUT FORMAT — Return valid JSON only:
 
-For a SINGLE endpoint:
-{{
-  "method": "POST",
-  "url": "{resolved_base_url or 'https://api.example.com'}/v1/resource",
-  "suggested_body": {{"field": "value"}},
-  "explanation": "What this endpoint does and why"
-}}
+{"Return a JSON ARRAY with exactly " + str(requested_count) + " objects:" if requested_count and requested_count > 1 else "For a SINGLE endpoint, return one object. For MULTIPLE endpoints, return a JSON array:"}
 
-For MULTIPLE endpoints — return a JSON array:
-[
-  {{"method": "GET", "url": "{resolved_base_url or 'https://api.example.com'}/v1/resource", "suggested_body": null, "explanation": "List resources"}},
-  {{"method": "POST", "url": "{resolved_base_url or 'https://api.example.com'}/v1/resource", "suggested_body": {{"name": "Test"}}, "explanation": "Create resource"}}
-]
+{{"method": "POST", "url": "{resolved_base_url or 'https://api.example.com'}/v1/resource", "suggested_body": {{"field": "value"}}, "explanation": "What this endpoint does and why"}}
 
 Every object MUST have: "method", "url", "suggested_body", "explanation".
-{"Every url MUST start with: " + resolved_base_url if resolved_base_url else ""}"""
+{"Every url MUST start with: " + resolved_base_url if resolved_base_url else ""}
+{"RETURN EXACTLY " + str(requested_count) + " ENDPOINTS IN A JSON ARRAY." if requested_count and requested_count > 1 else ""}"""
 
         try:
             response = await asyncio.to_thread(

@@ -392,6 +392,7 @@ export const CollectionRunner = () => {
                 return {
                     name: req.name,
                     method: req.method || 'GET',
+                    url: resolvedUrl,
                     endpoint: resolvedUrl,
                     payload,
                     headers: { 'Content-Type': 'application/json', ...headers },
@@ -399,44 +400,85 @@ export const CollectionRunner = () => {
                 };
             });
 
-            const res = await authFetch(`${API_BASE}/run`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ base_url: baseUrl, tests })
-            });
+            let results;
 
-            const data = await res.json();
-            const totalTime = Date.now() - startTotal;
+            if (localMode) {
+                // --- Local Mode: parallel fetch directly from browser ---
+                const fetches = tests.map(async (t, idx) => {
+                    const start = Date.now();
+                    try {
+                        const fetchOpts = { method: t.method, headers: t.headers };
+                        if (t.payload && t.method !== 'GET' && t.method !== 'HEAD') {
+                            fetchOpts.body = typeof t.payload === 'string' ? t.payload : JSON.stringify(t.payload);
+                        }
+                        const r = await fetch(t.url, fetchOpts);
+                        const elapsed = Date.now() - start;
+                        const ct = r.headers.get('content-type') || '';
+                        const txt = await r.text();
+                        const size = new Blob([txt]).size;
+                        return {
+                            id: requests[idx]?.id || `r-${idx}`,
+                            name: t.name, method: t.method, url: t.url,
+                            status: r.status, statusText: r.statusText || 'OK',
+                            time: elapsed, size,
+                            success: requests[idx]?.expected_status
+                                ? (r.status === requests[idx].expected_status)
+                                : (r.status >= 200 && r.status < 300),
+                            expected_status: requests[idx]?.expected_status,
+                            category: requests[idx]?.category,
+                        };
+                    } catch (err) {
+                        return {
+                            id: requests[idx]?.id || `r-${idx}`,
+                            name: t.name, method: t.method, url: t.url,
+                            status: 0, statusText: 'Network Error',
+                            time: Date.now() - start, size: 0, success: false,
+                            expected_status: requests[idx]?.expected_status,
+                            category: requests[idx]?.category,
+                        };
+                    }
+                });
+                results = await Promise.all(fetches);
+            } else {
+                // --- Cloud Proxy Mode: send batch to /run endpoint ---
+                const res = await authFetch(`${API_BASE}/run`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ base_url: baseUrl, tests })
+                });
 
-            // Map backend results to our format
-            const results = (data.results || []).map((r, idx) => ({
-                id: requests[idx]?.id || `r-${idx}`,
-                name: r.test_name || requests[idx]?.name || `Test ${idx + 1}`,
-                method: requests[idx]?.method || 'GET',
-                url: requests[idx]?.url || '',
-                status: r.status_code || 0,
-                statusText: r.status_code >= 200 && r.status_code < 300 ? 'OK' : (r.status_code ? `${r.status_code}` : 'Failed'),
-                time: r.duration_ms || 0,
-                size: r.size_bytes || 0,
-                success: requests[idx]?.expected_status
-                    ? (r.status_code === requests[idx].expected_status)
-                    : (r.status_code >= 200 && r.status_code < 300),
-                expected_status: requests[idx]?.expected_status,
-                category: requests[idx]?.category,
-                optimization: r.optimization || null,
-            }));
+                const data = await res.json();
 
-            // Collect optimization suggestions
-            const opts = results.filter(r => r.optimization && r.optimization.length > 0);
-            if (opts.length > 0) {
-                setOptimizations(opts.map(r => ({
-                    name: r.name,
-                    method: r.method,
-                    time: r.time,
-                    suggestions: r.optimization,
-                })));
+                results = (data.results || []).map((r, idx) => ({
+                    id: requests[idx]?.id || `r-${idx}`,
+                    name: r.test_name || requests[idx]?.name || `Test ${idx + 1}`,
+                    method: requests[idx]?.method || 'GET',
+                    url: requests[idx]?.url || '',
+                    status: r.status_code || 0,
+                    statusText: r.status_code >= 200 && r.status_code < 300 ? 'OK' : (r.status_code ? `${r.status_code}` : 'Failed'),
+                    time: r.duration_ms || 0,
+                    size: r.size_bytes || 0,
+                    success: requests[idx]?.expected_status
+                        ? (r.status_code === requests[idx].expected_status)
+                        : (r.status_code >= 200 && r.status_code < 300),
+                    expected_status: requests[idx]?.expected_status,
+                    category: requests[idx]?.category,
+                    optimization: r.optimization || null,
+                }));
+
+                // Collect optimization suggestions
+                const opts = results.filter(r => r.optimization && r.optimization.length > 0);
+                if (opts.length > 0) {
+                    setOptimizations(opts.map(r => ({
+                        name: r.name,
+                        method: r.method,
+                        time: r.time,
+                        suggestions: r.optimization,
+                    })));
+                }
             }
 
+            const totalTime = Date.now() - startTotal;
             setRunnerState({ results, progress: results.length });
             finishRun(results, totalTime);
         } catch (err) {
