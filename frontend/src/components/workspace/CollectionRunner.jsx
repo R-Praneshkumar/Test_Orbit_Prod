@@ -77,12 +77,17 @@ export const CollectionRunner = () => {
 
     /**
      * Get the effective auth config for a request.
-     * If the request has its own auth (authType !== 'none' and not empty), use it.
-     * Otherwise, inherit from the collection's auth settings.
+     * Priority: 1) "No Auth" = no auth period  2) Own auth = use request's config
+     *           3) "Inherit"/unset = use collection auth  4) Nothing = no auth
      */
     const getEffectiveAuth = (req, col) => {
-        // Check if request has its own auth configured
-        const hasOwnAuth = req.authType && req.authType !== 'none' && req.authType !== 'inherit';
+        // 1. "No Auth" explicitly selected — NO inheritance, return immediately
+        if (req.authType === 'none') {
+            return { type: 'none' };
+        }
+
+        // 2. Request has its own auth configured (bearer/basic/apikey/auto-auth)
+        const hasOwnAuth = req.authType && req.authType !== 'inherit';
         if (hasOwnAuth) {
             return {
                 type: req.authType,
@@ -91,7 +96,6 @@ export const CollectionRunner = () => {
                 password: req.authPassword,
                 keyName: req.authKeyName,
                 keyValue: req.authKeyValue,
-                // Auto-auth fields
                 autoAuthLoginUrl: req.autoAuthLoginUrl,
                 autoAuthMethod: req.autoAuthMethod,
                 autoAuthBody: req.autoAuthBody,
@@ -102,7 +106,7 @@ export const CollectionRunner = () => {
             };
         }
 
-        // Inherit from collection
+        // 3. Inherit from collection (authType is 'inherit' or undefined/empty)
         if (col?.authType && col.authType !== 'none') {
             return {
                 type: col.authType,
@@ -121,6 +125,7 @@ export const CollectionRunner = () => {
             };
         }
 
+        // 4. No auth anywhere
         return { type: 'none' };
     };
 
@@ -181,7 +186,8 @@ export const CollectionRunner = () => {
                 });
 
                 // Apply auth headers (with collection-level inheritance)
-                const currentCol = collections.find(c => c.id === runner.collectionId);
+                // Use fresh store state so cached auto-auth tokens are visible across iterations
+                const currentCol = useWorkspaceStore.getState().collections.find(c => c.id === runner.collectionId);
                 const effectiveAuth = getEffectiveAuth(req, currentCol);
                 if (effectiveAuth.type === 'bearer' && effectiveAuth.token) {
                     headers['Authorization'] = `Bearer ${resolveVariables(effectiveAuth.token)}`;
@@ -226,7 +232,7 @@ export const CollectionRunner = () => {
                                 if (extracted && typeof extracted === 'string') {
                                     token = extracted;
                                     // Cache token: on the collection if inherited, otherwise on the request
-                                    const isInherited = !req.authType || req.authType === 'none' || req.authType === 'inherit';
+                                    const isInherited = !req.authType || req.authType === 'inherit';
                                     if (isInherited && currentCol) {
                                         const updateCol = useWorkspaceStore.getState().updateCollection;
                                         updateCol(currentCol.id, { autoAuthToken: token, autoAuthTokenTime: Date.now() });
@@ -237,6 +243,11 @@ export const CollectionRunner = () => {
                             }
                         } catch (e) {
                             console.warn('Auto-auth login failed:', e);
+                            scriptTestResults.push({
+                                name: 'Auto-Auth Login',
+                                passed: false,
+                                error: `Login failed: ${e.message}`,
+                            });
                         }
                     }
                     if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -360,8 +371,59 @@ export const CollectionRunner = () => {
 
         try {
             // Build tests array for /run endpoint
-            const col = collections.find(c => c.id === runner.collectionId);
+            // Use fresh store state to avoid stale closure
+            const col = useWorkspaceStore.getState().collections.find(c => c.id === runner.collectionId);
             const baseUrl = col?.baseUrl || '';
+
+            // --- Pre-flight: auto-auth token acquisition (ONE login for the entire batch) ---
+            let batchAutoAuthToken = null;
+            if (col?.authType === 'auto-auth' && col.autoAuthLoginUrl) {
+                const cached = col.autoAuthToken;
+                const age = col.autoAuthTokenTime ? Date.now() - col.autoAuthTokenTime : Infinity;
+                if (cached && age < 30 * 60 * 1000) {
+                    batchAutoAuthToken = cached;
+                } else {
+                    try {
+                        let loginBody = null;
+                        const bodyStr = col.autoAuthBody || '';
+                        if (bodyStr.trim()) {
+                            try { loginBody = JSON.parse(bodyStr); } catch { loginBody = bodyStr; }
+                        }
+                        const loginHeaders = { 'Content-Type': 'application/json' };
+                        (col.autoAuthLoginHeaders || []).forEach(h => {
+                            if (h.key?.trim()) loginHeaders[h.key.trim()] = h.value || '';
+                        });
+                        const loginRes = await authFetch(`${API_BASE}/proxy`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                url: col.autoAuthLoginUrl,
+                                method: col.autoAuthMethod || 'POST',
+                                headers: loginHeaders,
+                                body: loginBody,
+                            })
+                        });
+                        const loginResult = await loginRes.json();
+                        if (loginRes.ok && loginResult.status < 400) {
+                            const tokenPath = (col.autoAuthTokenPath || 'token').split('.');
+                            let extracted = loginResult.data;
+                            for (const key of tokenPath) {
+                                if (extracted && typeof extracted === 'object') extracted = extracted[key];
+                                else { extracted = null; break; }
+                            }
+                            if (extracted && typeof extracted === 'string') {
+                                batchAutoAuthToken = extracted;
+                                useWorkspaceStore.getState().updateCollection(col.id, {
+                                    autoAuthToken: extracted, autoAuthTokenTime: Date.now()
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Auto-auth login failed for parallel batch:', e);
+                    }
+                }
+            }
+
             const tests = requests.map(req => {
                 const resolvedUrl = resolveVariables(req.url);
                 const headers = {};
@@ -369,8 +431,7 @@ export const CollectionRunner = () => {
                     if (h.enabled !== false && h.key) headers[resolveVariables(h.key)] = resolveVariables(h.value);
                 });
 
-                // Apply auth headers (same logic as sequential mode)
-                // Determine effective auth: per-request auth or inherit from collection
+                // Apply auth headers — respects per-request auth priority
                 const effectiveAuth = getEffectiveAuth(req, col);
                 if (effectiveAuth.type === 'bearer' && effectiveAuth.token) {
                     headers['Authorization'] = `Bearer ${resolveVariables(effectiveAuth.token)}`;
@@ -378,6 +439,10 @@ export const CollectionRunner = () => {
                     headers['Authorization'] = `Basic ${btoa(`${resolveVariables(effectiveAuth.username || '')}:${resolveVariables(effectiveAuth.password || '')}`)}`;
                 } else if (effectiveAuth.type === 'apikey' && effectiveAuth.keyValue) {
                     headers[resolveVariables(effectiveAuth.keyName || 'X-API-Key')] = resolveVariables(effectiveAuth.keyValue);
+                } else if (effectiveAuth.type === 'auto-auth') {
+                    // Use pre-flight batch token (collection-level) or request's own cached token
+                    const token = batchAutoAuthToken || effectiveAuth.autoAuthToken || '';
+                    if (token) headers['Authorization'] = `Bearer ${token}`;
                 }
 
                 let payload = null;

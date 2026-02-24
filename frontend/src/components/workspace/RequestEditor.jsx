@@ -419,11 +419,15 @@ export const RequestEditor = ({ tabId }) => {
             });
 
             // Apply auth headers (with collection-level inheritance support)
+            // Priority: 'none' = no auth | own auth = use it | 'inherit'/undefined = collection auth
             let effectiveAuthType = request.authType;
             let authSource = request;
 
-            // If inherit, resolve from collection
-            if (effectiveAuthType === 'inherit') {
+            // "No Auth" explicitly selected — skip inheritance
+            if (effectiveAuthType === 'none') {
+                // No auth, do nothing
+            } else if (!effectiveAuthType || effectiveAuthType === 'inherit') {
+                // Inherit from collection (undefined/empty also inherits)
                 const col = collections.find(c => c.id === activeCollectionId);
                 if (col && col.authType && col.authType !== 'none') {
                     effectiveAuthType = col.authType;
