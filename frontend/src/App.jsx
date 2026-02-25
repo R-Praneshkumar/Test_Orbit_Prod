@@ -9,7 +9,7 @@ import { Dashboard } from './components/workspace/Dashboard';
 import { MockServerPanel } from './components/workspace/MockServerPanel';
 import { DocsPanel } from './components/workspace/DocsPanel';
 import { useWorkspaceStore } from './store/workspaceStore';
-import { Layout, Home, Wrench, Server, Book, Sun, Moon, Wifi, WifiOff, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Search, FolderTree, Sparkles, MessageSquare, FlaskConical } from 'lucide-react';
+import { Layout, Home, Wrench, Server, Book, Sun, Moon, Wifi, WifiOff, PanelLeftOpen, PanelRightOpen, FolderTree, Search, Sparkles, MessageSquare, FlaskConical } from 'lucide-react';
 import AuthPage from './components/common/AuthPage';
 import ProfilePage from './components/common/ProfilePage';
 import UserMenu from './components/common/UserMenu';
@@ -235,15 +235,8 @@ function App() {
               </button>
             </div>
           ) : (
-            <div className="flex flex-col border-r border-slate-200 dark:border-slate-800 relative" data-tour="sidebar">
-              <button
-                onClick={toggleSidebar}
-                className="absolute top-2.5 right-1.5 z-10 p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 transition-colors"
-                title="Collapse Explorer"
-              >
-                <PanelLeftClose size={14} />
-              </button>
-              <Sidebar />
+            <div className="flex flex-col border-r border-slate-200 dark:border-slate-800" data-tour="sidebar">
+              <Sidebar onCollapse={toggleSidebar} />
             </div>
           )}
 
@@ -304,15 +297,8 @@ function App() {
               </button>
             </div>
           ) : (
-            <div className="flex flex-col border-l border-slate-200 dark:border-slate-800 relative" data-tour="intelligence-panel">
-              <button
-                onClick={toggleIntelligence}
-                className="absolute top-2 left-2 z-10 p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 transition-colors"
-                title="Collapse Intelligence Panel"
-              >
-                <PanelRightClose size={14} />
-              </button>
-              <IntelligencePanel />
+            <div className="flex flex-col border-l border-slate-200 dark:border-slate-800" data-tour="intelligence-panel">
+              <IntelligencePanel onCollapse={toggleIntelligence} />
             </div>
           )}
         </div>

@@ -92,7 +92,6 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     runner: null,
 
     // Individual request history — global audit trail (persisted, capped at 50)
-    // Individual request history — global audit trail (persisted, capped at 50)
     requestHistory: [],
 
     // --- Supabase Auth & Sync ---

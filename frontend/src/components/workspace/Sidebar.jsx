@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Folder, FolderOpen, MoreHorizontal, Plus, Search, Pencil, Copy, Trash2, FilePlus, FolderPlus, Play, History, CheckCircle, XCircle, Globe, Download, Clock, FlaskConical, Terminal, Plug, Upload } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FolderOpen, MoreHorizontal, Plus, Search, Pencil, Copy, Trash2, FilePlus, FolderPlus, Play, History, CheckCircle, XCircle, Globe, Download, Clock, FlaskConical, Terminal, Plug, Upload, PanelLeftClose } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { EnvironmentManager } from './EnvironmentManager';
 import { CurlImportModal } from './CurlImportModal';
@@ -628,7 +628,7 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
 };
 
 
-export const Sidebar = () => {
+export const Sidebar = ({ onCollapse }) => {
     const collections = useWorkspaceStore(state => state.collections);
     const addRequest = useWorkspaceStore(state => state.addRequest);
     const addWebSocket = useWorkspaceStore(state => state.addWebSocket);
@@ -698,8 +698,19 @@ export const Sidebar = () => {
     return (
         <div className="w-64 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 h-full flex flex-col font-sans">
             {/* Header */}
-            <div className="h-12 border-b border-slate-200 dark:border-slate-700 flex items-center px-4 justify-between bg-white dark:bg-slate-900">
-                <span className="font-semibold text-slate-700 dark:text-slate-300 text-sm tracking-tight uppercase">Explorer</span>
+            <div className="h-12 border-b border-slate-200 dark:border-slate-700 flex items-center px-3 justify-between bg-white dark:bg-slate-900">
+                <div className="flex items-center gap-1.5">
+                    {onCollapse && (
+                        <button
+                            onClick={onCollapse}
+                            className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 transition-colors"
+                            title="Collapse Explorer (Ctrl+B)"
+                        >
+                            <PanelLeftClose size={14} />
+                        </button>
+                    )}
+                    <span className="font-semibold text-slate-700 dark:text-slate-300 text-sm tracking-tight uppercase">Explorer</span>
+                </div>
                 <div className="flex gap-1">
                     <button
                         onClick={() => { setShowSearch(!showSearch); setSearchQuery(''); }}

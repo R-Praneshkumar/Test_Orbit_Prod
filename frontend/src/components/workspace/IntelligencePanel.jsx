@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, ArrowRight, Zap, Activity, Play, FileText, ChevronDown, ChevronUp, Trash2, User, Download, Folder, MessageSquare, Code, FlaskConical, FileCode, CheckCircle, XCircle, FolderInput } from 'lucide-react';
+import { Sparkles, ArrowRight, Zap, Activity, Play, FileText, ChevronDown, ChevronUp, Trash2, User, Download, Folder, MessageSquare, Code, FlaskConical, FileCode, CheckCircle, XCircle, FolderInput, PanelRightClose } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { JsonViewer } from './JsonViewer';
 import yaml from 'js-yaml';
@@ -41,7 +41,7 @@ const StreamingText = ({ text, className = '' }) => {
     );
 };
 
-export const IntelligencePanel = () => {
+export const IntelligencePanel = ({ onCollapse }) => {
     const [activeTab, setActiveTab] = useState('chat');
     const [prompt, setPrompt] = useState('');
     const [loading, setLoading] = useState(false);
@@ -396,16 +396,25 @@ export const IntelligencePanel = () => {
     return (
         <div className="w-80 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 h-full flex flex-col font-sans">
             {/* Header */}
-            <div className="h-10 border-b border-slate-200 dark:border-slate-700 flex items-center px-4 justify-between bg-slate-50 dark:bg-slate-800">
-                <div className="flex items-center gap-2 text-corporate-700 dark:text-corporate-400">
+            <div className="h-10 border-b border-slate-200 dark:border-slate-700 flex items-center px-3 justify-between bg-slate-50 dark:bg-slate-800">
+                <div className="flex items-center gap-1.5 text-corporate-700 dark:text-corporate-400">
                     <Sparkles size={14} />
                     <span className="text-xs font-bold uppercase tracking-wider">Intelligence</span>
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[100px]" title={activeCollection.name}>
+                <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[80px]" title={activeCollection.name}>
                         {activeCollection.name}
                     </span>
-                    <div className="w-2 h-2 bg-green-500 rounded-full" title="AI Connected"></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full shrink-0" title="AI Connected"></div>
+                    {onCollapse && (
+                        <button
+                            onClick={onCollapse}
+                            className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 transition-colors ml-0.5"
+                            title="Collapse Intelligence Panel (Ctrl+J)"
+                        >
+                            <PanelRightClose size={14} />
+                        </button>
+                    )}
                 </div>
             </div>
 
