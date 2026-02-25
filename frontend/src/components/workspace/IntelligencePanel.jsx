@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, ArrowRight, Zap, Activity, Play, FileText, ChevronDown, ChevronUp, Trash2, User, Download, Folder, MessageSquare, Code, FlaskConical, FileCode, CheckCircle, XCircle, FolderInput, PanelRightClose } from 'lucide-react';
-import { useWorkspaceStore } from '../../store/workspaceStore';
+import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
 import { JsonViewer } from './JsonViewer';
 import yaml from 'js-yaml';
 
@@ -340,8 +340,9 @@ export const IntelligencePanel = ({ onCollapse }) => {
         setGenerating(true);
         try {
             const col = activeCollection;
-            const baseUrl = col?.baseUrl || col?.items?.[0]?.url || '';
-            const context = `Collection: ${col?.name}, Endpoints: ${(col?.items || []).map(i => `${i.method} ${i.url}`).join(', ')}`;
+            const allReqs = flattenItems(col?.items, 'request');
+            const baseUrl = col?.baseUrl || allReqs[0]?.url || '';
+            const context = `Collection: ${col?.name}, Endpoints: ${allReqs.map(i => `${i.method} ${i.url}`).join(', ')}`;
             const res = await authFetch(`${API_BASE}/generate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -385,7 +386,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
     // No collection selected
     if (!activeCollection) {
         return (
-            <div className="w-80 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 h-full flex flex-col items-center justify-center font-sans text-slate-400 dark:text-slate-500">
+            <div className="w-full bg-white dark:bg-slate-900 h-full flex flex-col items-center justify-center font-sans text-slate-400 dark:text-slate-500">
                 <Folder size={32} strokeWidth={1} className="mb-3 text-slate-300 dark:text-slate-600" />
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No Collection Selected</p>
                 <p className="text-xs text-center mt-1 px-6">Select a collection from the explorer to use the Intelligence Panel.</p>
@@ -394,7 +395,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
     }
 
     return (
-        <div className="w-80 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 h-full flex flex-col font-sans">
+        <div className="w-full bg-white dark:bg-slate-900 h-full flex flex-col font-sans">
             {/* Header */}
             <div className="h-10 border-b border-slate-200 dark:border-slate-700 flex items-center px-3 justify-between bg-slate-50 dark:bg-slate-800">
                 <div className="flex items-center gap-1.5 text-corporate-700 dark:text-corporate-400">

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Folder, FolderOpen, MoreHorizontal, Plus, Search, Pencil, Copy, Trash2, FilePlus, FolderPlus, Play, History, CheckCircle, XCircle, Globe, Download, Clock, FlaskConical, Terminal, Plug, Upload, PanelLeftClose } from 'lucide-react';
-import { useWorkspaceStore } from '../../store/workspaceStore';
+import { ChevronRight, ChevronDown, Folder, FolderOpen, MoreHorizontal, Plus, Search, Pencil, Copy, Trash2, FilePlus, FolderPlus, Play, Globe, Download, Clock, FlaskConical, Terminal, Plug, Upload, PanelLeftClose, Settings } from 'lucide-react';
+import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
 import { EnvironmentManager } from './EnvironmentManager';
 import { CurlImportModal } from './CurlImportModal';
 import { ImportCollectionModal } from './ImportCollectionModal';
@@ -30,6 +30,7 @@ const SidebarItem = ({ item, level = 0 }) => {
     const collections = useWorkspaceStore(state => state.collections);
     const addRequestToFolder = useWorkspaceStore(state => state.addRequestToFolder);
     const moveItemToFolder = useWorkspaceStore(state => state.moveItemToFolder);
+    const openCollectionSettings = useWorkspaceStore(state => state.openCollectionSettings);
     const [showMoveMenu, setShowMoveMenu] = useState(false);
 
     // Close context menu on outside click
@@ -97,13 +98,17 @@ const SidebarItem = ({ item, level = 0 }) => {
             case 'runAll':
                 if (item.type === 'collection' && openRunner) openRunner(item.id);
                 break;
+            case 'settings':
+                if (item.type === 'collection') openCollectionSettings(item.id);
+                break;
             case 'generateTests':
                 if (item.type === 'collection') {
                     (async () => {
                         const col = collections.find(c => c.id === item.id);
-                        const colBaseUrl = col?.baseUrl || col?.items?.[0]?.url || '';
+                        const allReqs = flattenItems(col?.items, 'request');
+                        const colBaseUrl = col?.baseUrl || allReqs[0]?.url || '';
                         const openApiSpec = col?.openApiSpec || '';
-                        const endpointList = (col?.items || []).map(i => `${i.method} ${i.url}`).join(', ');
+                        const endpointList = allReqs.map(i => `${i.method} ${i.url}`).join(', ');
                         try {
                             const res = await authFetch(`${API_BASE}/generate`, {
                                 method: 'POST',
@@ -136,7 +141,7 @@ const SidebarItem = ({ item, level = 0 }) => {
                             name: item.name,
                             schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json'
                         },
-                        item: (item.items || []).filter(i => i.type === 'request').map(req => ({
+                        item: flattenItems(item.items, 'request').map(req => ({
                             name: req.name,
                             request: {
                                 method: req.method,
@@ -200,6 +205,7 @@ const SidebarItem = ({ item, level = 0 }) => {
                 `}
                 style={{ paddingLeft: `${level * 12 + 12}px` }}
                 onClick={handleClick}
+                onDoubleClick={() => { if (item.type === 'collection') openCollectionSettings(item.id); }}
             >
                 <span className="text-slate-400 dark:text-slate-500 shrink-0 w-4 block">
                     {(item.type === 'collection' || item.type === 'folder') && (
@@ -236,6 +242,17 @@ const SidebarItem = ({ item, level = 0 }) => {
                     </span>
                 )}
 
+                {/* Settings gear for collections */}
+                {item.type === 'collection' && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); openCollectionSettings(item.id); }}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-slate-400 dark:text-slate-500"
+                        title="Collection Settings"
+                    >
+                        <Settings size={11} />
+                    </button>
+                )}
+
                 {/* Context Menu Trigger */}
                 <div className="relative" ref={menuRef}>
                     <button
@@ -248,7 +265,7 @@ const SidebarItem = ({ item, level = 0 }) => {
                     {/* Dropdown Menu */}
                     {showMenu && (
                         <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg rounded-lg overflow-hidden z-50">
-                            {item.type === 'collection' && (item.items || []).length > 0 && (
+                            {item.type === 'collection' && flattenItems(item.items, 'request').length > 0 && (
                                 <>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleMenuAction('runAll'); }}
@@ -272,12 +289,20 @@ const SidebarItem = ({ item, level = 0 }) => {
                                 <Pencil size={11} /> Rename
                             </button>
                             {item.type === 'collection' && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleMenuAction('share'); }}
-                                    className="w-full text-left px-3 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2"
-                                >
-                                    <Users size={11} /> Share
-                                </button>
+                                <>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleMenuAction('settings'); }}
+                                        className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                    >
+                                        <Settings size={11} /> Settings
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleMenuAction('share'); }}
+                                        className="w-full text-left px-3 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2"
+                                    >
+                                        <Users size={11} /> Share
+                                    </button>
+                                </>
                             )}
                             {item.type === 'request' && (
                                 <button
@@ -311,7 +336,7 @@ const SidebarItem = ({ item, level = 0 }) => {
                                     {showMoveMenu && (() => {
                                         const col = collections.find(c => c.id === activeCollectionId);
                                         if (!col) return null;
-                                        const folders = (col.items || []).filter(i => i.type === 'folder');
+                                        const folders = flattenItems(col.items, 'folder');
                                         return (
                                             <div className="ml-4 border-l-2 border-slate-200 dark:border-slate-700 pl-1">
                                                 <button
@@ -376,7 +401,7 @@ const SidebarItem = ({ item, level = 0 }) => {
                             Are you sure you want to delete <strong className="text-slate-700 dark:text-slate-300">{item.name}</strong>?
                         </p>
                         <p className="text-xs text-red-500 dark:text-red-400 mb-4">
-                            This will permanently delete all {(item.items || []).filter(i => i.type === 'request').length} request(s), {(item.testSuites || []).length} test suite(s), and all run history. This action cannot be undone.
+                            This will permanently delete all {flattenItems(item.items, 'request').length} request(s), {(item.testSuites || []).length} test suite(s), and all run history. This action cannot be undone.
                         </p>
                         <div className="flex justify-end gap-2">
                             <button
@@ -400,246 +425,12 @@ const SidebarItem = ({ item, level = 0 }) => {
 };
 
 
-// --- Collection-Level Auto-Auth Panel ---
-const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
-    const [tokenStatus, setTokenStatus] = useState(null);
-    const [tokenError, setTokenError] = useState(null);
-
-    const handleChange = (field, value) => {
-        updateCollection(collection.id, { [field]: value });
-    };
-
-    const handleTestLogin = async () => {
-        setTokenStatus('loading');
-        setTokenError(null);
-        try {
-            let loginBody = null;
-            const bodyStr = collection.autoAuthBody || '';
-            if (bodyStr.trim()) {
-                try { loginBody = JSON.parse(bodyStr); } catch { loginBody = bodyStr; }
-            }
-            const loginHeaders = { 'Content-Type': 'application/json' };
-            (collection.autoAuthLoginHeaders || []).forEach(h => {
-                if (h.key && h.key.trim()) loginHeaders[h.key.trim()] = h.value || '';
-            });
-
-            const res = await authFetch(`${API_BASE}/proxy`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    url: collection.autoAuthLoginUrl,
-                    method: collection.autoAuthMethod || 'POST',
-                    headers: loginHeaders,
-                    body: loginBody,
-                })
-            });
-            const result = await res.json();
-
-            if (!res.ok || result.status >= 400) {
-                setTokenStatus('error');
-                setTokenError(`Login returned ${result.status}: ${JSON.stringify(result.data).slice(0, 200)}`);
-                return;
-            }
-
-            const tokenPath = (collection.autoAuthTokenPath || 'token').split('.');
-            let token = result.data;
-            for (const key of tokenPath) {
-                if (token && typeof token === 'object') token = token[key];
-                else { token = null; break; }
-            }
-
-            if (!token || typeof token !== 'string') {
-                setTokenStatus('error');
-                setTokenError(`Could not find token at path "${collection.autoAuthTokenPath || 'token'}" in response`);
-                return;
-            }
-
-            updateCollection(collection.id, { autoAuthToken: token, autoAuthTokenTime: Date.now() });
-            setTokenStatus('success');
-        } catch (err) {
-            setTokenStatus('error');
-            setTokenError(err.message);
-        }
-    };
-
-    const inputClass = "w-full text-[11px] font-mono px-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-corporate-500";
-    const labelClass = "text-[10px] text-slate-500 dark:text-slate-400 mb-0.5 block";
-
-    return (
-        <div className="space-y-2">
-            <div className="p-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
-                <p className="text-[9px] text-blue-700 dark:text-blue-300">
-                    Configure login endpoint. All requests in this collection will auto-login and attach the token.
-                </p>
-            </div>
-
-            <div>
-                <label className={labelClass}>Login URL</label>
-                <input
-                    type="text"
-                    value={collection.autoAuthLoginUrl || ''}
-                    onChange={(e) => handleChange('autoAuthLoginUrl', e.target.value)}
-                    placeholder="https://api.example.com/login"
-                    className={inputClass}
-                />
-            </div>
-
-            <div className="flex gap-2">
-                <div className="w-20">
-                    <label className={labelClass}>Method</label>
-                    <select
-                        value={collection.autoAuthMethod || 'POST'}
-                        onChange={(e) => handleChange('autoAuthMethod', e.target.value)}
-                        className="w-full text-[11px] px-1 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-corporate-500"
-                    >
-                        <option value="POST">POST</option>
-                        <option value="PUT">PUT</option>
-                        <option value="GET">GET</option>
-                    </select>
-                </div>
-                <div className="flex-1">
-                    <label className={labelClass}>Token Path</label>
-                    <input
-                        type="text"
-                        value={collection.autoAuthTokenPath || ''}
-                        onChange={(e) => handleChange('autoAuthTokenPath', e.target.value)}
-                        placeholder="token"
-                        className={inputClass}
-                    />
-                </div>
-            </div>
-
-            <div>
-                <label className={labelClass}>Login Headers</label>
-                <div className="space-y-1">
-                    {(collection.autoAuthLoginHeaders || []).map((h, idx) => (
-                        <div key={idx} className="flex gap-1 items-center">
-                            <input
-                                type="text"
-                                value={h.key || ''}
-                                onChange={e => {
-                                    const updated = [...(collection.autoAuthLoginHeaders || [])];
-                                    updated[idx] = { ...updated[idx], key: e.target.value };
-                                    handleChange('autoAuthLoginHeaders', updated);
-                                }}
-                                placeholder="Header"
-                                className={`${inputClass} flex-1`}
-                            />
-                            <input
-                                type="text"
-                                value={h.value || ''}
-                                onChange={e => {
-                                    const updated = [...(collection.autoAuthLoginHeaders || [])];
-                                    updated[idx] = { ...updated[idx], value: e.target.value };
-                                    handleChange('autoAuthLoginHeaders', updated);
-                                }}
-                                placeholder="Value"
-                                className={`${inputClass} flex-1`}
-                            />
-                            <button
-                                onClick={() => handleChange('autoAuthLoginHeaders', (collection.autoAuthLoginHeaders || []).filter((_, i) => i !== idx))}
-                                className="text-slate-400 hover:text-red-500 text-[10px] px-0.5 shrink-0"
-                            >✕</button>
-                        </div>
-                    ))}
-                    <button
-                        onClick={() => handleChange('autoAuthLoginHeaders', [...(collection.autoAuthLoginHeaders || []), { key: '', value: '' }])}
-                        className="text-[9px] text-corporate-600 dark:text-corporate-400 hover:underline"
-                    >+ Add Header</button>
-                </div>
-            </div>
-
-            <div>
-                <label className={labelClass}>Login Body (JSON)</label>
-                <textarea
-                    value={collection.autoAuthBody || ''}
-                    onChange={(e) => handleChange('autoAuthBody', e.target.value)}
-                    placeholder='{"email": "user@example.com", "password": "pass"}'
-                    className={`${inputClass} resize-none`}
-                    rows={3}
-                />
-            </div>
-
-            <div className="flex items-center gap-1.5">
-                <button
-                    onClick={handleTestLogin}
-                    disabled={tokenStatus === 'loading' || !collection.autoAuthLoginUrl}
-                    className="px-2.5 py-1 text-[10px] font-semibold text-white bg-corporate-600 hover:bg-corporate-700 disabled:bg-slate-300 dark:disabled:bg-slate-600 rounded transition-colors"
-                >
-                    {tokenStatus === 'loading' ? 'Logging in...' : 'Test Login'}
-                </button>
-                {collection.autoAuthToken && (
-                    <button
-                        onClick={() => updateCollection(collection.id, { autoAuthToken: '', autoAuthTokenTime: null })}
-                        className="px-2 py-1 text-[10px] text-slate-500 hover:text-red-500 transition-colors"
-                    >
-                        Clear Token
-                    </button>
-                )}
-            </div>
-
-            {collection.autoAuthToken && (
-                <div className="p-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
-                    <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[9px] font-bold text-green-700 dark:text-green-400">
-                            {tokenStatus === 'success' ? 'Token acquired' : 'Cached token'}
-                        </span>
-                        <div className="flex items-center gap-1">
-                            <button
-                                onClick={() => { navigator.clipboard.writeText(collection.autoAuthToken); }}
-                                className="text-[8px] px-1.5 py-0.5 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-700 transition-colors"
-                                title="Copy token"
-                            >
-                                Copy
-                            </button>
-                            <button
-                                onClick={handleTestLogin}
-                                disabled={tokenStatus === 'loading' || !collection.autoAuthLoginUrl}
-                                className="text-[8px] px-1.5 py-0.5 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-700 transition-colors disabled:opacity-50"
-                                title="Refresh token"
-                            >
-                                Refresh
-                            </button>
-                        </div>
-                    </div>
-                    <code className="text-[9px] text-green-800 dark:text-green-300 break-all block font-mono">
-                        {collection.autoAuthToken.length > 60 ? collection.autoAuthToken.slice(0, 60) + '...' : collection.autoAuthToken}
-                    </code>
-                    {collection.autoAuthTokenTime && (
-                        <span className="text-[8px] text-green-500 dark:text-green-500 mt-0.5 block">
-                            {new Date(collection.autoAuthTokenTime).toLocaleString()}
-                        </span>
-                    )}
-                </div>
-            )}
-
-            {tokenStatus === 'error' && (
-                <div className="p-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
-                    <span className="text-[9px] font-bold text-red-600 dark:text-red-400">Login Failed</span>
-                    <p className="text-[9px] text-red-500 dark:text-red-400 mt-0.5 break-all">{tokenError}</p>
-                </div>
-            )}
-
-            <p className="text-[9px] text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800 pt-1">
-                Token refreshes automatically if older than 30 min. Sent as <code className="bg-slate-100 dark:bg-slate-800 px-0.5 rounded text-[8px]">Authorization: Bearer &lt;token&gt;</code>
-            </p>
-        </div>
-    );
-};
-
-
 export const Sidebar = ({ onCollapse }) => {
     const collections = useWorkspaceStore(state => state.collections);
     const addRequest = useWorkspaceStore(state => state.addRequest);
     const addWebSocket = useWorkspaceStore(state => state.addWebSocket);
     const addCollection = useWorkspaceStore(state => state.addCollection);
     const addFolderAction = useWorkspaceStore(state => state.addFolder);
-    const activeCollectionId = useWorkspaceStore(state => state.activeCollectionId);
-    const viewRunFromHistory = useWorkspaceStore(state => state.viewRunFromHistory);
-    const updateCollection = useWorkspaceStore(state => state.updateCollection);
-    // Per-collection run history
-    const activeCollection = collections.find(c => c.id === activeCollectionId);
-    const runHistory = activeCollection?.runHistory || [];
     const activeEnv = useWorkspaceStore(state => state.activeEnv);
     const requestHistory = useWorkspaceStore(state => state.requestHistory);
     const [searchQuery, setSearchQuery] = useState('');
@@ -647,13 +438,10 @@ export const Sidebar = ({ onCollapse }) => {
     const [showAddMenu, setShowAddMenu] = useState(false);
     const [showInlineNewColl, setShowInlineNewColl] = useState(false);
     const [inlineNewCollName, setInlineNewCollName] = useState('');
-    const [showHistory, setShowHistory] = useState(false);
     const [showRequestHistory, setShowRequestHistory] = useState(false);
     const [showEnvManager, setShowEnvManager] = useState(false);
     const [showCurlImport, setShowCurlImport] = useState(false);
     const [showCollectionImport, setShowCollectionImport] = useState(false);
-    const [showCollectionAuth, setShowCollectionAuth] = useState(false);
-    const [showCollectionScripts, setShowCollectionScripts] = useState(false);
     const addMenuRef = useRef(null);
 
     // Close add menu on outside click
@@ -696,7 +484,7 @@ export const Sidebar = ({ onCollapse }) => {
         : null;
 
     return (
-        <div className="w-64 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 h-full flex flex-col font-sans">
+        <div className="w-full bg-slate-50 dark:bg-slate-800 h-full flex flex-col font-sans">
             {/* Header */}
             <div className="h-12 border-b border-slate-200 dark:border-slate-700 flex items-center px-3 justify-between bg-white dark:bg-slate-900">
                 <div className="flex items-center gap-1.5">
@@ -912,183 +700,6 @@ export const Sidebar = ({ onCollapse }) => {
                 </div>
             )}
 
-            {/* Run History */}
-            {runHistory && runHistory.length > 0 && (
-                <div className="border-t border-slate-200 dark:border-slate-700">
-                    <button
-                        onClick={() => setShowHistory(!showHistory)}
-                        className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                    >
-                        <div className="flex items-center gap-2">
-                            <History size={12} />
-                            <span className="uppercase tracking-wider text-[10px]">Run History</span>
-                            <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500">({runHistory.length})</span>
-                        </div>
-                        {showHistory ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                    </button>
-                    {showHistory && (
-                        <div className="max-h-48 overflow-y-auto">
-                            {runHistory.map(run => (
-                                <button
-                                    key={run.id}
-                                    onClick={() => viewRunFromHistory(run.id)}
-                                    className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate">{run.collectionName}</span>
-                                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                                            <span className="flex items-center gap-0.5 text-[10px] text-green-600 dark:text-green-400">
-                                                <CheckCircle size={9} /> {run.summary?.passed || 0}
-                                            </span>
-                                            {run.summary?.failed > 0 && (
-                                                <span className="flex items-center gap-0.5 text-[10px] text-red-600 dark:text-red-400">
-                                                    <XCircle size={9} /> {run.summary.failed}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                                        {new Date(run.timestamp).toLocaleString()} — {run.summary?.totalTime || 0}ms
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* Collection Auth Panel */}
-            {activeCollection && (
-                <div className="border-t border-slate-200 dark:border-slate-700">
-                    <button
-                        onClick={() => setShowCollectionAuth(!showCollectionAuth)}
-                        className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                    >
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px]">🔑</span>
-                            <span className="uppercase tracking-wider text-[10px]">Collection Auth</span>
-                            {activeCollection.authType && activeCollection.authType !== 'none' && (
-                                <span className="text-[9px] bg-corporate-100 dark:bg-corporate-900/30 text-corporate-600 dark:text-corporate-400 px-1 rounded">
-                                    {{ bearer: 'Bearer', basic: 'Basic', apikey: 'API Key', 'auto-auth': 'Auto' }[activeCollection.authType] || activeCollection.authType}
-                                </span>
-                            )}
-                        </div>
-                        {showCollectionAuth ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                    </button>
-                    {showCollectionAuth && (
-                        <div className="px-3 pb-3 space-y-2">
-                            <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                                All requests in this collection inherit this auth unless they have their own.
-                            </p>
-                            <select
-                                value={activeCollection.authType || 'none'}
-                                onChange={(e) => updateCollection(activeCollection.id, { authType: e.target.value })}
-                                className="w-full text-xs px-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-corporate-500"
-                            >
-                                <option value="none">No Auth</option>
-                                <option value="bearer">Bearer Token</option>
-                                <option value="basic">Basic Auth</option>
-                                <option value="apikey">API Key</option>
-                                <option value="auto-auth">Auto-Auth (Login → Token)</option>
-                            </select>
-
-                            {activeCollection.authType === 'bearer' && (
-                                <input
-                                    type="text"
-                                    placeholder="Bearer token..."
-                                    value={activeCollection.authToken || ''}
-                                    onChange={(e) => updateCollection(activeCollection.id, { authToken: e.target.value })}
-                                    className="w-full text-xs px-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-corporate-500"
-                                />
-                            )}
-                            {activeCollection.authType === 'basic' && (
-                                <>
-                                    <input
-                                        type="text"
-                                        placeholder="Username"
-                                        value={activeCollection.authUsername || ''}
-                                        onChange={(e) => updateCollection(activeCollection.id, { authUsername: e.target.value })}
-                                        className="w-full text-xs px-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-corporate-500"
-                                    />
-                                    <input
-                                        type="password"
-                                        placeholder="Password"
-                                        value={activeCollection.authPassword || ''}
-                                        onChange={(e) => updateCollection(activeCollection.id, { authPassword: e.target.value })}
-                                        className="w-full text-xs px-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-corporate-500"
-                                    />
-                                </>
-                            )}
-                            {activeCollection.authType === 'apikey' && (
-                                <>
-                                    <input
-                                        type="text"
-                                        placeholder="Header name (e.g. X-API-Key)"
-                                        value={activeCollection.authKeyName || ''}
-                                        onChange={(e) => updateCollection(activeCollection.id, { authKeyName: e.target.value })}
-                                        className="w-full text-xs px-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-corporate-500"
-                                    />
-                                    <input
-                                        type="text"
-                                        placeholder="API key value"
-                                        value={activeCollection.authKeyValue || ''}
-                                        onChange={(e) => updateCollection(activeCollection.id, { authKeyValue: e.target.value })}
-                                        className="w-full text-xs px-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-corporate-500"
-                                    />
-                                </>
-                            )}
-                            {activeCollection.authType === 'auto-auth' && (
-                                <CollectionAutoAuthPanel collection={activeCollection} updateCollection={updateCollection} />
-                            )}
-                        </div>
-                    )}
-                </div>
-            )}
-            {/* Collection Scripts Panel */}
-            {activeCollection && (
-                <div className="border-t border-slate-200 dark:border-slate-700">
-                    <button
-                        onClick={() => setShowCollectionScripts(!showCollectionScripts)}
-                        className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                    >
-                        <div className="flex items-center gap-2">
-                            <Terminal size={12} />
-                            <span className="uppercase tracking-wider text-[10px]">Collection Scripts</span>
-                            {(activeCollection.preScript || activeCollection.postScript) && (
-                                <span className="w-1.5 h-1.5 bg-corporate-500 rounded-full" />
-                            )}
-                        </div>
-                        {showCollectionScripts ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                    </button>
-                    {showCollectionScripts && (
-                        <div className="px-3 pb-3 space-y-2">
-                            <p className="text-[9px] text-slate-400 dark:text-slate-500">
-                                Runs before/after every request in this collection (before individual request scripts).
-                            </p>
-                            <div>
-                                <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 block">Pre-request Script</label>
-                                <textarea
-                                    value={activeCollection.preScript || ''}
-                                    onChange={(e) => updateCollection(activeCollection.id, { preScript: e.target.value })}
-                                    placeholder="// Runs before each request&#10;pm.variables.set('token', 'abc');"
-                                    rows={4}
-                                    className="w-full text-[10px] font-mono px-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-slate-900 text-green-400 outline-none focus:ring-1 focus:ring-corporate-500 resize-none placeholder-slate-600"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 block">Post-response Script</label>
-                                <textarea
-                                    value={activeCollection.postScript || ''}
-                                    onChange={(e) => updateCollection(activeCollection.id, { postScript: e.target.value })}
-                                    placeholder="// Runs after each request&#10;pm.test('Status OK', () => pm.expect(pm.response.status).to.equal(200));"
-                                    rows={4}
-                                    className="w-full text-[10px] font-mono px-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-slate-900 text-green-400 outline-none focus:ring-1 focus:ring-corporate-500 resize-none placeholder-slate-600"
-                                />
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
             </div>{/* End scrollable area */}
 
             {/* Footer — Environment Indicator */}

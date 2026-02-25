@@ -142,6 +142,25 @@ export const CollectionRunner = () => {
      *           3) "Inherit"/unset = use collection auth  4) Nothing = no auth
      */
     const getEffectiveAuth = (req, col) => {
+        // 0. Force collection auth: override ALL request auth
+        if (col?.forceCollectionAuth && col.authType && col.authType !== 'none') {
+            return {
+                type: col.authType,
+                token: col.authToken,
+                username: col.authUsername,
+                password: col.authPassword,
+                keyName: col.authKeyName,
+                keyValue: col.authKeyValue,
+                autoAuthLoginUrl: col.autoAuthLoginUrl,
+                autoAuthMethod: col.autoAuthMethod,
+                autoAuthBody: col.autoAuthBody,
+                autoAuthTokenPath: col.autoAuthTokenPath,
+                autoAuthLoginHeaders: col.autoAuthLoginHeaders,
+                autoAuthToken: col.autoAuthToken,
+                autoAuthTokenTime: col.autoAuthTokenTime,
+            };
+        }
+
         // 1. "No Auth" explicitly selected — NO inheritance, return immediately
         if (req.authType === 'none') {
             return { type: 'none' };

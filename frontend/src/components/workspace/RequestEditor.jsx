@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Activity, AlertCircle, CheckCircle, Clock, FileText, Copy, Download, Link, Code2 } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { ResizeHandle } from './ResizeHandle';
 import { CustomMethodSelect } from './CustomMethodSelect';
 import { KeyValueEditor } from './KeyValueEditor';
 import { JsonViewer, TableViewer } from './JsonViewer';
@@ -283,6 +284,16 @@ export const RequestEditor = ({ tabId }) => {
     const collections = useWorkspaceStore(state => state.collections);
     const activeCollectionId = useWorkspaceStore(state => state.activeCollectionId);
     const localMode = useWorkspaceStore(state => state.localMode);
+    const editorSplitRatio = useWorkspaceStore(state => state.editorSplitRatio);
+    const setEditorSplitRatio = useWorkspaceStore(state => state.setEditorSplitRatio);
+    const splitContainerRef = useRef(null);
+
+    const handleEditorSplitResize = useCallback((clientX) => {
+        if (!splitContainerRef.current) return;
+        const rect = splitContainerRef.current.getBoundingClientRect();
+        const ratio = (clientX - rect.left) / rect.width;
+        setEditorSplitRatio(ratio);
+    }, [setEditorSplitRatio]);
 
     // Derived from store
     const loading = responseEntry?.loading || false;
@@ -440,20 +451,25 @@ export const RequestEditor = ({ tabId }) => {
                 }
             });
 
-            // Apply auth headers (with collection-level inheritance support)
-            // Priority: 'none' = no auth | own auth = use it | 'inherit'/undefined = collection auth
+            // Apply auth headers (with collection-level inheritance + force support)
+            // Priority: force collection auth > own auth > inherit from collection
             let effectiveAuthType = request.authType;
             let authSource = request;
 
-            // "No Auth" explicitly selected — skip inheritance
-            if (effectiveAuthType === 'none') {
+            const currentCol = collections.find(c => c.id === activeCollectionId);
+
+            // Force collection auth: override all individual request auth
+            if (currentCol?.forceCollectionAuth && currentCol.authType && currentCol.authType !== 'none') {
+                effectiveAuthType = currentCol.authType;
+                authSource = currentCol;
+            } else if (effectiveAuthType === 'none') {
+                // "No Auth" explicitly selected — skip inheritance
                 // No auth, do nothing
             } else if (!effectiveAuthType || effectiveAuthType === 'inherit') {
                 // Inherit from collection (undefined/empty also inherits)
-                const col = collections.find(c => c.id === activeCollectionId);
-                if (col && col.authType && col.authType !== 'none') {
-                    effectiveAuthType = col.authType;
-                    authSource = col;
+                if (currentCol && currentCol.authType && currentCol.authType !== 'none') {
+                    effectiveAuthType = currentCol.authType;
+                    authSource = currentCol;
                 } else {
                     effectiveAuthType = 'none';
                 }
@@ -843,9 +859,9 @@ export const RequestEditor = ({ tabId }) => {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden" ref={splitContainerRef}>
                 {/* Left: Request Params/Body */}
-                <div className="w-1/2 border-r border-slate-200 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-900">
+                <div className="border-r border-slate-200 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-900" style={{ width: `${editorSplitRatio * 100}%` }}>
                     <div className="h-10 border-b border-slate-200 dark:border-slate-700 flex items-center px-1 text-xs font-semibold text-slate-500 dark:text-slate-400 overflow-x-auto scrollbar-hide shrink min-w-0">
                         {['params', 'headers', 'body', 'auth', 'scripts', 'assertions'].map(tab => (
                             <button
@@ -907,14 +923,57 @@ export const RequestEditor = ({ tabId }) => {
                             </div>
                         )}
 
-                        {activeSubTab === 'auth' && (
+                        {activeSubTab === 'auth' && (() => {
+                            const authCol = collections.find(c => c.id === activeCollectionId);
+                            const isForced = authCol?.forceCollectionAuth && authCol?.authType && authCol.authType !== 'none';
+                            const AUTH_LABELS = { bearer: 'Bearer Token', basic: 'Basic Auth', apikey: 'API Key', 'auto-auth': 'Auto-Auth' };
+                            return (
                             <div className="p-4">
                                 <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Authorization</div>
+
+                                {isForced && (
+                                    <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase">From Collection</span>
+                                            <span className="text-[10px] bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded font-semibold">
+                                                {AUTH_LABELS[authCol.authType] || authCol.authType}
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                                            Collection auth is forced on all requests. Values come from collection settings.
+                                        </p>
+                                        {authCol.authType === 'bearer' && authCol.authToken && (
+                                            <div className="mt-2 p-2 bg-white dark:bg-slate-800 rounded border border-amber-200 dark:border-amber-700">
+                                                <span className="text-[9px] text-slate-500 dark:text-slate-400">Token:</span>
+                                                <code className="text-[10px] text-slate-700 dark:text-slate-300 break-all block mt-0.5 font-mono">
+                                                    {authCol.authToken.length > 60 ? authCol.authToken.slice(0, 60) + '...' : authCol.authToken}
+                                                </code>
+                                            </div>
+                                        )}
+                                        {authCol.authType === 'basic' && (
+                                            <div className="mt-2 p-2 bg-white dark:bg-slate-800 rounded border border-amber-200 dark:border-amber-700 text-[10px] text-slate-700 dark:text-slate-300">
+                                                User: <code className="font-mono">{authCol.authUsername || '(empty)'}</code>
+                                            </div>
+                                        )}
+                                        {authCol.authType === 'apikey' && (
+                                            <div className="mt-2 p-2 bg-white dark:bg-slate-800 rounded border border-amber-200 dark:border-amber-700 text-[10px] text-slate-700 dark:text-slate-300">
+                                                Header: <code className="font-mono">{authCol.authKeyName || 'X-API-Key'}</code> = <code className="font-mono">{authCol.authKeyValue ? (authCol.authKeyValue.length > 30 ? authCol.authKeyValue.slice(0, 30) + '...' : authCol.authKeyValue) : '(empty)'}</code>
+                                            </div>
+                                        )}
+                                        {authCol.authType === 'auto-auth' && authCol.autoAuthToken && (
+                                            <div className="mt-2 p-2 bg-white dark:bg-slate-800 rounded border border-amber-200 dark:border-amber-700 text-[10px] text-green-700 dark:text-green-400">
+                                                Auto-Auth token cached
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 <div className="flex items-center gap-2 mb-3">
                                     <select
                                         value={request.authType || 'none'}
                                         onChange={(e) => handleChange('authType', e.target.value)}
-                                        className="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1.5 outline-none focus:ring-1 focus:ring-corporate-500 text-slate-700 dark:text-slate-300"
+                                        disabled={isForced}
+                                        className={`text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1.5 outline-none focus:ring-1 focus:ring-corporate-500 text-slate-700 dark:text-slate-300 ${isForced ? 'opacity-50' : ''}`}
                                     >
                                         <option value="none">No Auth</option>
                                         <option value="inherit">Inherit from Collection</option>
@@ -923,9 +982,10 @@ export const RequestEditor = ({ tabId }) => {
                                         <option value="apikey">API Key</option>
                                         <option value="auto-auth">Auto-Auth (Login → Token)</option>
                                     </select>
+                                    {isForced && <span className="text-[10px] text-amber-600 dark:text-amber-400 italic">Overridden by collection</span>}
                                 </div>
 
-                                {request.authType === 'inherit' && (
+                                {request.authType === 'inherit' && !isForced && (
                                     <p className="text-[10px] text-slate-400 dark:text-slate-500 italic">
                                         This request will use the auth configured on its parent collection.
                                     </p>
@@ -1010,11 +1070,12 @@ export const RequestEditor = ({ tabId }) => {
                                     <AutoAuthPanel request={request} handleChange={handleChange} />
                                 )}
 
-                                {(!request.authType || request.authType === 'none') && (
+                                {(!request.authType || request.authType === 'none') && !isForced && (
                                     <p className="text-xs text-slate-400 dark:text-slate-500">No authorization headers will be added to this request.</p>
                                 )}
                             </div>
-                        )}
+                            );
+                        })()}
 
                         {activeSubTab === 'scripts' && (
                             <div className="h-full flex flex-col p-4 gap-4">
@@ -1247,8 +1308,10 @@ export const RequestEditor = ({ tabId }) => {
                     </div>
                 </div>
 
+                <ResizeHandle onResize={handleEditorSplitResize} />
+
                 {/* Right: Response */}
-                <div className="w-1/2 flex flex-col bg-slate-50 dark:bg-slate-800">
+                <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-800 min-w-0">
                     <div className="h-10 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center px-1 text-xs font-semibold text-slate-500 dark:text-slate-400 justify-between">
                         <div className="flex items-center gap-1 h-full overflow-x-auto scrollbar-hide shrink min-w-0">
                             {['body', 'headers', ...(scriptResults ? ['tests'] : []), ...(assertionResults?.total > 0 ? ['assertions'] : []), ...(debugEntries.length > 0 ? ['console'] : [])].map(tab => (

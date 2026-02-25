@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Folder, Play, FlaskConical, CheckCircle, XCircle, Plus, Terminal, Upload, Clock, ArrowRight, Zap, FileText } from 'lucide-react';
-import { useWorkspaceStore } from '../../store/workspaceStore';
+import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
 import { CurlImportModal } from './CurlImportModal';
 import { ImportCollectionModal } from './ImportCollectionModal';
 
@@ -52,7 +52,7 @@ export const Dashboard = () => {
     const recentRuns = getAllRecentRuns();
 
     // Update time reference every 60 seconds for fresh "ago" displays
-    const [now, setNow] = useState(Date.now());
+    const [now, setNow] = useState(() => Date.now());
     React.useEffect(() => {
         const interval = setInterval(() => setNow(Date.now()), 60000);
         return () => clearInterval(interval);
@@ -147,7 +147,7 @@ export const Dashboard = () => {
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {collections.map(col => {
-                                const itemCount = (col.items || []).filter(i => i.type === 'request').length;
+                                const itemCount = flattenItems(col.items, 'request').length;
                                 const testCount = (col.testSuites || []).length;
                                 const lastRun = getLastRunStats(col);
 

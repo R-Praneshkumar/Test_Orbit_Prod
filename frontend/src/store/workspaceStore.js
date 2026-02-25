@@ -30,6 +30,19 @@ function resolveDynamicVar(key) {
         default: return undefined;
     }
 }
+// Recursively flatten all items from a nested collection structure
+// type param filters by item type (e.g., 'request', 'folder'); omit for all items
+export const flattenItems = (items, type) => {
+    const result = [];
+    for (const item of (items || [])) {
+        if (!type || item.type === type) result.push(item);
+        if (item.items) result.push(...flattenItems(item.items, type));
+    }
+    return result;
+};
+
+// Find the immediate parent array containing a target item ID
+
 export const useWorkspaceStore = create(persist((set, get) => ({
     // --- Data ---
     collections: [
@@ -68,6 +81,9 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     localMode: false, // When true, requests are sent directly from browser (bypasses /proxy — enables localhost testing)
     sidebarCollapsed: false,
     intelligenceCollapsed: false,
+    sidebarWidth: 256,
+    intelligenceWidth: 320,
+    editorSplitRatio: 0.5,
 
     // Tour State
     activeTour: null,
@@ -512,7 +528,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         if (!col) return { imported: 0, skipped: 0 };
 
         const existingKeys = new Set(
-            (col.items || []).filter(i => i.type === 'request').map(i => `${i.method}::${i.url}`)
+            flattenItems(col.items, 'request').map(i => `${i.method}::${i.url}`)
         );
 
         let imported = 0, skipped = 0;
@@ -562,6 +578,25 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         )
     })),
 
+    // Open collection settings as a tab in the editor area
+    openCollectionSettings: (colId) => set((state) => {
+        const col = state.collections.find(c => c.id === colId);
+        if (!col) return {};
+        const tabId = `settings-${colId}`;
+        const settingsTab = {
+            id: tabId, type: 'collection-settings', name: col.name,
+            collectionId: colId
+        };
+        const existing = state.activeTabs.find(t => t.id === tabId);
+        if (existing) {
+            return { activeTabId: tabId, activeCollectionId: colId, currentView: 'workspace' };
+        }
+        return {
+            activeTabs: [...state.activeTabs, settingsTab],
+            activeTabId: tabId, activeCollectionId: colId, currentView: 'workspace'
+        };
+    }),
+
     // --- Actions ---
 
     // Tabs
@@ -570,7 +605,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         let colId = item.collectionId || null;
         if (!colId) {
             for (const col of state.collections) {
-                if ((col.items || []).some(i => i.id === item.id)) {
+                if (flattenItems(col.items).some(i => i.id === item.id)) {
                     colId = col.id;
                     break;
                 }
@@ -624,6 +659,9 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     toggleLocalMode: () => set((state) => ({ localMode: !state.localMode })),
     toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
     toggleIntelligence: () => set((state) => ({ intelligenceCollapsed: !state.intelligenceCollapsed })),
+    setSidebarWidth: (w) => set({ sidebarWidth: Math.max(200, Math.min(400, w)) }),
+    setIntelligenceWidth: (w) => set({ intelligenceWidth: Math.max(240, Math.min(480, w)) }),
+    setEditorSplitRatio: (r) => set({ editorSplitRatio: Math.max(0.25, Math.min(0.75, r)) }),
 
     // Tour Actions
     startTour: (tourName) => set(() => {
@@ -640,12 +678,11 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     startTutorial: (tutorialName) => set({ activeTutorial: tutorialName }),
     stopTutorial: () => set({ activeTutorial: null }),
 
-    // Find which collection a request belongs to
+    // Find which collection a request belongs to (recursive — checks inside folders)
     findCollectionForRequest: (reqId) => {
         const state = get();
         for (const col of state.collections) {
-            const found = (col.items || []).some(item => item.id === reqId);
-            if (found) return col.id;
+            if (flattenItems(col.items).some(item => item.id === reqId)) return col.id;
         }
         return null;
     },
@@ -679,6 +716,8 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 autoAuthLoginHeaders: [],
                 autoAuthToken: '',
                 autoAuthTokenTime: null,
+                // Force collection auth on all requests
+                forceCollectionAuth: false,
                 // Collection-level scripts
                 preScript: '',
                 postScript: '',
@@ -963,9 +1002,9 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             let original = null;
             let parentColId = null;
 
-            // Find the original request and its parent collection
+            // Find the original request recursively (supports items inside folders)
             for (const col of state.collections) {
-                const found = (col.items || []).find(item => item.id === id);
+                const found = flattenItems(col.items).find(item => item.id === id);
                 if (found) {
                     original = found;
                     parentColId = col.id;
@@ -977,10 +1016,23 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             const newId = uuidv4();
             const duplicate = { ...original, id: newId, name: `${original.name} (copy)`, collectionId: parentColId };
 
+            // Insert duplicate next to the original (even inside folders)
+            const insertDuplicateAfter = (items) => {
+                const result = [];
+                for (const item of items) {
+                    result.push(item);
+                    if (item.id === id) result.push(duplicate);
+                    else if (item.items) {
+                        result[result.length - 1] = { ...item, items: insertDuplicateAfter(item.items) };
+                    }
+                }
+                return result;
+            };
+
             return {
                 collections: state.collections.map(col =>
                     col.id === parentColId
-                        ? { ...col, items: [...col.items, duplicate] }
+                        ? { ...col, items: insertDuplicateAfter(col.items) }
                         : col
                 ),
                 activeTabs: [...state.activeTabs, duplicate],
@@ -1022,7 +1074,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             runner: {
                 collectionId,
                 collectionName: col.name,
-                requests: (col.items || []).filter(i => i.type === 'request'),
+                requests: flattenItems(col.items, 'request'),
                 running: false,
                 progress: 0,
                 results: [],
@@ -1319,7 +1371,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
 }), {
     name: 'gemini-workspace-storage',
-    version: 9,
+    version: 11,
     partialize: (state) => {
         // Exclude transient runtime data from persistence
         // _realtimeChannel contains circular refs (RealtimeChannel → socket → channels → channel)
@@ -1438,6 +1490,19 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 preScript: col.preScript || '',
                 postScript: col.postScript || '',
             }));
+        }
+        if (version < 10) {
+            // v9 → v10: Add forceCollectionAuth to all collections
+            persisted.collections = (persisted.collections || []).map(col => ({
+                ...col,
+                forceCollectionAuth: col.forceCollectionAuth || false,
+            }));
+        }
+        if (version < 11) {
+            // v10 → v11: Add resizable panel widths
+            persisted.sidebarWidth = persisted.sidebarWidth || 256;
+            persisted.intelligenceWidth = persisted.intelligenceWidth || 320;
+            persisted.editorSplitRatio = persisted.editorSplitRatio || 0.5;
         }
         return persisted;
     },

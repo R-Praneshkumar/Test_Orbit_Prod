@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { Sidebar } from './components/workspace/Sidebar';
 import { TabManager } from './components/workspace/TabManager';
 import { RequestEditor } from './components/workspace/RequestEditor';
@@ -6,9 +6,11 @@ import { IntelligencePanel } from './components/workspace/IntelligencePanel';
 import { CollectionRunner } from './components/workspace/CollectionRunner';
 import { WebSocketTester } from './components/workspace/WebSocketTester';
 import { Dashboard } from './components/workspace/Dashboard';
+import { CollectionSettings } from './components/workspace/CollectionSettings';
 import { MockServerPanel } from './components/workspace/MockServerPanel';
 import { DocsPanel } from './components/workspace/DocsPanel';
-import { useWorkspaceStore } from './store/workspaceStore';
+import { ResizeHandle } from './components/workspace/ResizeHandle';
+import { useWorkspaceStore, flattenItems } from './store/workspaceStore';
 import { Layout, Home, Wrench, Server, Book, Sun, Moon, Wifi, WifiOff, PanelLeftOpen, PanelRightOpen, FolderTree, Search, Sparkles, MessageSquare, FlaskConical } from 'lucide-react';
 import AuthPage from './components/common/AuthPage';
 import ProfilePage from './components/common/ProfilePage';
@@ -31,7 +33,19 @@ function App() {
   const toggleSidebar = useWorkspaceStore(state => state.toggleSidebar);
   const intelligenceCollapsed = useWorkspaceStore(state => state.intelligenceCollapsed);
   const toggleIntelligence = useWorkspaceStore(state => state.toggleIntelligence);
+  const sidebarWidth = useWorkspaceStore(state => state.sidebarWidth);
+  const setSidebarWidth = useWorkspaceStore(state => state.setSidebarWidth);
+  const intelligenceWidth = useWorkspaceStore(state => state.intelligenceWidth);
+  const setIntelligenceWidth = useWorkspaceStore(state => state.setIntelligenceWidth);
   const initializeAuth = useWorkspaceStore(state => state.initializeAuth);
+
+  const handleSidebarResize = useCallback((clientX) => {
+    setSidebarWidth(clientX);
+  }, [setSidebarWidth]);
+
+  const handleIntelligenceResize = useCallback((clientX) => {
+    setIntelligenceWidth(window.innerWidth - clientX);
+  }, [setIntelligenceWidth]);
 
   // Init Supabase Auth once on mount — must not re-run on dark mode change (auth listener leak)
   useEffect(() => {
@@ -44,6 +58,19 @@ function App() {
     else document.documentElement.classList.remove('dark');
   }, [darkMode]);
 
+  // Responsive auto-collapse on small screens
+  useEffect(() => {
+    const handleResize = () => {
+      const w = window.innerWidth;
+      const store = useWorkspaceStore.getState();
+      if (w < 1200 && !store.intelligenceCollapsed) store.toggleIntelligence();
+      if (w < 900 && !store.sidebarCollapsed) store.toggleSidebar();
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize(); // run once on mount
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Check if activeTabId belongs to the current active collection
   const activeTabInCollection = (() => {
     if (!activeTabId || !activeCollectionId) return false;
@@ -51,7 +78,7 @@ function App() {
     if (!tab) return false;
     if (tab.collectionId) return tab.collectionId === activeCollectionId;
     const col = collections.find(c => c.id === activeCollectionId);
-    return col ? (col.items || []).some(i => i.id === activeTabId) : false;
+    return col ? flattenItems(col.items).some(i => i.id === activeTabId) : false;
   })();
 
   const visibleTabId = activeTabInCollection ? activeTabId : null;
@@ -235,9 +262,12 @@ function App() {
               </button>
             </div>
           ) : (
-            <div className="flex flex-col border-r border-slate-200 dark:border-slate-800" data-tour="sidebar">
-              <Sidebar onCollapse={toggleSidebar} />
-            </div>
+            <>
+              <div className="flex flex-col border-r border-slate-200 dark:border-slate-800 shrink-0" style={{ width: sidebarWidth }} data-tour="sidebar">
+                <Sidebar onCollapse={toggleSidebar} />
+              </div>
+              <ResizeHandle onResize={handleSidebarResize} />
+            </>
           )}
 
           {/* 2. Main Content Area */}
@@ -247,9 +277,11 @@ function App() {
             {runner ? (
               <CollectionRunner />
             ) : visibleTabId ? (
-              visibleTab?.type === 'websocket'
-                ? <WebSocketTester tabId={visibleTabId} />
-                : <RequestEditor tabId={visibleTabId} />
+              visibleTab?.type === 'collection-settings'
+                ? <CollectionSettings collectionId={visibleTab.collectionId} />
+                : visibleTab?.type === 'websocket'
+                  ? <WebSocketTester tabId={visibleTabId} />
+                  : <RequestEditor tabId={visibleTabId} />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 bg-slate-50/50 dark:bg-slate-900/50">
                 <div className="w-20 h-20 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm rounded-xl flex items-center justify-center mb-6">
@@ -297,9 +329,12 @@ function App() {
               </button>
             </div>
           ) : (
-            <div className="flex flex-col border-l border-slate-200 dark:border-slate-800" data-tour="intelligence-panel">
-              <IntelligencePanel onCollapse={toggleIntelligence} />
-            </div>
+            <>
+              <ResizeHandle onResize={handleIntelligenceResize} />
+              <div className="flex flex-col border-l border-slate-200 dark:border-slate-800 shrink-0" style={{ width: intelligenceWidth }} data-tour="intelligence-panel">
+                <IntelligencePanel onCollapse={toggleIntelligence} />
+              </div>
+            </>
           )}
         </div>
       )}

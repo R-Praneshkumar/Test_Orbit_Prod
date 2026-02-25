@@ -1,6 +1,6 @@
 import React from 'react';
-import { X } from 'lucide-react';
-import { useWorkspaceStore } from '../../store/workspaceStore';
+import { X, Settings } from 'lucide-react';
+import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
 
 const METHOD_COLORS = {
     GET: 'text-emerald-600',
@@ -23,7 +23,7 @@ export const TabManager = () => {
         if (tab.collectionId) return tab.collectionId === activeCollectionId;
         // Legacy tabs without collectionId: check if request exists in the active collection
         const col = collections.find(c => c.id === activeCollectionId);
-        if (col) return (col.items || []).some(i => i.id === tab.id);
+        if (col) return flattenItems(col.items).some(i => i.id === tab.id);
         return true; // fallback: show all if no collection selected
     });
 
@@ -50,9 +50,13 @@ export const TabManager = () => {
           `}
                     onClick={() => setActiveTab(tab.id)}
                 >
-                    <span className={`font-bold tracking-tight uppercase text-[10px] ${tab.type === 'websocket' ? 'text-violet-600' : METHOD_COLORS[tab.method] || 'text-slate-500'}`}>
-                        {tab.type === 'websocket' ? 'WS' : tab.method}
-                    </span>
+                    {tab.type === 'collection-settings' ? (
+                        <Settings size={12} className="text-slate-500 dark:text-slate-400 shrink-0" />
+                    ) : (
+                        <span className={`font-bold tracking-tight uppercase text-[10px] ${tab.type === 'websocket' ? 'text-violet-600' : METHOD_COLORS[tab.method] || 'text-slate-500'}`}>
+                            {tab.type === 'websocket' ? 'WS' : tab.method}
+                        </span>
+                    )}
 
                     <span className="truncate flex-1 font-sans">{tab.name}</span>
 
