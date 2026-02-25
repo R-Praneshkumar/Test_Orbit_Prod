@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { Play, X, Activity, CheckCircle, XCircle, Clock, Zap, BarChart3, ArrowDown, ArrowUp, FileText, History, Sparkles, ToggleLeft, ToggleRight, Stethoscope, Lightbulb, AlertTriangle } from 'lucide-react';
+import React, { useState, useCallback, useRef } from 'react';
+import { Play, X, Activity, CheckCircle, XCircle, Clock, Zap, BarChart3, ArrowDown, ArrowUp, FileText, History, Sparkles, ToggleLeft, ToggleRight, Stethoscope, Lightbulb, AlertTriangle, Upload, Database } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { runPreRequestScript, runPostResponseScript } from '../../utils/scriptEngine';
 
@@ -18,6 +18,46 @@ const IMPACT_COLORS = {
     Medium: 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-900/20 dark:border-amber-800',
     Low: 'text-green-700 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-900/20 dark:border-green-800',
 };
+
+// --- CSV/JSON data file parser ---
+function parseCSV(text) {
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length < 2) return null;
+    // Parse header
+    const parseRow = (line) => {
+        const cells = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"' && (i === 0 || line[i - 1] !== '\\')) { inQuotes = !inQuotes; continue; }
+            if (ch === ',' && !inQuotes) { cells.push(current.trim()); current = ''; continue; }
+            current += ch;
+        }
+        cells.push(current.trim());
+        return cells;
+    };
+    const headers = parseRow(lines[0]);
+    const rows = lines.slice(1).map(line => {
+        const cells = parseRow(line);
+        const obj = {};
+        headers.forEach((h, i) => { obj[h] = cells[i] || ''; });
+        return obj;
+    });
+    return { headers, rows };
+}
+
+function parseDataFile(text, filename) {
+    if (filename?.endsWith('.json')) {
+        try {
+            const data = JSON.parse(text);
+            if (Array.isArray(data) && data.length > 0) {
+                return { headers: Object.keys(data[0]), rows: data };
+            }
+        } catch { /* fall through to CSV */ }
+    }
+    return parseCSV(text);
+}
 
 export const CollectionRunner = () => {
     const runner = useWorkspaceStore(state => state.runner);
@@ -39,6 +79,10 @@ export const CollectionRunner = () => {
     const [diagnoses, setDiagnoses] = useState({});
     const [diagnosing, setDiagnosing] = useState({});
     const [expandedRow, setExpandedRow] = useState(null);
+    const [dataFile, setDataFile] = useState(null);
+    const [activeIteration, setActiveIteration] = useState(0);
+    const [iterationResults, setIterationResults] = useState([]);
+    const dataFileRef = useRef(null);
 
     const handleDiagnose = async (result) => {
         if (diagnosing[result.id]) return;
@@ -155,11 +199,23 @@ export const CollectionRunner = () => {
         setIsRunning(true);
         setRunnerState({ running: true, progress: 0, results: [], summary: null });
         setOptimizations([]);
+        setIterationResults([]);
+        setActiveIteration(0);
+
+        const iterations = dataFile?.rows || [null];
+        const allIterResults = [];
+        const startTotal = Date.now();
+
+        for (let iter = 0; iter < iterations.length; iter++) {
+        const iterRow = iterations[iter];
+        // Set data row values as chain vars for this iteration
+        if (iterRow) {
+            Object.entries(iterRow).forEach(([k, v]) => setChainVar(k, v));
+        }
 
         const results = [];
-        const startTotal = Date.now();
         // Local copy of chain vars for script chaining across requests
-        let runningVars = { ...chainVars };
+        let runningVars = iterRow ? { ...chainVars, ...iterRow } : { ...chainVars };
 
         for (let i = 0; i < requests.length; i++) {
             const req = requests[i];
@@ -170,7 +226,22 @@ export const CollectionRunner = () => {
             let scriptTestResults = [];
 
             try {
-                // --- Run Pre-request Script ---
+                // --- Run Collection Pre-request Script ---
+                const currentColForScripts = useWorkspaceStore.getState().collections.find(c => c.id === runner.collectionId);
+                if (currentColForScripts?.preScript?.trim()) {
+                    const colPreResult = runPreRequestScript(currentColForScripts.preScript, {
+                        variables: runningVars,
+                        environment: getEnvVars(),
+                        request: req,
+                    });
+                    if (colPreResult.updatedVars) {
+                        runningVars = { ...runningVars, ...colPreResult.updatedVars };
+                        Object.entries(colPreResult.updatedVars).forEach(([k, v]) => setChainVar(k, v));
+                    }
+                    scriptTestResults.push(...(colPreResult.testResults || []));
+                }
+
+                // --- Run Request Pre-request Script ---
                 if (req.preScript?.trim()) {
                     const preResult = runPreRequestScript(req.preScript, {
                         variables: runningVars,
@@ -331,12 +402,12 @@ export const CollectionRunner = () => {
                     : (status >= 200 && status < 300);
                 const size = responseBody ? new Blob([typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody)]).size : 0;
 
-                // --- Run Post-response Script ---
+                // --- Run Request Post-response Script ---
+                const responseData = {
+                    status, statusText: success ? 'OK' : (status ? `${status}` : 'Error'),
+                    data: responseBody, headers: resHeaders,
+                };
                 if (req.postScript?.trim()) {
-                    const responseData = {
-                        status, statusText: success ? 'OK' : (status ? `${status}` : 'Error'),
-                        data: responseBody, headers: resHeaders,
-                    };
                     const postResult = runPostResponseScript(req.postScript, {
                         variables: runningVars,
                         environment: getEnvVars(),
@@ -349,6 +420,22 @@ export const CollectionRunner = () => {
                         Object.entries(postResult.updatedVars).forEach(([k, v]) => setChainVar(k, v));
                     }
                     scriptTestResults.push(...(postResult.testResults || []));
+                }
+
+                // --- Run Collection Post-response Script ---
+                if (currentColForScripts?.postScript?.trim()) {
+                    const colPostResult = runPostResponseScript(currentColForScripts.postScript, {
+                        variables: runningVars,
+                        environment: getEnvVars(),
+                        request: { ...req, url: resolvedUrl, resolvedHeaders: headers },
+                        response: responseData,
+                        responseTime: elapsed,
+                    });
+                    if (colPostResult.updatedVars) {
+                        runningVars = { ...runningVars, ...colPostResult.updatedVars };
+                        Object.entries(colPostResult.updatedVars).forEach(([k, v]) => setChainVar(k, v));
+                    }
+                    scriptTestResults.push(...(colPostResult.testResults || []));
                 }
 
                 result = {
@@ -373,9 +460,17 @@ export const CollectionRunner = () => {
             setRunnerState({ results: [...results], progress: i + 1 });
         }
 
-        finishRun(results, Date.now() - startTotal);
+        allIterResults.push(results);
+        } // end iteration loop
+
+        // Show last iteration results in runner state; store all iterations
+        setIterationResults(allIterResults);
+        setActiveIteration(allIterResults.length - 1);
+        const finalResults = allIterResults.length > 0 ? allIterResults[allIterResults.length - 1] : [];
+        setRunnerState({ results: finalResults, progress: requests.length });
+        finishRun(finalResults, Date.now() - startTotal);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [runner, isRunning, setRunnerState, resolveVariables, chainVars, setChainVar, getEnvVars]);
+    }, [runner, isRunning, setRunnerState, resolveVariables, chainVars, setChainVar, getEnvVars, dataFile]);
 
     // Parallel execution via /run endpoint
     const runParallel = useCallback(async () => {
@@ -658,6 +753,40 @@ export const CollectionRunner = () => {
                     </p>
                 </div>
 
+                {/* Data File Upload */}
+                {!isHistorical && !isRunning && (
+                    <div className="flex items-center gap-1.5">
+                        <input ref={dataFileRef} type="file" accept=".csv,.json" className="hidden" onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                                const parsed = parseDataFile(ev.target.result, file.name);
+                                if (parsed && parsed.rows.length > 0) {
+                                    setDataFile({ name: file.name, ...parsed });
+                                }
+                            };
+                            reader.readAsText(file);
+                            e.target.value = '';
+                        }} />
+                        {dataFile ? (
+                            <div className="flex items-center gap-1 text-[10px] font-medium text-corporate-600 dark:text-corporate-400 px-2 py-1 rounded border border-corporate-200 dark:border-corporate-700 bg-corporate-50 dark:bg-corporate-900/20">
+                                <Database size={10} />
+                                <span>{dataFile.name} ({dataFile.rows.length} rows)</span>
+                                <button onClick={() => setDataFile(null)} className="ml-1 text-slate-400 hover:text-red-500">&times;</button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => dataFileRef.current?.click()}
+                                className="flex items-center gap-1 text-[10px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                                title="Upload CSV/JSON data file for data-driven testing"
+                            >
+                                <Upload size={10} /> Data File
+                            </button>
+                        )}
+                    </div>
+                )}
+
                 {/* Parallel/Sequential Toggle */}
                 {!isHistorical && !isRunning && (
                     <button
@@ -698,6 +827,29 @@ export const CollectionRunner = () => {
                         className={`h-full transition-all duration-300 ${isRunning ? 'bg-corporate-500' : summary?.failed > 0 ? 'bg-amber-500' : 'bg-green-500'}`}
                         style={{ width: `${progressPct}%` }}
                     />
+                </div>
+            )}
+
+            {/* Iteration Tabs (data-driven) */}
+            {iterationResults.length > 1 && (
+                <div className="flex items-center gap-1 px-6 py-1.5 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 overflow-x-auto">
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase mr-1">Iteration:</span>
+                    {iterationResults.map((_, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => {
+                                setActiveIteration(idx);
+                                setRunnerState({ results: iterationResults[idx], progress: runner.requests.length });
+                            }}
+                            className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
+                                activeIteration === idx
+                                    ? 'bg-corporate-600 text-white'
+                                    : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:border-corporate-300'
+                            }`}
+                        >
+                            {idx + 1}
+                        </button>
+                    ))}
                 </div>
             )}
 

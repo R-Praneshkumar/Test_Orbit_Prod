@@ -3,7 +3,7 @@ import { Play, Activity, AlertCircle, CheckCircle, Clock, FileText, Copy, Downlo
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { CustomMethodSelect } from './CustomMethodSelect';
 import { KeyValueEditor } from './KeyValueEditor';
-import { JsonViewer } from './JsonViewer';
+import { JsonViewer, TableViewer } from './JsonViewer';
 import { CodeGenModal } from './CodeGenModal';
 import { runPreRequestScript, runPostResponseScript } from '../../utils/scriptEngine';
 import { evaluateAssertions, createAssertion } from '../../utils/assertionEngine';
@@ -298,6 +298,8 @@ export const RequestEditor = ({ tabId }) => {
     const [showCodeGen, setShowCodeGen] = useState(false);
     const [scriptResults, setScriptResults] = useState(null); // { pre, post } script execution results
     const [assertionResults, setAssertionResults] = useState(null); // evaluated assertion results
+    const [responseViewMode, setResponseViewMode] = useState('json'); // 'json' | 'table'
+    const [debugEntries, setDebugEntries] = useState([]); // debug console entries
 
     // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
     useEffect(() => { setLocalUrl(request?.url || ''); }, [request?.id]);
@@ -373,29 +375,49 @@ export const RequestEditor = ({ tabId }) => {
         setResponseLoading(tabId, true);
         setScriptResults(null);
         setAssertionResults(null);
+        setDebugEntries([]);
+        const debugLog = [];
         const startTime = Date.now();
 
         // Resolve {{variable}} placeholders
         const resolvedUrl = resolveVariables(localUrl);
+        if (resolvedUrl !== localUrl) {
+            debugLog.push({ type: 'info', message: `URL resolved: ${localUrl} → ${resolvedUrl}`, timestamp: Date.now() });
+        } else {
+            debugLog.push({ type: 'info', message: `URL: ${resolvedUrl}`, timestamp: Date.now() });
+        }
 
-        // --- Run Pre-request Script ---
-        let preResult = null;
-        if (request.preScript?.trim()) {
-            preResult = runPreRequestScript(request.preScript, {
+        // --- Run Collection Pre-request Script ---
+        const currentCol = collections.find(c => c.id === activeCollectionId);
+        let colPreResult = null;
+        if (currentCol?.preScript?.trim()) {
+            colPreResult = runPreRequestScript(currentCol.preScript, {
                 variables: { ...chainVars },
                 environment: getEnvVars(),
                 request: { ...request, url: resolvedUrl },
             });
-            // Apply variable changes from pre-script
+            if (colPreResult.updatedVars) {
+                Object.entries(colPreResult.updatedVars).forEach(([k, v]) => {
+                    if (chainVars[k] !== v) setChainVar(k, v);
+                });
+            }
+            if (colPreResult.updatedEnvVars) applyEnvVarChanges(colPreResult.updatedEnvVars);
+        }
+
+        // --- Run Request Pre-request Script ---
+        let preResult = null;
+        if (request.preScript?.trim()) {
+            preResult = runPreRequestScript(request.preScript, {
+                variables: { ...chainVars, ...(colPreResult?.updatedVars || {}) },
+                environment: getEnvVars(),
+                request: { ...request, url: resolvedUrl },
+            });
             if (preResult.updatedVars) {
                 Object.entries(preResult.updatedVars).forEach(([k, v]) => {
                     if (chainVars[k] !== v) setChainVar(k, v);
                 });
             }
-            // Apply environment variable changes from pre-script (pm.environment.set)
-            if (preResult.updatedEnvVars) {
-                applyEnvVarChanges(preResult.updatedEnvVars);
-            }
+            if (preResult.updatedEnvVars) applyEnvVarChanges(preResult.updatedEnvVars);
             if (!preResult.success) {
                 const elapsed = Date.now() - startTime;
                 setScriptResults({ pre: preResult, post: null });
@@ -500,6 +522,16 @@ export const RequestEditor = ({ tabId }) => {
                 }
             }
 
+            // Debug: log headers
+            debugLog.push({ type: 'info', message: `Method: ${request.method || 'GET'}`, timestamp: Date.now() });
+            const headerKeys = Object.keys(headers);
+            if (headerKeys.length > 0) {
+                debugLog.push({ type: 'info', message: `Headers: ${headerKeys.map(k => `${k}: ${headers[k]}`).join(', ')}`, timestamp: Date.now() });
+            }
+            if (effectiveAuthType && effectiveAuthType !== 'none') {
+                debugLog.push({ type: 'info', message: `Auth: ${effectiveAuthType}${authSource !== request ? ' (inherited from collection)' : ''}`, timestamp: Date.now() });
+            }
+
             // Parse body if it's a string (with variable resolution)
             let body = null;
             if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -511,6 +543,7 @@ export const RequestEditor = ({ tabId }) => {
                     } catch {
                         body = resolvedBody; // Send as-is if not valid JSON
                     }
+                    debugLog.push({ type: 'info', message: `Body: ${typeof body === 'object' ? JSON.stringify(body).slice(0, 200) : String(body).slice(0, 200)}`, timestamp: Date.now() });
                 }
             }
 
@@ -620,7 +653,7 @@ export const RequestEditor = ({ tabId }) => {
                 }
             }
 
-            // --- Run Post-response Script ---
+            // --- Run Request Post-response Script ---
             let postResult = null;
             if (request.postScript?.trim()) {
                 postResult = runPostResponseScript(request.postScript, {
@@ -630,19 +663,43 @@ export const RequestEditor = ({ tabId }) => {
                     response: responseData,
                     responseTime: elapsed,
                 });
-                // Apply variable changes from post-script
                 if (postResult.updatedVars) {
                     Object.entries(postResult.updatedVars).forEach(([k, v]) => {
                         if (chainVars[k] !== v) setChainVar(k, v);
                     });
                 }
-                // Apply environment variable changes from post-script (pm.environment.set)
-                if (postResult.updatedEnvVars) {
-                    applyEnvVarChanges(postResult.updatedEnvVars);
-                }
+                if (postResult.updatedEnvVars) applyEnvVarChanges(postResult.updatedEnvVars);
             }
 
-            setScriptResults({ pre: preResult, post: postResult });
+            // --- Run Collection Post-response Script ---
+            let colPostResult = null;
+            if (currentCol?.postScript?.trim()) {
+                colPostResult = runPostResponseScript(currentCol.postScript, {
+                    variables: postResult?.updatedVars || preResult?.updatedVars || { ...chainVars },
+                    environment: getEnvVars(),
+                    request: { ...request, url: resolvedUrl, resolvedHeaders: headers },
+                    response: responseData,
+                    responseTime: elapsed,
+                });
+                if (colPostResult.updatedVars) {
+                    Object.entries(colPostResult.updatedVars).forEach(([k, v]) => {
+                        if (chainVars[k] !== v) setChainVar(k, v);
+                    });
+                }
+                if (colPostResult.updatedEnvVars) applyEnvVarChanges(colPostResult.updatedEnvVars);
+            }
+
+            setScriptResults({ pre: preResult, post: postResult, colPre: colPreResult, colPost: colPostResult });
+
+            // Debug: response info
+            debugLog.push({ type: responseData?.success ? 'info' : 'warn', message: `Response: ${responseData?.status} ${responseData?.statusText} (${elapsed}ms)`, timestamp: Date.now() });
+
+            // Debug: script console logs
+            [colPreResult, preResult, postResult, colPostResult].forEach(sr => {
+                if (sr?.consoleLogs) sr.consoleLogs.forEach(l => debugLog.push({ type: 'info', message: `[script] ${l}`, timestamp: Date.now() }));
+            });
+
+            setDebugEntries(debugLog);
 
             // --- Evaluate Assertions ---
             if (request.assertions?.length > 0 && responseData) {
@@ -651,6 +708,8 @@ export const RequestEditor = ({ tabId }) => {
             }
         } catch (err) {
             const elapsed = Date.now() - startTime;
+            debugLog.push({ type: 'error', message: `Error: ${err.message}`, timestamp: Date.now() });
+            setDebugEntries(debugLog);
             setResponseData(tabId, {
                 status: 0,
                 statusText: 'Connection Error',
@@ -1056,6 +1115,7 @@ export const RequestEditor = ({ tabId }) => {
                                                         <option value="body_not_contains">Body Not Contains</option>
                                                         <option value="json_path">JSON Path</option>
                                                         <option value="header_contains">Header Contains</option>
+                                                        <option value="body_json_schema">JSON Schema</option>
                                                     </select>
 
                                                     <div className="flex-1" />
@@ -1072,7 +1132,7 @@ export const RequestEditor = ({ tabId }) => {
                                                 </div>
 
                                                 {/* Assertion fields based on type */}
-                                                <div className="flex items-center gap-2 text-[10px]">
+                                                <div className={`flex ${assertion.type === 'body_json_schema' ? 'flex-col' : 'items-center'} gap-2 text-[10px]`}>
                                                     {(assertion.type === 'json_path' || assertion.type === 'header_contains') && (
                                                         <input
                                                             type="text"
@@ -1101,27 +1161,54 @@ export const RequestEditor = ({ tabId }) => {
                                                             <option value="not_equals">not equals</option>
                                                             <option value="greater_than">greater than</option>
                                                             <option value="less_than">less than</option>
+                                                            <option value="greater_than_or_equal">gte</option>
+                                                            <option value="less_than_or_equal">lte</option>
                                                             <option value="contains">contains</option>
+                                                            <option value="not_contains">not contains</option>
+                                                            <option value="starts_with">starts with</option>
+                                                            <option value="ends_with">ends with</option>
+                                                            <option value="matches_regex">matches regex</option>
                                                             {assertion.type === 'json_path' && <option value="exists">exists</option>}
                                                             {assertion.type === 'json_path' && <option value="is_type">is type</option>}
+                                                            {assertion.type === 'json_path' && <option value="is_empty">is empty</option>}
+                                                            {assertion.type === 'json_path' && <option value="is_not_empty">is not empty</option>}
+                                                            {assertion.type === 'json_path' && <option value="is_null">is null</option>}
+                                                            {assertion.type === 'json_path' && <option value="is_not_null">is not null</option>}
+                                                            {assertion.type === 'json_path' && <option value="length_equals">length equals</option>}
+                                                            {assertion.type === 'json_path' && <option value="length_greater_than">length &gt;</option>}
+                                                            {assertion.type === 'json_path' && <option value="length_less_than">length &lt;</option>}
                                                         </select>
                                                     )}
 
-                                                    <input
-                                                        type="text"
-                                                        value={assertion.expected || ''}
-                                                        onChange={(e) => {
-                                                            const updated = [...(request.assertions || [])];
-                                                            updated[idx] = { ...updated[idx], expected: e.target.value };
-                                                            handleChange('assertions', updated);
-                                                        }}
-                                                        placeholder={
-                                                            assertion.type === 'status_code' ? '200' :
-                                                                assertion.type === 'response_time' ? '2000' :
-                                                                    'expected value'
-                                                        }
-                                                        className="flex-1 font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 outline-none text-slate-700 dark:text-slate-300 placeholder-slate-400"
-                                                    />
+                                                    {assertion.type === 'body_json_schema' ? (
+                                                        <textarea
+                                                            value={assertion.expected || ''}
+                                                            onChange={(e) => {
+                                                                const updated = [...(request.assertions || [])];
+                                                                updated[idx] = { ...updated[idx], expected: e.target.value };
+                                                                handleChange('assertions', updated);
+                                                            }}
+                                                            placeholder='{"type":"object","required":["id","name"],"properties":{"id":{"type":"number"}}}'
+                                                            rows={3}
+                                                            className="w-full font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 outline-none text-slate-700 dark:text-slate-300 placeholder-slate-400 resize-none"
+                                                        />
+                                                    ) : (
+                                                        <input
+                                                            type="text"
+                                                            value={assertion.expected || ''}
+                                                            onChange={(e) => {
+                                                                const updated = [...(request.assertions || [])];
+                                                                updated[idx] = { ...updated[idx], expected: e.target.value };
+                                                                handleChange('assertions', updated);
+                                                            }}
+                                                            placeholder={
+                                                                assertion.type === 'status_code' ? '200' :
+                                                                    assertion.type === 'response_time' ? '2000' :
+                                                                        'expected value'
+                                                            }
+                                                            className="flex-1 font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 outline-none text-slate-700 dark:text-slate-300 placeholder-slate-400"
+                                                        />
+                                                    )}
                                                 </div>
 
                                                 {/* Result indicator (if evaluated) */}
@@ -1142,7 +1229,7 @@ export const RequestEditor = ({ tabId }) => {
 
                                 {/* Quick add buttons */}
                                 <div className="mt-3 flex flex-wrap gap-1">
-                                    {['status_code', 'response_time', 'json_path', 'body_contains', 'header_contains'].map(type => (
+                                    {['status_code', 'response_time', 'json_path', 'body_contains', 'header_contains', 'body_json_schema'].map(type => (
                                         <button
                                             key={type}
                                             onClick={() => {
@@ -1164,7 +1251,7 @@ export const RequestEditor = ({ tabId }) => {
                 <div className="w-1/2 flex flex-col bg-slate-50 dark:bg-slate-800">
                     <div className="h-10 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center px-1 text-xs font-semibold text-slate-500 dark:text-slate-400 justify-between">
                         <div className="flex items-center gap-1 h-full overflow-x-auto scrollbar-hide shrink min-w-0">
-                            {['body', 'headers', ...(scriptResults ? ['tests'] : []), ...(assertionResults?.total > 0 ? ['assertions'] : [])].map(tab => (
+                            {['body', 'headers', ...(scriptResults ? ['tests'] : []), ...(assertionResults?.total > 0 ? ['assertions'] : []), ...(debugEntries.length > 0 ? ['console'] : [])].map(tab => (
                                 <button
                                     key={tab}
                                     onClick={() => setResponseTab(tab)}
@@ -1319,6 +1406,28 @@ export const RequestEditor = ({ tabId }) => {
                                         <p className="text-slate-400 dark:text-slate-500">No response headers available.</p>
                                     )}
                                 </div>
+                            ) : responseTab === 'console' && debugEntries.length > 0 ? (
+                                /* Debug Console */
+                                <div className="bg-slate-900 rounded-lg border border-slate-700 overflow-hidden">
+                                    <div className="px-3 py-1.5 bg-slate-800 border-b border-slate-700 flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Debug Console</span>
+                                        <span className="text-[9px] text-slate-500">{debugEntries.length} entries</span>
+                                    </div>
+                                    <div className="max-h-[350px] overflow-auto p-2 space-y-0.5 font-mono text-[10px]">
+                                        {debugEntries.map((entry, idx) => (
+                                            <div key={idx} className="flex items-start gap-2">
+                                                <span className="text-slate-600 shrink-0 w-16">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                                                <span className={`${
+                                                    entry.type === 'error' ? 'text-red-400' :
+                                                    entry.type === 'warn' ? 'text-amber-400' :
+                                                    'text-green-400'
+                                                }`}>
+                                                    {entry.message}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             ) : (
                                 /* Response Body View */
                                 <div>
@@ -1334,11 +1443,32 @@ export const RequestEditor = ({ tabId }) => {
                                             <span>Request successful</span>
                                         </div>
                                     )}
-                                    <JsonViewer
-                                        data={response.data}
-                                        language={typeof response.data === 'object' ? 'json' : 'text'}
-                                        maxHeight="350px"
-                                    />
+                                    {/* JSON/Table toggle */}
+                                    {Array.isArray(response.data) && response.data.length > 0 && typeof response.data[0] === 'object' && (
+                                        <div className="flex items-center gap-1 mb-2">
+                                            <button
+                                                onClick={() => setResponseViewMode('json')}
+                                                className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${responseViewMode === 'json' ? 'bg-corporate-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
+                                            >
+                                                JSON
+                                            </button>
+                                            <button
+                                                onClick={() => setResponseViewMode('table')}
+                                                className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${responseViewMode === 'table' ? 'bg-corporate-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
+                                            >
+                                                Table
+                                            </button>
+                                        </div>
+                                    )}
+                                    {responseViewMode === 'table' && Array.isArray(response.data) && response.data.length > 0 && typeof response.data[0] === 'object' ? (
+                                        <TableViewer data={response.data} />
+                                    ) : (
+                                        <JsonViewer
+                                            data={response.data}
+                                            language={typeof response.data === 'object' ? 'json' : 'text'}
+                                            maxHeight="350px"
+                                        />
+                                    )}
 
                                     {/* Extract Variable — Chain Requests */}
                                     {response.data && typeof response.data === 'object' && (

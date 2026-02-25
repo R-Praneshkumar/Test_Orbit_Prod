@@ -228,6 +228,23 @@ export const EnvironmentManager = ({ onClose }) => {
                     )}
                 </div>
 
+                {/* Dynamic Variables Hint */}
+                <div className="px-5 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                    <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">Built-in Variables (auto-generated)</div>
+                    <div className="flex flex-wrap gap-1">
+                        {['$timestamp', '$isoTimestamp', '$randomInt', '$guid', '$randomEmail', '$randomName', '$randomPhone', '$randomBoolean'].map(v => (
+                            <code
+                                key={v}
+                                className="text-[9px] bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
+                                onClick={() => navigator.clipboard.writeText(`{{${v}}}`)}
+                                title={`Click to copy {{${v}}}`}
+                            >
+                                {`{{${v}}}`}
+                            </code>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Footer */}
                 <div className="h-10 border-t border-slate-200 dark:border-slate-700 flex items-center px-5 text-[10px] text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900">
                     Use <code className="bg-slate-100 dark:bg-slate-700 px-1 py-0.5 rounded mx-1">{'{{variable}}'}</code> syntax in URLs, headers, and body. Global vars are always available; active env overrides Global.

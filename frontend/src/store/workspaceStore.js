@@ -14,6 +14,22 @@ import yaml from 'js-yaml';
 // Debounce timers for Supabase sync (per collection)
 const _syncTimers = {};
 const SYNC_DEBOUNCE_MS = 1500;
+
+// Built-in dynamic variables (generated fresh on each resolution)
+const RANDOM_NAMES = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry', 'Ivy', 'Jack', 'Karen', 'Leo', 'Mia', 'Noah', 'Olivia'];
+function resolveDynamicVar(key) {
+    switch (key) {
+        case '$timestamp': return String(Date.now());
+        case '$isoTimestamp': return new Date().toISOString();
+        case '$randomInt': return String(Math.floor(Math.random() * 1000));
+        case '$guid': return (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        case '$randomEmail': return `user_${Math.random().toString(36).slice(2, 8)}@test.com`;
+        case '$randomName': return RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
+        case '$randomPhone': return String(Math.floor(1000000000 + Math.random() * 9000000000));
+        case '$randomBoolean': return String(Math.random() < 0.5);
+        default: return undefined;
+    }
+}
 export const useWorkspaceStore = create(persist((set, get) => ({
     // --- Data ---
     collections: [
@@ -30,7 +46,10 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                     url: 'https://jsonplaceholder.typicode.com/users/1',
                     headers: [],
                     params: [],
-                    body: { type: 'json', content: '' }
+                    body: { type: 'json', content: '' },
+                    preScript: '',
+                    postScript: '',
+                    assertions: []
                 }
             ],
             chatMessages: [],
@@ -47,6 +66,8 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     currentView: 'dashboard', // 'dashboard' | 'workspace' | 'mock-server' | 'docs'
     darkMode: false,
     localMode: false, // When true, requests are sent directly from browser (bypasses /proxy — enables localhost testing)
+    sidebarCollapsed: false,
+    intelligenceCollapsed: false,
 
     // Tour State
     activeTour: null,
@@ -602,6 +623,8 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     }),
 
     toggleLocalMode: () => set((state) => ({ localMode: !state.localMode })),
+    toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+    toggleIntelligence: () => set((state) => ({ intelligenceCollapsed: !state.intelligenceCollapsed })),
 
     // Tour Actions
     startTour: (tourName) => set(() => {
@@ -657,6 +680,9 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 autoAuthLoginHeaders: [],
                 autoAuthToken: '',
                 autoAuthTokenTime: null,
+                // Collection-level scripts
+                preScript: '',
+                postScript: '',
             }],
             activeCollectionId: newId
         }));
@@ -764,6 +790,89 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 activeTabs: [...state.activeTabs, newReq],
                 activeTabId: newId,
                 activeCollectionId: collectionId
+            };
+        });
+        get().saveCollectionToSupabase(collectionId);
+    },
+
+    // Add a folder to a collection
+    addFolder: (collectionId, name = 'New Folder') => {
+        const folderId = uuidv4();
+        set((state) => ({
+            collections: state.collections.map(col =>
+                col.id === collectionId
+                    ? { ...col, items: [...col.items, { id: folderId, name, type: 'folder', items: [] }] }
+                    : col
+            )
+        }));
+        get().saveCollectionToSupabase(collectionId);
+        return folderId;
+    },
+
+    // Add a request inside a folder
+    addRequestToFolder: (collectionId, folderId) => {
+        const newId = uuidv4();
+        const newReq = {
+            id: newId, name: 'New Request', type: 'request',
+            method: 'GET', url: '', headers: [], params: [],
+            body: { type: 'json', content: '' },
+            preScript: '', postScript: '', assertions: [], collectionId
+        };
+        const insertInto = (items) => items.map(item => {
+            if (item.id === folderId && item.type === 'folder') {
+                return { ...item, items: [...(item.items || []), newReq] };
+            }
+            if (item.items) return { ...item, items: insertInto(item.items) };
+            return item;
+        });
+        set((state) => ({
+            collections: state.collections.map(col =>
+                col.id === collectionId ? { ...col, items: insertInto(col.items) } : col
+            ),
+            activeTabs: [...state.activeTabs, newReq],
+            activeTabId: newId,
+            activeCollectionId: collectionId,
+        }));
+        get().saveCollectionToSupabase(collectionId);
+    },
+
+    // Move item to folder (null = collection root)
+    moveItemToFolder: (itemId, targetFolderId, collectionId) => {
+        set((state) => {
+            let movedItem = null;
+            const removeRecursive = (items) => {
+                const result = [];
+                for (const item of items) {
+                    if (item.id === itemId) { movedItem = item; continue; }
+                    if (item.items) {
+                        result.push({ ...item, items: removeRecursive(item.items) });
+                    } else {
+                        result.push(item);
+                    }
+                }
+                return result;
+            };
+
+            const insertInto = (items) => {
+                if (!targetFolderId) return [...items, movedItem]; // Root level
+                return items.map(item => {
+                    if (item.id === targetFolderId && item.type === 'folder') {
+                        return { ...item, items: [...(item.items || []), movedItem] };
+                    }
+                    if (item.items) return { ...item, items: insertInto(item.items) };
+                    return item;
+                });
+            };
+
+            return {
+                collections: state.collections.map(col => {
+                    if (col.id === collectionId) {
+                        const stripped = removeRecursive(col.items);
+                        if (!movedItem) return col;
+                        return { ...col, items: insertInto(stripped) };
+                    }
+                    return col;
+                })
             };
         });
         get().saveCollectionToSupabase(collectionId);
@@ -981,7 +1090,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     clearChainVars: () => set({ chainVars: {} }),
 
     // Resolve {{variable}} placeholders using active environment + Global + chain vars
-    // Priority: chain vars > active env > Global
+    // Priority: dynamic $vars > chain vars > active env > Global
     resolveVariables: (text) => {
         if (!text || typeof text !== 'string') return text;
         const state = useWorkspaceStore.getState();
@@ -995,7 +1104,14 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         }
         // Chain vars override environment vars
         Object.entries(state.chainVars || {}).forEach(([k, v]) => { varMap[k] = v; });
-        return text.replace(/\{\{(\w+)\}\}/g, (match, key) => varMap[key] !== undefined ? varMap[key] : match);
+        return text.replace(/\{\{([\w$]+)\}\}/g, (match, key) => {
+            // Built-in dynamic variables ($ prefix) — generated fresh each call
+            if (key.startsWith('$')) {
+                const val = resolveDynamicVar(key);
+                if (val !== undefined) return val;
+            }
+            return varMap[key] !== undefined ? varMap[key] : match;
+        });
     },
 
     closeRunner: () => set({ runner: null }),
@@ -1204,7 +1320,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
 }), {
     name: 'gemini-workspace-storage',
-    version: 8,
+    version: 9,
     partialize: (state) => {
         // Exclude transient runtime data from persistence
         // _realtimeChannel contains circular refs (RealtimeChannel → socket → channels → channel)
@@ -1314,6 +1430,14 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             persisted.collections = (persisted.collections || []).map(col => ({
                 ...col,
                 items: addAutoAuth(col.items),
+            }));
+        }
+        if (version < 9) {
+            // v8 → v9: Add collection-level pre/post scripts
+            persisted.collections = (persisted.collections || []).map(col => ({
+                ...col,
+                preScript: col.preScript || '',
+                postScript: col.postScript || '',
             }));
         }
         return persisted;

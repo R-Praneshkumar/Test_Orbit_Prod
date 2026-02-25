@@ -15,6 +15,68 @@
  */
 
 /**
+ * Lightweight JSON Schema validator (supports type, required, properties, items, enum, minLength, maxLength, minimum, maximum).
+ * Returns array of error strings (empty = valid).
+ */
+function validateJsonSchema(data, schema, path = '') {
+    const errors = [];
+    if (!schema) return errors;
+
+    // Type check
+    if (schema.type) {
+        const t = schema.type;
+        let valid = false;
+        if (t === 'string') valid = typeof data === 'string';
+        else if (t === 'number' || t === 'integer') valid = typeof data === 'number';
+        else if (t === 'boolean') valid = typeof data === 'boolean';
+        else if (t === 'array') valid = Array.isArray(data);
+        else if (t === 'object') valid = typeof data === 'object' && !Array.isArray(data) && data !== null;
+        else if (t === 'null') valid = data === null;
+        if (!valid) errors.push(`${path || 'root'}: expected type "${t}", got ${Array.isArray(data) ? 'array' : typeof data}`);
+    }
+
+    // Required fields
+    if (schema.required && typeof data === 'object' && data !== null) {
+        for (const key of schema.required) {
+            if (!(key in data)) errors.push(`${path || 'root'}: missing required field "${key}"`);
+        }
+    }
+
+    // Properties (recursive)
+    if (schema.properties && typeof data === 'object' && data !== null) {
+        for (const [key, propSchema] of Object.entries(schema.properties)) {
+            if (key in data) {
+                errors.push(...validateJsonSchema(data[key], propSchema, path ? `${path}.${key}` : key));
+            }
+        }
+    }
+
+    // Array items
+    if (schema.items && Array.isArray(data)) {
+        data.forEach((item, i) => errors.push(...validateJsonSchema(item, schema.items, `${path || 'root'}[${i}]`)));
+    }
+
+    // Enum
+    if (schema.enum && !schema.enum.includes(data)) {
+        errors.push(`${path || 'root'}: value must be one of [${schema.enum.join(', ')}]`);
+    }
+
+    // String constraints
+    if (typeof data === 'string') {
+        if (schema.minLength !== undefined && data.length < schema.minLength) errors.push(`${path || 'root'}: length ${data.length} < minLength ${schema.minLength}`);
+        if (schema.maxLength !== undefined && data.length > schema.maxLength) errors.push(`${path || 'root'}: length ${data.length} > maxLength ${schema.maxLength}`);
+    }
+
+    // Number constraints
+    if (typeof data === 'number') {
+        if (schema.minimum !== undefined && data < schema.minimum) errors.push(`${path || 'root'}: ${data} < minimum ${schema.minimum}`);
+        if (schema.maximum !== undefined && data > schema.maximum) errors.push(`${path || 'root'}: ${data} > maximum ${schema.maximum}`);
+    }
+
+    return errors;
+}
+
+/**
  * Get value at a JSON path (dot notation with array index support)
  */
 function getByPath(obj, path) {
@@ -40,12 +102,39 @@ function compare(actual, comparison, expected) {
             return Number(actual) > Number(expected);
         case 'less_than':
             return Number(actual) < Number(expected);
+        case 'greater_than_or_equal':
+            return Number(actual) >= Number(expected);
+        case 'less_than_or_equal':
+            return Number(actual) <= Number(expected);
         case 'contains':
             return String(actual).includes(String(expected));
         case 'not_contains':
             return !String(actual).includes(String(expected));
+        case 'starts_with':
+            return String(actual).startsWith(String(expected));
+        case 'ends_with':
+            return String(actual).endsWith(String(expected));
+        case 'matches_regex':
+            try { return new RegExp(expected).test(String(actual)); } catch { return false; }
         case 'exists':
             return actual !== undefined && actual !== null;
+        case 'is_empty':
+            return actual === '' || actual === null || actual === undefined || (Array.isArray(actual) && actual.length === 0) || (typeof actual === 'object' && actual !== null && Object.keys(actual).length === 0);
+        case 'is_not_empty':
+            return actual !== '' && actual !== null && actual !== undefined && !(Array.isArray(actual) && actual.length === 0) && !(typeof actual === 'object' && actual !== null && Object.keys(actual).length === 0);
+        case 'is_null':
+            return actual === null || actual === undefined;
+        case 'is_not_null':
+            return actual !== null && actual !== undefined;
+        case 'length_equals':
+            if (actual == null) return false;
+            return (actual.length ?? Object.keys(actual).length) === Number(expected);
+        case 'length_greater_than':
+            if (actual == null) return false;
+            return (actual.length ?? Object.keys(actual).length) > Number(expected);
+        case 'length_less_than':
+            if (actual == null) return false;
+            return (actual.length ?? Object.keys(actual).length) < Number(expected);
         case 'is_type': {
             const t = expected.toLowerCase();
             if (t === 'array') return Array.isArray(actual);
@@ -141,6 +230,20 @@ function evaluateOne(assertion, response, responseTime) {
                 };
             }
 
+            case 'body_json_schema': {
+                const data = typeof response.data === 'string' ? (() => { try { return JSON.parse(response.data); } catch { return response.data; } })() : response.data;
+                let schema;
+                try { schema = JSON.parse(assertion.expected); } catch { return { passed: false, message: 'Invalid JSON schema in expected value' }; }
+                const errors = validateJsonSchema(data, schema);
+                const passed = errors.length === 0;
+                return {
+                    passed,
+                    message: passed
+                        ? 'Response body matches JSON schema'
+                        : `Schema validation failed: ${errors.slice(0, 3).join('; ')}`,
+                };
+            }
+
             default:
                 return { passed: false, message: `Unknown assertion type: ${assertion.type}` };
         }
@@ -196,6 +299,8 @@ export function getAssertionLabel(assertion) {
             return `$.${assertion.target} ${assertion.comparison || 'equals'} ${assertion.expected}`;
         case 'header_contains':
             return `Header ${assertion.target} contains "${assertion.expected}"`;
+        case 'body_json_schema':
+            return 'Body matches JSON schema';
         default:
             return assertion.type;
     }
@@ -212,6 +317,7 @@ export function createAssertion(type = 'status_code') {
         body_not_contains: { target: '', comparison: 'not_contains', expected: '' },
         json_path: { target: '', comparison: 'equals', expected: '' },
         header_contains: { target: 'content-type', comparison: 'contains', expected: 'json' },
+        body_json_schema: { target: '', expected: '{"type":"object","required":[]}' },
     };
 
     return {

@@ -28,6 +28,9 @@ const SidebarItem = ({ item, level = 0 }) => {
     const activeCollectionId = useWorkspaceStore(state => state.activeCollectionId);
     const addTestSuite = useWorkspaceStore(state => state.addTestSuite);
     const collections = useWorkspaceStore(state => state.collections);
+    const addRequestToFolder = useWorkspaceStore(state => state.addRequestToFolder);
+    const moveItemToFolder = useWorkspaceStore(state => state.moveItemToFolder);
+    const [showMoveMenu, setShowMoveMenu] = useState(false);
 
     // Close context menu on outside click
     useEffect(() => {
@@ -284,6 +287,53 @@ const SidebarItem = ({ item, level = 0 }) => {
                                     <Copy size={11} /> Duplicate
                                 </button>
                             )}
+                            {item.type === 'folder' && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowMenu(false);
+                                        const col = collections.find(c => c.id === activeCollectionId);
+                                        if (col) addRequestToFolder(col.id, item.id);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs text-corporate-600 dark:text-corporate-400 hover:bg-corporate-50 dark:hover:bg-corporate-900/20 flex items-center gap-2"
+                                >
+                                    <FilePlus size={11} /> New Request
+                                </button>
+                            )}
+                            {(item.type === 'request' || item.type === 'websocket') && (
+                                <div className="relative">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setShowMoveMenu(!showMoveMenu); }}
+                                        className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                    >
+                                        <FolderPlus size={11} /> Move to...
+                                    </button>
+                                    {showMoveMenu && (() => {
+                                        const col = collections.find(c => c.id === activeCollectionId);
+                                        if (!col) return null;
+                                        const folders = (col.items || []).filter(i => i.type === 'folder');
+                                        return (
+                                            <div className="ml-4 border-l-2 border-slate-200 dark:border-slate-700 pl-1">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setShowMenu(false); setShowMoveMenu(false); moveItemToFolder(item.id, null, col.id); }}
+                                                    className="w-full text-left px-3 py-1.5 text-[10px] text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                                >
+                                                    Collection Root
+                                                </button>
+                                                {folders.map(f => (
+                                                    <button
+                                                        key={f.id}
+                                                        onClick={(e) => { e.stopPropagation(); setShowMenu(false); setShowMoveMenu(false); moveItemToFolder(item.id, f.id, col.id); }}
+                                                        className="w-full text-left px-3 py-1.5 text-[10px] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5"
+                                                    >
+                                                        <Folder size={10} /> {f.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            )}
                             {item.type === 'collection' && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleMenuAction('export'); }}
@@ -528,12 +578,38 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
                 )}
             </div>
 
-            {tokenStatus === 'success' && collection.autoAuthToken && (
+            {collection.autoAuthToken && (
                 <div className="p-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
-                    <span className="text-[9px] font-bold text-green-700 dark:text-green-400">Token acquired</span>
-                    <code className="text-[9px] text-green-800 dark:text-green-300 break-all block mt-0.5 font-mono">
+                    <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[9px] font-bold text-green-700 dark:text-green-400">
+                            {tokenStatus === 'success' ? 'Token acquired' : 'Cached token'}
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => { navigator.clipboard.writeText(collection.autoAuthToken); }}
+                                className="text-[8px] px-1.5 py-0.5 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-700 transition-colors"
+                                title="Copy token"
+                            >
+                                Copy
+                            </button>
+                            <button
+                                onClick={handleTestLogin}
+                                disabled={tokenStatus === 'loading' || !collection.autoAuthLoginUrl}
+                                className="text-[8px] px-1.5 py-0.5 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-700 transition-colors disabled:opacity-50"
+                                title="Refresh token"
+                            >
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <code className="text-[9px] text-green-800 dark:text-green-300 break-all block font-mono">
                         {collection.autoAuthToken.length > 60 ? collection.autoAuthToken.slice(0, 60) + '...' : collection.autoAuthToken}
                     </code>
+                    {collection.autoAuthTokenTime && (
+                        <span className="text-[8px] text-green-500 dark:text-green-500 mt-0.5 block">
+                            {new Date(collection.autoAuthTokenTime).toLocaleString()}
+                        </span>
+                    )}
                 </div>
             )}
 
@@ -557,6 +633,7 @@ export const Sidebar = () => {
     const addRequest = useWorkspaceStore(state => state.addRequest);
     const addWebSocket = useWorkspaceStore(state => state.addWebSocket);
     const addCollection = useWorkspaceStore(state => state.addCollection);
+    const addFolderAction = useWorkspaceStore(state => state.addFolder);
     const activeCollectionId = useWorkspaceStore(state => state.activeCollectionId);
     const viewRunFromHistory = useWorkspaceStore(state => state.viewRunFromHistory);
     const updateCollection = useWorkspaceStore(state => state.updateCollection);
@@ -576,6 +653,7 @@ export const Sidebar = () => {
     const [showCurlImport, setShowCurlImport] = useState(false);
     const [showCollectionImport, setShowCollectionImport] = useState(false);
     const [showCollectionAuth, setShowCollectionAuth] = useState(false);
+    const [showCollectionScripts, setShowCollectionScripts] = useState(false);
     const addMenuRef = useRef(null);
 
     // Close add menu on outside click
@@ -658,6 +736,18 @@ export const Sidebar = () => {
                                             className="w-full text-left px-3 py-1.5 text-xs text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 flex items-center gap-2"
                                         >
                                             <Plug size={11} /> {col.name}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="border-t border-slate-100 dark:border-slate-800 mt-1">
+                                    <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold px-3 pt-2 pb-1">New Folder In</div>
+                                    {collections.map(col => (
+                                        <button
+                                            key={`folder-${col.id}`}
+                                            onClick={() => { addFolderAction(col.id); setShowAddMenu(false); }}
+                                            className="w-full text-left px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-2"
+                                        >
+                                            <FolderPlus size={11} /> {col.name}
                                         </button>
                                     ))}
                                 </div>
@@ -939,6 +1029,51 @@ export const Sidebar = () => {
                             {activeCollection.authType === 'auto-auth' && (
                                 <CollectionAutoAuthPanel collection={activeCollection} updateCollection={updateCollection} />
                             )}
+                        </div>
+                    )}
+                </div>
+            )}
+            {/* Collection Scripts Panel */}
+            {activeCollection && (
+                <div className="border-t border-slate-200 dark:border-slate-700">
+                    <button
+                        onClick={() => setShowCollectionScripts(!showCollectionScripts)}
+                        className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Terminal size={12} />
+                            <span className="uppercase tracking-wider text-[10px]">Collection Scripts</span>
+                            {(activeCollection.preScript || activeCollection.postScript) && (
+                                <span className="w-1.5 h-1.5 bg-corporate-500 rounded-full" />
+                            )}
+                        </div>
+                        {showCollectionScripts ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    </button>
+                    {showCollectionScripts && (
+                        <div className="px-3 pb-3 space-y-2">
+                            <p className="text-[9px] text-slate-400 dark:text-slate-500">
+                                Runs before/after every request in this collection (before individual request scripts).
+                            </p>
+                            <div>
+                                <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 block">Pre-request Script</label>
+                                <textarea
+                                    value={activeCollection.preScript || ''}
+                                    onChange={(e) => updateCollection(activeCollection.id, { preScript: e.target.value })}
+                                    placeholder="// Runs before each request&#10;pm.variables.set('token', 'abc');"
+                                    rows={4}
+                                    className="w-full text-[10px] font-mono px-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-slate-900 text-green-400 outline-none focus:ring-1 focus:ring-corporate-500 resize-none placeholder-slate-600"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 block">Post-response Script</label>
+                                <textarea
+                                    value={activeCollection.postScript || ''}
+                                    onChange={(e) => updateCollection(activeCollection.id, { postScript: e.target.value })}
+                                    placeholder="// Runs after each request&#10;pm.test('Status OK', () => pm.expect(pm.response.status).to.equal(200));"
+                                    rows={4}
+                                    className="w-full text-[10px] font-mono px-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-slate-900 text-green-400 outline-none focus:ring-1 focus:ring-corporate-500 resize-none placeholder-slate-600"
+                                />
+                            </div>
                         </div>
                     )}
                 </div>

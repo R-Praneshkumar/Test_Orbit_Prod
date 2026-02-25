@@ -5,6 +5,39 @@ import { v4 as uuidv4 } from 'uuid';
 
 // --- Format Parsers ---
 
+function parsePostmanAuth(auth) {
+    if (!auth) return {};
+    const type = auth.type;
+    if (type === 'bearer') {
+        const token = (auth.bearer || []).find(b => b.key === 'token')?.value || '';
+        return { authType: 'bearer', authToken: token };
+    }
+    if (type === 'basic') {
+        const username = (auth.basic || []).find(b => b.key === 'username')?.value || '';
+        const password = (auth.basic || []).find(b => b.key === 'password')?.value || '';
+        return { authType: 'basic', authUsername: username, authPassword: password };
+    }
+    if (type === 'apikey') {
+        const key = (auth.apikey || []).find(b => b.key === 'key')?.value || '';
+        const value = (auth.apikey || []).find(b => b.key === 'value')?.value || '';
+        return { authType: 'apikey', authKeyName: key, authKeyValue: value };
+    }
+    return {};
+}
+
+function extractPostmanScripts(events) {
+    if (!events || !Array.isArray(events)) return { preScript: '', postScript: '' };
+    let preScript = '';
+    let postScript = '';
+    for (const ev of events) {
+        const lines = ev.script?.exec || [];
+        const code = Array.isArray(lines) ? lines.join('\n') : String(lines);
+        if (ev.listen === 'prerequest') preScript = code;
+        if (ev.listen === 'test') postScript = code;
+    }
+    return { preScript, postScript };
+}
+
 function parsePostmanCollection(json) {
     const mapItem = (item) => {
         if (item.item) {
@@ -14,21 +47,41 @@ function parsePostmanCollection(json) {
             };
         }
         const req = item.request || {};
+        const urlObj = typeof req.url === 'string' ? { raw: req.url } : (req.url || {});
+        const scripts = extractPostmanScripts(item.event);
+        const authFields = parsePostmanAuth(req.auth);
         return {
             id: uuidv4(), name: item.name || 'Request', type: 'request',
             method: req.method || 'GET',
-            url: typeof req.url === 'string' ? req.url : req.url?.raw || '',
+            url: urlObj.raw || '',
             headers: (req.header || []).map(h => ({ key: h.key, value: h.value, enabled: !h.disabled })),
-            params: [],
+            params: (urlObj.query || []).map(q => ({ key: q.key, value: q.value, enabled: !q.disabled })),
             body: { type: 'json', content: req.body?.raw || '' },
-            preScript: '',
-            postScript: '',
+            description: req.description || '',
+            preScript: scripts.preScript,
+            postScript: scripts.postScript,
+            ...authFields,
         };
     };
+
+    // Extract collection-level auth
+    const collectionAuth = parsePostmanAuth(json.auth);
+
+    // Extract collection-level scripts
+    const collectionScripts = extractPostmanScripts(json.event);
+
+    // Extract collection variables → will be imported as an environment
+    const collectionVars = (json.variable || []).map(v => ({
+        key: v.key || '', value: v.value || '', enabled: !v.disabled
+    }));
+
     return {
         name: json.info?.name || 'Imported Collection',
         items: (json.item || []).map(mapItem),
         format: 'Postman v2.1',
+        collectionAuth,
+        collectionScripts,
+        collectionVars,
     };
 }
 
@@ -278,11 +331,26 @@ export const ImportCollectionModal = ({ onClose }) => {
             baseUrl: preview.baseUrl || '',
             runHistory: [],
             testSuites: [],
+            preScript: preview.collectionScripts?.preScript || '',
+            postScript: preview.collectionScripts?.postScript || '',
+            ...(preview.collectionAuth || {}),
         };
-        useWorkspaceStore.setState({
+        const updates = {
             collections: [...store.collections, newCol],
             activeCollectionId: newCol.id,
-        });
+        };
+
+        // Create environment from collection variables if any
+        if (preview.collectionVars && preview.collectionVars.length > 0) {
+            const envName = `${preview.name} Vars`;
+            const existingEnvs = store.environments || [];
+            if (!existingEnvs.find(e => e.name === envName)) {
+                updates.environments = [...existingEnvs, { name: envName, vars: preview.collectionVars }];
+                updates.activeEnv = envName;
+            }
+        }
+
+        useWorkspaceStore.setState(updates);
         // Sync to Supabase
         useWorkspaceStore.getState().saveCollectionToSupabase(newCol.id);
         setResult({ success: true, name: preview.name, count: countRequests(preview.items), format: preview.format });

@@ -52,6 +52,7 @@ export const IntelligencePanel = () => {
     const [localBaseUrl, setLocalBaseUrl] = useState('');
     const [generating, setGenerating] = useState(false);
     const [testPrompt, setTestPrompt] = useState('');
+    const [fetchingSpec, setFetchingSpec] = useState(false);
     const chatEndRef = useRef(null);
 
     // Store state — per-collection
@@ -294,6 +295,44 @@ export const IntelligencePanel = () => {
         // Then import endpoints — pass base URL override for specs without servers field
         const result = importFromOpenApiSpec(localSpec, localBaseUrl.trim() || undefined);
         setImportResult(result);
+    };
+
+    const handleFetchSpec = async () => {
+        const base = localBaseUrl.trim().replace(/\/+$/, '');
+        if (!base) return;
+        setFetchingSpec(true);
+        setImportResult(null);
+        const specPaths = ['/openapi.json', '/swagger.json', '/api-docs', '/docs/openapi.json', '/v3/api-docs', '/swagger/v1/swagger.json', '/openapi.yaml'];
+        try {
+            for (const path of specPaths) {
+                try {
+                    const res = await authFetch(`${API_BASE}/proxy`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: `${base}${path}`, method: 'GET', headers: {}, body: null })
+                    });
+                    const result = await res.json();
+                    if (result.status >= 200 && result.status < 300 && result.data) {
+                        const specText = typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2);
+                        // Validate it looks like an OpenAPI spec
+                        let parsed;
+                        try { parsed = typeof result.data === 'string' ? JSON.parse(result.data) : result.data; } catch { parsed = null; }
+                        if (parsed && (parsed.openapi || parsed.swagger || parsed.paths)) {
+                            setLocalSpec(specText);
+                            setCollectionOpenApiSpec(specText);
+                            // Auto-detect base URL from spec
+                            const specBase = parsed?.servers?.[0]?.url;
+                            if (specBase && !localBaseUrl.trim()) { setLocalBaseUrl(specBase); setCollectionBaseUrl(specBase); }
+                            setImportResult({ success: true, saved: true, fetched: path });
+                            return;
+                        }
+                    }
+                } catch { /* try next path */ }
+            }
+            setImportResult({ success: false, error: `No OpenAPI spec found at ${base}. Tried: ${specPaths.join(', ')}` });
+        } finally {
+            setFetchingSpec(false);
+        }
     };
 
     const handleGenerateTests = async () => {
@@ -744,14 +783,25 @@ export const IntelligencePanel = () => {
                         <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 block">
                             Base URL
                         </label>
-                        <input
-                            type="text"
-                            value={localBaseUrl}
-                            onChange={(e) => { setLocalBaseUrl(e.target.value); setCollectionBaseUrl(e.target.value); }}
-                            className="w-full text-[11px] px-2.5 py-1.5 border border-slate-200 dark:border-slate-600 rounded-md font-mono bg-white dark:bg-slate-900 dark:text-slate-200 outline-none focus:ring-2 focus:ring-corporate-500"
-                            placeholder="https://api.example.com"
-                        />
-                        <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">Required if the spec has no servers field. Prepended to all endpoint paths.</p>
+                        <div className="flex gap-1.5">
+                            <input
+                                type="text"
+                                value={localBaseUrl}
+                                onChange={(e) => { setLocalBaseUrl(e.target.value); setCollectionBaseUrl(e.target.value); }}
+                                className="flex-1 text-[11px] px-2.5 py-1.5 border border-slate-200 dark:border-slate-600 rounded-md font-mono bg-white dark:bg-slate-900 dark:text-slate-200 outline-none focus:ring-2 focus:ring-corporate-500"
+                                placeholder="https://api.example.com"
+                            />
+                            <button
+                                onClick={handleFetchSpec}
+                                disabled={fetchingSpec || !localBaseUrl.trim()}
+                                className="px-2.5 py-1.5 text-[10px] font-bold bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-600 text-white rounded-md flex items-center gap-1 transition-colors shrink-0"
+                                title="Auto-detect and fetch OpenAPI spec from this URL"
+                            >
+                                {fetchingSpec ? <Activity size={10} className="animate-spin" /> : <Download size={10} />}
+                                {fetchingSpec ? 'Fetching...' : 'Fetch Spec'}
+                            </button>
+                        </div>
+                        <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">Enter the API base URL. "Fetch Spec" auto-discovers the OpenAPI/Swagger spec.</p>
                     </div>
 
                     <textarea
@@ -804,7 +854,9 @@ export const IntelligencePanel = () => {
                             ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
                             : 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
                             }`}>
-                            {importResult.saved
+                            {importResult.fetched
+                                ? `Spec auto-fetched from ${importResult.fetched} and saved as AI context`
+                                : importResult.saved
                                 ? 'Spec saved as AI context for this collection'
                                 : importResult.success
                                     ? `Imported ${importResult.count} endpoints into "${importResult.title}"`

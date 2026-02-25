@@ -9,7 +9,7 @@ import { Dashboard } from './components/workspace/Dashboard';
 import { MockServerPanel } from './components/workspace/MockServerPanel';
 import { DocsPanel } from './components/workspace/DocsPanel';
 import { useWorkspaceStore } from './store/workspaceStore';
-import { Layout, Home, Wrench, Server, Book, Sun, Moon, Wifi, WifiOff } from 'lucide-react';
+import { Layout, Home, Wrench, Server, Book, Sun, Moon, Wifi, WifiOff, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Search, FolderTree, Sparkles, MessageSquare, FlaskConical } from 'lucide-react';
 import AuthPage from './components/common/AuthPage';
 import ProfilePage from './components/common/ProfilePage';
 import UserMenu from './components/common/UserMenu';
@@ -27,6 +27,10 @@ function App() {
   const toggleDarkMode = useWorkspaceStore(state => state.toggleDarkMode);
   const localMode = useWorkspaceStore(state => state.localMode);
   const toggleLocalMode = useWorkspaceStore(state => state.toggleLocalMode);
+  const sidebarCollapsed = useWorkspaceStore(state => state.sidebarCollapsed);
+  const toggleSidebar = useWorkspaceStore(state => state.toggleSidebar);
+  const intelligenceCollapsed = useWorkspaceStore(state => state.intelligenceCollapsed);
+  const toggleIntelligence = useWorkspaceStore(state => state.toggleIntelligence);
   const initializeAuth = useWorkspaceStore(state => state.initializeAuth);
 
   // Init Supabase Auth once on mount — must not re-run on dark mode change (auth listener leak)
@@ -68,6 +72,16 @@ function App() {
       // Ctrl+S — prevent browser save dialog (data is auto-saved via Zustand persist)
       if (isMod && e.key === 's') {
         e.preventDefault();
+      }
+
+      // Ctrl+B — toggle sidebar, Ctrl+J — toggle intelligence panel
+      if (isMod && e.key === 'b') {
+        e.preventDefault();
+        useWorkspaceStore.getState().toggleSidebar();
+      }
+      if (isMod && e.key === 'j') {
+        e.preventDefault();
+        useWorkspaceStore.getState().toggleIntelligence();
       }
 
       if (e.key === 'Escape') {
@@ -194,10 +208,44 @@ function App() {
         <DocsPanel />
       ) : (
         <div className="flex-1 flex overflow-hidden">
-          {/* 1. Left Sidebar (Explorer) */}
-          <div className="flex flex-col border-r border-slate-200 dark:border-slate-800" data-tour="sidebar">
-            <Sidebar />
-          </div>
+          {/* 1. Left Sidebar (Explorer) — collapsible */}
+          {sidebarCollapsed ? (
+            <div className="w-10 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center py-2 gap-2 shrink-0">
+              <button
+                onClick={toggleSidebar}
+                className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
+                title="Expand Explorer"
+              >
+                <PanelLeftOpen size={16} />
+              </button>
+              <div className="w-6 border-t border-slate-200 dark:border-slate-700" />
+              <button
+                onClick={() => { toggleSidebar(); }}
+                className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 transition-colors"
+                title="Explorer"
+              >
+                <FolderTree size={14} />
+              </button>
+              <button
+                onClick={() => { toggleSidebar(); }}
+                className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 transition-colors"
+                title="Search"
+              >
+                <Search size={14} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col border-r border-slate-200 dark:border-slate-800 relative" data-tour="sidebar">
+              <button
+                onClick={toggleSidebar}
+                className="absolute top-2.5 right-1.5 z-10 p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 transition-colors"
+                title="Collapse Explorer"
+              >
+                <PanelLeftClose size={14} />
+              </button>
+              <Sidebar />
+            </div>
+          )}
 
           {/* 2. Main Content Area */}
           <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900">
@@ -222,10 +270,51 @@ function App() {
             )}
           </div>
 
-          {/* 3. Right Sidebar (Intelligence) */}
-          <div className="flex flex-col border-l border-slate-200 dark:border-slate-800" data-tour="intelligence-panel">
-            <IntelligencePanel />
-          </div>
+          {/* 3. Right Sidebar (Intelligence) — collapsible */}
+          {intelligenceCollapsed ? (
+            <div className="w-10 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col items-center py-2 gap-2 shrink-0">
+              <button
+                onClick={toggleIntelligence}
+                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+                title="Expand Intelligence Panel"
+              >
+                <PanelRightOpen size={16} />
+              </button>
+              <div className="w-6 border-t border-slate-200 dark:border-slate-700" />
+              <button
+                onClick={toggleIntelligence}
+                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-corporate-500 dark:text-corporate-400 transition-colors"
+                title="AI Chat"
+              >
+                <MessageSquare size={14} />
+              </button>
+              <button
+                onClick={toggleIntelligence}
+                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 transition-colors"
+                title="Tests"
+              >
+                <FlaskConical size={14} />
+              </button>
+              <button
+                onClick={toggleIntelligence}
+                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 transition-colors"
+                title="AI Intelligence"
+              >
+                <Sparkles size={14} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col border-l border-slate-200 dark:border-slate-800 relative" data-tour="intelligence-panel">
+              <button
+                onClick={toggleIntelligence}
+                className="absolute top-2 left-2 z-10 p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 transition-colors"
+                title="Collapse Intelligence Panel"
+              >
+                <PanelRightClose size={14} />
+              </button>
+              <IntelligencePanel />
+            </div>
+          )}
         </div>
       )}
     </div>

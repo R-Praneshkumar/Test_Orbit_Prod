@@ -23,7 +23,38 @@ const LANGUAGES = [
     },
     { id: 'go', label: 'Go', variants: [] },
     { id: 'java', label: 'Java', variants: [] },
-    { id: 'curl', label: 'cURL', variants: [] },
+    {
+        id: 'csharp', label: 'C#',
+        variants: [
+            { id: 'httpclient', label: 'HttpClient' },
+            { id: 'restsharp', label: 'RestSharp' },
+        ]
+    },
+    {
+        id: 'php', label: 'PHP',
+        variants: [
+            { id: 'curl', label: 'cURL' },
+            { id: 'guzzle', label: 'Guzzle' },
+        ]
+    },
+    {
+        id: 'ruby', label: 'Ruby',
+        variants: [
+            { id: 'net-http', label: 'Net::HTTP' },
+            { id: 'httparty', label: 'HTTParty' },
+        ]
+    },
+    { id: 'rust', label: 'Rust', variants: [] },
+    { id: 'swift', label: 'Swift', variants: [] },
+    { id: 'kotlin', label: 'Kotlin', variants: [] },
+    {
+        id: 'shell', label: 'Shell',
+        variants: [
+            { id: 'curl', label: 'cURL' },
+            { id: 'wget', label: 'wget' },
+            { id: 'httpie', label: 'HTTPie' },
+        ]
+    },
 ];
 
 const LANG_TO_HIGHLIGHT = {
@@ -31,7 +62,13 @@ const LANG_TO_HIGHLIGHT = {
     javascript: 'javascript',
     go: 'go',
     java: 'java',
-    curl: 'bash',
+    csharp: 'csharp',
+    php: 'php',
+    ruby: 'ruby',
+    rust: 'rust',
+    swift: 'swift',
+    kotlin: 'kotlin',
+    shell: 'bash',
 };
 
 const LANG_TO_FILENAME = {
@@ -39,7 +76,13 @@ const LANG_TO_FILENAME = {
     javascript: 'apiClient.js',
     go: 'api_client.go',
     java: 'ApiClient.java',
-    curl: 'request.sh',
+    csharp: 'ApiClient.cs',
+    php: 'api_client.php',
+    ruby: 'api_client.rb',
+    rust: 'api_client.rs',
+    swift: 'ApiClient.swift',
+    kotlin: 'ApiClient.kt',
+    shell: 'request.sh',
 };
 
 export const CodeGenModal = ({ request, onClose }) => {
@@ -135,12 +178,12 @@ export const CodeGenModal = ({ request, onClose }) => {
 
                 {/* Language Tabs */}
                 <div className="px-5 pt-4">
-                    <div className="flex items-center bg-slate-100 dark:bg-slate-900 rounded-lg p-0.5 gap-0.5">
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-900 rounded-lg p-0.5 gap-0.5 overflow-x-auto scrollbar-thin">
                         {LANGUAGES.map(lang => (
                             <button
                                 key={lang.id}
                                 onClick={() => handleLangChange(lang.id)}
-                                className={`flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${selectedLang === lang.id
+                                className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${selectedLang === lang.id
                                     ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm'
                                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                                     }`}
