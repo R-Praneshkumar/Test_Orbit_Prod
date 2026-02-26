@@ -246,7 +246,14 @@ async def validate_proxy_url(url: str) -> None:
     Validate a URL for the proxy endpoint.
     Raises HTTPException(400) if the URL is blocked.
     DNS resolution is run in a thread pool to avoid blocking the async event loop.
+
+    In development mode (ENV != "production"), localhost and private IPs are
+    allowed so developers can test against local APIs.  In production, all
+    private/loopback addresses are blocked to prevent SSRF.
     """
+    from app.core.config import get_settings
+    is_production = get_settings().ENV == "production"
+
     try:
         parsed = urlparse(url)
     except Exception:
@@ -260,8 +267,10 @@ async def validate_proxy_url(url: str) -> None:
     if not hostname:
         raise HTTPException(status_code=400, detail="URL must include a hostname")
 
-    # Block known dangerous hostnames
-    if hostname.lower() in BLOCKED_HOSTNAMES:
+    # Block known dangerous hostnames (always block cloud metadata, only block localhost in production)
+    if hostname.lower() == "metadata.google.internal":
+        raise HTTPException(status_code=400, detail=f"Hostname '{hostname}' is not allowed")
+    if is_production and hostname.lower() in BLOCKED_HOSTNAMES:
         raise HTTPException(status_code=400, detail=f"Hostname '{hostname}' is not allowed")
 
     # Resolve hostname to IP and check against blocked ranges
@@ -270,14 +279,15 @@ async def validate_proxy_url(url: str) -> None:
         import socket
         loop = asyncio.get_event_loop()
         addr_info = await loop.run_in_executor(None, socket.getaddrinfo, hostname, None)
-        for _, _, _, _, sockaddr in addr_info:
-            ip = ipaddress.ip_address(sockaddr[0])
-            for network in BLOCKED_NETWORKS:
-                if ip in network:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Target address resolves to a blocked IP range"
-                    )
+        if is_production:
+            for _, _, _, _, sockaddr in addr_info:
+                ip = ipaddress.ip_address(sockaddr[0])
+                for network in BLOCKED_NETWORKS:
+                    if ip in network:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Target address resolves to a blocked IP range"
+                        )
     except HTTPException:
         raise
     except Exception as e:
