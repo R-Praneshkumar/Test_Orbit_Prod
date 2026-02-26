@@ -3,6 +3,7 @@ import { X, Code2, Loader2, Sparkles } from 'lucide-react';
 import { CodeViewer } from './JsonViewer';
 
 import { API_BASE, authFetch } from '../../config';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 
 const LANGUAGES = [
     {
@@ -86,6 +87,8 @@ const LANG_TO_FILENAME = {
 };
 
 export const CodeGenModal = ({ request, onClose }) => {
+    const collections = useWorkspaceStore(state => state.collections);
+    const activeCollectionId = useWorkspaceStore(state => state.activeCollectionId);
     const [selectedLang, setSelectedLang] = useState('python');
     const [selectedVariant, setSelectedVariant] = useState('requests');
     const [includeTests, setIncludeTests] = useState(false);
@@ -117,15 +120,32 @@ export const CodeGenModal = ({ request, onClose }) => {
             }
         });
 
-        // Add auth headers
-        if (request.authType === 'bearer' && request.authToken) {
-            headers['Authorization'] = `Bearer ${request.authToken}`;
-        } else if (request.authType === 'basic' && request.authUsername) {
-            headers['Authorization'] = `Basic <base64(${request.authUsername}:${request.authPassword || ''})>`;
-        } else if (request.authType === 'apikey' && request.authKeyValue) {
-            headers[request.authKeyName || 'X-API-Key'] = request.authKeyValue;
-        } else if (request.authType === 'auto-auth' && request.autoAuthToken) {
-            headers['Authorization'] = `Bearer ${request.autoAuthToken}`;
+        // Resolve effective auth (same priority as RequestEditor.handleRun)
+        const col = collections.find(c => c.id === activeCollectionId);
+        let authType = request.authType;
+        let authSource = request;
+
+        // Force collection auth overrides everything
+        if (col?.forceCollectionAuth && col.authType && col.authType !== 'none') {
+            authType = col.authType;
+            authSource = col;
+        } else if (!authType || authType === 'inherit') {
+            // Inherit from collection
+            if (col?.authType && col.authType !== 'none') {
+                authType = col.authType;
+                authSource = col;
+            }
+        }
+
+        // Add auth headers using resolved source
+        if (authType === 'bearer' && authSource.authToken) {
+            headers['Authorization'] = `Bearer ${authSource.authToken}`;
+        } else if (authType === 'basic' && authSource.authUsername) {
+            headers['Authorization'] = `Basic <base64(${authSource.authUsername || ''}:${authSource.authPassword || ''})>`;
+        } else if (authType === 'apikey' && authSource.authKeyValue) {
+            headers[authSource.authKeyName || 'X-API-Key'] = authSource.authKeyValue;
+        } else if (authType === 'auto-auth' && authSource.autoAuthToken) {
+            headers['Authorization'] = `Bearer ${authSource.autoAuthToken}`;
         }
 
         const payload = {

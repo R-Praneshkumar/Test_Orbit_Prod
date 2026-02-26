@@ -57,7 +57,7 @@ export const EnvironmentManager = ({ onClose }) => {
                 </div>
 
                 {/* Env Tabs */}
-                <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 overflow-x-auto">
                     {environments.map(env => (
                         <button
                             key={env.name}

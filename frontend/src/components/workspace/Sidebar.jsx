@@ -515,7 +515,7 @@ export const Sidebar = ({ onCollapse }) => {
                             <Plus size={14} />
                         </button>
                         {showAddMenu && (
-                            <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg rounded-lg overflow-hidden z-50">
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg rounded-lg overflow-y-auto max-h-[70vh] z-50">
                                 <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold px-3 pt-2 pb-1">New Request In</div>
                                 {collections.map(col => (
                                     <button

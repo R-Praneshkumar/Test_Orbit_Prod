@@ -304,30 +304,35 @@ export const IntelligencePanel = ({ onCollapse }) => {
         setImportResult(null);
         const specPaths = ['/openapi.json', '/swagger.json', '/api-docs', '/docs/openapi.json', '/v3/api-docs', '/swagger/v1/swagger.json', '/openapi.yaml'];
         try {
-            for (const path of specPaths) {
-                try {
+            // Fire all spec path requests in parallel for speed
+            const results = await Promise.allSettled(
+                specPaths.map(async (path) => {
                     const res = await authFetch(`${API_BASE}/proxy`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ url: `${base}${path}`, method: 'GET', headers: {}, body: null })
                     });
                     const result = await res.json();
-                    if (result.status >= 200 && result.status < 300 && result.data) {
-                        const specText = typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2);
-                        // Validate it looks like an OpenAPI spec
-                        let parsed;
-                        try { parsed = typeof result.data === 'string' ? JSON.parse(result.data) : result.data; } catch { parsed = null; }
-                        if (parsed && (parsed.openapi || parsed.swagger || parsed.paths)) {
-                            setLocalSpec(specText);
-                            setCollectionOpenApiSpec(specText);
-                            // Auto-detect base URL from spec
-                            const specBase = parsed?.servers?.[0]?.url;
-                            if (specBase && !localBaseUrl.trim()) { setLocalBaseUrl(specBase); setCollectionBaseUrl(specBase); }
-                            setImportResult({ success: true, saved: true, fetched: path });
-                            return;
-                        }
+                    return { path, result };
+                })
+            );
+            // Find first successful OpenAPI spec (in priority order)
+            for (const entry of results) {
+                if (entry.status !== 'fulfilled') continue;
+                const { path, result } = entry.value;
+                if (result.status >= 200 && result.status < 300 && result.data) {
+                    const specText = typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2);
+                    let parsed;
+                    try { parsed = typeof result.data === 'string' ? JSON.parse(result.data) : result.data; } catch { parsed = null; }
+                    if (parsed && (parsed.openapi || parsed.swagger || parsed.paths)) {
+                        setLocalSpec(specText);
+                        setCollectionOpenApiSpec(specText);
+                        const specBase = parsed?.servers?.[0]?.url;
+                        if (specBase && !localBaseUrl.trim()) { setLocalBaseUrl(specBase); setCollectionBaseUrl(specBase); }
+                        setImportResult({ success: true, saved: true, fetched: path });
+                        return;
                     }
-                } catch { /* try next path */ }
+                }
             }
             setImportResult({ success: false, error: `No OpenAPI spec found at ${base}. Tried: ${specPaths.join(', ')}` });
         } finally {

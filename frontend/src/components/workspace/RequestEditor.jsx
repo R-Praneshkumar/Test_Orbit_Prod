@@ -52,9 +52,11 @@ const AutoAuthPanel = ({ request, handleChange }) => {
             }
 
             // Extract token using the configured path
+            const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
             const tokenPath = (request.autoAuthTokenPath || 'token').split('.');
             let token = result.data;
             for (const key of tokenPath) {
+                if (BLOCKED_KEYS.has(key)) { token = null; break; }
                 if (token && typeof token === 'object') token = token[key];
                 else { token = null; break; }
             }
