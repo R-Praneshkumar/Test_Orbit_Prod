@@ -512,16 +512,18 @@ export const RequestEditor = ({ tabId }) => {
                         });
                         const loginResult = await loginRes.json();
                         if (loginRes.ok && loginResult.status < 400) {
+                            const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
                             const tokenPath = (authSource.autoAuthTokenPath || 'token').split('.');
                             let extracted = loginResult.data;
                             for (const key of tokenPath) {
+                                if (BLOCKED_KEYS.has(key)) { extracted = null; break; }
                                 if (extracted && typeof extracted === 'object') extracted = extracted[key];
                                 else { extracted = null; break; }
                             }
                             if (extracted && typeof extracted === 'string') {
                                 token = extracted;
-                                // Cache token on the source (request or collection)
-                                if (request.authType === 'inherit') {
+                                // Cache token on the source (collection when forced/inherited, request when own)
+                                if (authSource !== request) {
                                     const updateCollection = useWorkspaceStore.getState().updateCollection;
                                     updateCollection(activeCollectionId, { autoAuthToken: token, autoAuthTokenTime: Date.now() });
                                 } else {
@@ -542,7 +544,7 @@ export const RequestEditor = ({ tabId }) => {
             debugLog.push({ type: 'info', message: `Method: ${request.method || 'GET'}`, timestamp: Date.now() });
             const headerKeys = Object.keys(headers);
             if (headerKeys.length > 0) {
-                debugLog.push({ type: 'info', message: `Headers: ${headerKeys.map(k => `${k}: ${headers[k]}`).join(', ')}`, timestamp: Date.now() });
+                debugLog.push({ type: 'info', message: `Headers: ${headerKeys.map(k => k.toLowerCase() === 'authorization' ? `${k}: ***` : `${k}: ${headers[k]}`).join(', ')}`, timestamp: Date.now() });
             }
             if (effectiveAuthType && effectiveAuthType !== 'none') {
                 debugLog.push({ type: 'info', message: `Auth: ${effectiveAuthType}${authSource !== request ? ' (inherited from collection)' : ''}`, timestamp: Date.now() });

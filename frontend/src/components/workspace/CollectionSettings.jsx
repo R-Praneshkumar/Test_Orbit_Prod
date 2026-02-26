@@ -44,9 +44,11 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
                 return;
             }
 
+            const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
             const tokenPath = (collection.autoAuthTokenPath || 'token').split('.');
             let token = result.data;
             for (const key of tokenPath) {
+                if (BLOCKED_KEYS.has(key)) { token = null; break; }
                 if (token && typeof token === 'object') token = token[key];
                 else { token = null; break; }
             }

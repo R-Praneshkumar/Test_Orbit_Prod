@@ -330,17 +330,19 @@ export const CollectionRunner = () => {
                             });
                             const loginResult = await loginRes.json();
                             if (loginRes.ok && loginResult.status < 400) {
+                                const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
                                 const tokenPath = (effectiveAuth.autoAuthTokenPath || 'token').split('.');
                                 let extracted = loginResult.data;
                                 for (const key of tokenPath) {
+                                    if (BLOCKED_KEYS.has(key)) { extracted = null; break; }
                                     if (extracted && typeof extracted === 'object') extracted = extracted[key];
                                     else { extracted = null; break; }
                                 }
                                 if (extracted && typeof extracted === 'string') {
                                     token = extracted;
-                                    // Cache token: on the collection if inherited, otherwise on the request
-                                    const isInherited = !req.authType || req.authType === 'inherit';
-                                    if (isInherited && currentCol) {
+                                    // Cache token: on the collection if forced/inherited, otherwise on the request
+                                    const isFromCollection = currentCol?.forceCollectionAuth || !req.authType || req.authType === 'inherit';
+                                    if (isFromCollection && currentCol) {
                                         const updateCol = useWorkspaceStore.getState().updateCollection;
                                         updateCol(currentCol.id, { autoAuthToken: token, autoAuthTokenTime: Date.now() });
                                     } else {
@@ -539,9 +541,11 @@ export const CollectionRunner = () => {
                         });
                         const loginResult = await loginRes.json();
                         if (loginRes.ok && loginResult.status < 400) {
+                            const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
                             const tokenPath = (col.autoAuthTokenPath || 'token').split('.');
                             let extracted = loginResult.data;
                             for (const key of tokenPath) {
+                                if (BLOCKED_KEYS.has(key)) { extracted = null; break; }
                                 if (extracted && typeof extracted === 'object') extracted = extracted[key];
                                 else { extracted = null; break; }
                             }
