@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Shield, Terminal, History, CheckCircle, XCircle, Settings, FileText, Play } from 'lucide-react';
 import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
-import { API_BASE, authFetch } from '../../config';
+import { proxyFetch } from '../../utils/proxyFetch';
 
 // --- Collection-Level Auto-Auth Panel ---
 const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
+    const localMode = useWorkspaceStore(state => state.localMode);
     const [tokenStatus, setTokenStatus] = useState(null);
     const [tokenError, setTokenError] = useState(null);
 
@@ -26,19 +27,15 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
                 if (h.key && h.key.trim()) loginHeaders[h.key.trim()] = h.value || '';
             });
 
-            const res = await authFetch(`${API_BASE}/proxy`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    url: collection.autoAuthLoginUrl,
-                    method: collection.autoAuthMethod || 'POST',
-                    headers: loginHeaders,
-                    body: loginBody,
-                })
+            const result = await proxyFetch({
+                url: collection.autoAuthLoginUrl,
+                method: collection.autoAuthMethod || 'POST',
+                headers: loginHeaders,
+                body: loginBody,
+                localMode,
             });
-            const result = await res.json();
 
-            if (!res.ok || result.status >= 400) {
+            if (result.status >= 400 || result.status === 0) {
                 setTokenStatus('error');
                 setTokenError(`Login returned ${result.status}: ${JSON.stringify(result.data).slice(0, 200)}`);
                 return;

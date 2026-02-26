@@ -5,6 +5,7 @@ import { JsonViewer } from './JsonViewer';
 import yaml from 'js-yaml';
 
 import { API_BASE, authFetch } from '../../config';
+import { proxyFetch } from '../../utils/proxyFetch';
 
 const EMPTY_MESSAGES = [];
 const EMPTY_SUITES = [];
@@ -58,6 +59,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
     // Store state — per-collection
     const activeCollectionId = useWorkspaceStore(state => state.activeCollectionId);
     const collections = useWorkspaceStore(state => state.collections);
+    const localMode = useWorkspaceStore(state => state.localMode);
     const activeCollection = collections.find(c => c.id === activeCollectionId);
 
     const messages = activeCollection?.chatMessages || EMPTY_MESSAGES;
@@ -253,17 +255,13 @@ export const IntelligencePanel = ({ onCollapse }) => {
                     if (typeof body === 'string') { try { return JSON.parse(body); } catch { return null; } }
                     return body;
                 })();
-                const proxyRes = await authFetch(`${API_BASE}/proxy`, {
-                    method: 'POST',
+                const result = await proxyFetch({
+                    url,
+                    method,
+                    body: parsedBody,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        url,
-                        method,
-                        body: parsedBody,
-                        headers: { 'Content-Type': 'application/json' }
-                    })
+                    localMode,
                 });
-                const result = await proxyRes.json();
 
                 updateCollectionChatMessage(msgIndex, {
                     executionResult: {
@@ -307,12 +305,11 @@ export const IntelligencePanel = ({ onCollapse }) => {
             // Fire all spec path requests in parallel for speed
             const results = await Promise.allSettled(
                 specPaths.map(async (path) => {
-                    const res = await authFetch(`${API_BASE}/proxy`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ url: `${base}${path}`, method: 'GET', headers: {}, body: null })
+                    const result = await proxyFetch({
+                        url: `${base}${path}`,
+                        method: 'GET',
+                        localMode,
                     });
-                    const result = await res.json();
                     return { path, result };
                 })
             );

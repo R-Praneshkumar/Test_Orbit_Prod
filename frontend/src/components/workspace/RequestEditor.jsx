@@ -10,9 +10,11 @@ import { runPreRequestScript, runPostResponseScript } from '../../utils/scriptEn
 import { evaluateAssertions, createAssertion } from '../../utils/assertionEngine';
 
 import { API_BASE, authFetch } from '../../config';
+import { proxyFetch } from '../../utils/proxyFetch';
 
 // --- Auto-Auth Panel (Smart Token Management) ---
 const AutoAuthPanel = ({ request, handleChange }) => {
+    const localMode = useWorkspaceStore(state => state.localMode);
     const [tokenStatus, setTokenStatus] = React.useState(null); // 'idle' | 'loading' | 'success' | 'error'
     const [tokenError, setTokenError] = React.useState(null);
     const [lastTokenTime, setLastTokenTime] = React.useState(request.autoAuthToken ? 'cached' : null);
@@ -33,19 +35,15 @@ const AutoAuthPanel = ({ request, handleChange }) => {
                 if (h.key && h.key.trim()) loginHeaders[h.key.trim()] = h.value || '';
             });
 
-            const res = await authFetch(`${API_BASE}/proxy`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    url: request.autoAuthLoginUrl,
-                    method: request.autoAuthMethod || 'POST',
-                    headers: loginHeaders,
-                    body: loginBody,
-                })
+            const result = await proxyFetch({
+                url: request.autoAuthLoginUrl,
+                method: request.autoAuthMethod || 'POST',
+                headers: loginHeaders,
+                body: loginBody,
+                localMode,
             });
-            const result = await res.json();
 
-            if (!res.ok || result.status >= 400) {
+            if (result.status >= 400 || result.status === 0) {
                 setTokenStatus('error');
                 setTokenError(`Login returned ${result.status}: ${JSON.stringify(result.data).slice(0, 200)}`);
                 return;
@@ -502,18 +500,14 @@ export const RequestEditor = ({ tabId }) => {
                         (authSource.autoAuthLoginHeaders || []).forEach(h => {
                             if (h.key && h.key.trim()) loginHeaders[h.key.trim()] = h.value || '';
                         });
-                        const loginRes = await authFetch(`${API_BASE}/proxy`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                url: authSource.autoAuthLoginUrl,
-                                method: authSource.autoAuthMethod || 'POST',
-                                headers: loginHeaders,
-                                body: loginBody,
-                            })
+                        const loginResult = await proxyFetch({
+                            url: authSource.autoAuthLoginUrl,
+                            method: authSource.autoAuthMethod || 'POST',
+                            headers: loginHeaders,
+                            body: loginBody,
+                            localMode,
                         });
-                        const loginResult = await loginRes.json();
-                        if (loginRes.ok && loginResult.status < 400) {
+                        if (loginResult.status >= 200 && loginResult.status < 400) {
                             const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
                             const tokenPath = (authSource.autoAuthTokenPath || 'token').split('.');
                             let extracted = loginResult.data;

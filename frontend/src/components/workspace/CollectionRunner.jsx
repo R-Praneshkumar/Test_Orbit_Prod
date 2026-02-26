@@ -4,6 +4,7 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
 import { runPreRequestScript, runPostResponseScript } from '../../utils/scriptEngine';
 
 import { API_BASE, authFetch } from '../../config';
+import { proxyFetch } from '../../utils/proxyFetch';
 
 const METHOD_COLORS = {
     GET: 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/20',
@@ -318,18 +319,14 @@ export const CollectionRunner = () => {
                             (effectiveAuth.autoAuthLoginHeaders || []).forEach(h => {
                                 if (h.key && h.key.trim()) loginHeaders[h.key.trim()] = h.value || '';
                             });
-                            const loginRes = await authFetch(`${API_BASE}/proxy`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    url: effectiveAuth.autoAuthLoginUrl,
-                                    method: effectiveAuth.autoAuthMethod || 'POST',
-                                    headers: loginHeaders,
-                                    body: loginBody,
-                                })
+                            const loginResult = await proxyFetch({
+                                url: effectiveAuth.autoAuthLoginUrl,
+                                method: effectiveAuth.autoAuthMethod || 'POST',
+                                headers: loginHeaders,
+                                body: loginBody,
+                                localMode,
                             });
-                            const loginResult = await loginRes.json();
-                            if (loginRes.ok && loginResult.status < 400) {
+                            if (loginResult.status >= 200 && loginResult.status < 400) {
                                 const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
                                 const tokenPath = (effectiveAuth.autoAuthTokenPath || 'token').split('.');
                                 let extracted = loginResult.data;
@@ -529,18 +526,14 @@ export const CollectionRunner = () => {
                         (col.autoAuthLoginHeaders || []).forEach(h => {
                             if (h.key?.trim()) loginHeaders[h.key.trim()] = h.value || '';
                         });
-                        const loginRes = await authFetch(`${API_BASE}/proxy`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                url: col.autoAuthLoginUrl,
-                                method: col.autoAuthMethod || 'POST',
-                                headers: loginHeaders,
-                                body: loginBody,
-                            })
+                        const loginResult = await proxyFetch({
+                            url: col.autoAuthLoginUrl,
+                            method: col.autoAuthMethod || 'POST',
+                            headers: loginHeaders,
+                            body: loginBody,
+                            localMode,
                         });
-                        const loginResult = await loginRes.json();
-                        if (loginRes.ok && loginResult.status < 400) {
+                        if (loginResult.status >= 200 && loginResult.status < 400) {
                             const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
                             const tokenPath = (col.autoAuthTokenPath || 'token').split('.');
                             let extracted = loginResult.data;
