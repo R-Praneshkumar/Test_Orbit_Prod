@@ -1,10 +1,16 @@
 import aiohttp
 import asyncio
+import json
 import logging
 import time
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from app.core.security import validate_proxy_url
+from app.services.schema_comparator import (
+    compare_to_schema,
+    parse_openapi_spec,
+    extract_response_schema,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +93,148 @@ class TestRunner:
                 "duration_ms": 0,
                 "size_bytes": 0
             }
+
+    async def run_contract_check(
+        self,
+        openapi_spec: str,
+        base_url: str,
+        endpoints: Optional[List[Dict[str, str]]] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Runs contract checks against live API endpoints by comparing responses
+        to their OpenAPI schema definitions.
+
+        Args:
+            openapi_spec: OpenAPI spec as a JSON or YAML string.
+            base_url: The base URL for the API.
+            endpoints: Optional list of {method, path} to check. Defaults to
+                       GET-only endpoints for safety.
+
+        Returns:
+            List of results per endpoint with drift details.
+        """
+        spec = parse_openapi_spec(openapi_spec)
+        if not spec:
+            return [{"method": "?", "path": "?", "status": "error",
+                     "actual_status": 0, "drifts": [], "driftCount": 0,
+                     "responseTime": 0, "error": "Failed to parse OpenAPI spec"}]
+
+        # Validate base_url with SSRF protection
+        if base_url:
+            try:
+                await validate_proxy_url(base_url)
+            except Exception as e:
+                return [{"method": "?", "path": "?", "status": "error",
+                         "actual_status": 0, "drifts": [], "driftCount": 0,
+                         "responseTime": 0,
+                         "error": f"Base URL blocked: {getattr(e, 'detail', str(e))}"}]
+
+        # Determine which endpoints to check
+        if endpoints:
+            target_endpoints = endpoints
+        else:
+            # Default: extract GET-only endpoints from the spec for safety
+            target_endpoints = []
+            paths = spec.get("paths", {})
+            for path, path_item in paths.items():
+                if not isinstance(path_item, dict):
+                    continue
+                if "get" in path_item:
+                    target_endpoints.append({"method": "GET", "path": path})
+
+        if not target_endpoints:
+            return [{"method": "?", "path": "?", "status": "error",
+                     "actual_status": 0, "drifts": [], "driftCount": 0,
+                     "responseTime": 0, "error": "No endpoints found to check"}]
+
+        # Cap at MAX_CONCURRENT_TESTS to prevent abuse
+        target_endpoints = target_endpoints[:MAX_CONCURRENT_TESTS]
+
+        results = []
+        timeout = aiohttp.ClientTimeout(total=15)
+
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            for ep in target_endpoints:
+                method = ep.get("method", "GET").upper()
+                path = ep.get("path", "")
+                full_url = f"{base_url.rstrip('/')}{path}"
+
+                # Validate each endpoint URL
+                try:
+                    await validate_proxy_url(full_url)
+                except Exception as e:
+                    results.append({
+                        "method": method,
+                        "path": path,
+                        "status": "error",
+                        "actual_status": 0,
+                        "drifts": [],
+                        "driftCount": 0,
+                        "responseTime": 0,
+                        "error": f"URL blocked: {getattr(e, 'detail', str(e))}",
+                    })
+                    continue
+
+                start_time = time.perf_counter()
+                try:
+                    async with session.request(method, full_url) as response:
+                        content = await response.read()
+                        duration_ms = int((time.perf_counter() - start_time) * 1000)
+
+                        # Try to parse response as JSON
+                        try:
+                            body_text = content[:51200].decode("utf-8", errors="replace")
+                            response_data = json.loads(body_text)
+                        except (json.JSONDecodeError, UnicodeDecodeError):
+                            response_data = None
+
+                        # Get the expected schema for this endpoint
+                        response_schema = extract_response_schema(
+                            spec, path, method, str(response.status)
+                        )
+
+                        drifts = []
+                        if response_schema and response_data is not None:
+                            drifts = compare_to_schema(
+                                response_data, response_schema, spec
+                            )
+
+                        status = "pass" if not drifts else "drift"
+
+                        results.append({
+                            "method": method,
+                            "path": path,
+                            "status": status,
+                            "actual_status": response.status,
+                            "drifts": drifts,
+                            "driftCount": len(drifts),
+                            "responseTime": duration_ms,
+                        })
+
+                except asyncio.TimeoutError:
+                    results.append({
+                        "method": method,
+                        "path": path,
+                        "status": "error",
+                        "actual_status": 0,
+                        "drifts": [],
+                        "driftCount": 0,
+                        "responseTime": int((time.perf_counter() - start_time) * 1000),
+                        "error": "Request timed out after 15 seconds",
+                    })
+                except Exception as e:
+                    results.append({
+                        "method": method,
+                        "path": path,
+                        "status": "error",
+                        "actual_status": 0,
+                        "drifts": [],
+                        "driftCount": 0,
+                        "responseTime": int((time.perf_counter() - start_time) * 1000),
+                        "error": str(e),
+                    })
+
+        return results
 
     async def run_batch(self, test_cases: List[Dict[str, Any]], base_url: str = ""):
         # Enforce concurrency limit to prevent DoS amplification

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Settings } from 'lucide-react';
+import { X, Settings, FlaskConical } from 'lucide-react';
 import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
 
 const METHOD_COLORS = {
@@ -52,6 +52,8 @@ export const TabManager = () => {
                 >
                     {tab.type === 'collection-settings' ? (
                         <Settings size={12} className="text-slate-500 dark:text-slate-400 shrink-0" />
+                    ) : tab.type === 'test-dashboard' ? (
+                        <FlaskConical size={12} className="text-corporate-500 dark:text-corporate-400 shrink-0" />
                     ) : (
                         <span className={`font-bold tracking-tight uppercase text-[10px] ${tab.type === 'websocket' ? 'text-violet-600' : METHOD_COLORS[tab.method] || 'text-slate-500'}`}>
                             {tab.type === 'websocket' ? 'WS' : tab.method}

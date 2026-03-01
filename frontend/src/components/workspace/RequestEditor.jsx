@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Activity, AlertCircle, CheckCircle, Clock, FileText, Copy, Download, Link, Code2 } from 'lucide-react';
+import { Play, Activity, AlertCircle, CheckCircle, Clock, FileText, Copy, Download, Link, Code2, Sparkles } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ResizeHandle } from './ResizeHandle';
 import { CustomMethodSelect } from './CustomMethodSelect';
@@ -1115,15 +1115,26 @@ export const RequestEditor = ({ tabId }) => {
                                     <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                         Response Assertions ({(request.assertions || []).length})
                                     </span>
-                                    <button
-                                        onClick={() => {
-                                            const newA = createAssertion('status_code');
-                                            handleChange('assertions', [...(request.assertions || []), newA]);
-                                        }}
-                                        className="text-[10px] font-bold text-corporate-600 dark:text-corporate-400 hover:text-corporate-700 dark:hover:text-corporate-300 transition-colors"
-                                    >
-                                        + Add Assertion
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => useWorkspaceStore.getState().openTestDashboard(
+                                                useWorkspaceStore.getState().activeCollectionId
+                                            )}
+                                            className="text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors flex items-center gap-0.5"
+                                            title="Open AI Suggest tab in Test Dashboard"
+                                        >
+                                            <Sparkles size={10} /> Suggest with AI
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                const newA = createAssertion('status_code');
+                                                handleChange('assertions', [...(request.assertions || []), newA]);
+                                            }}
+                                            className="text-[10px] font-bold text-corporate-600 dark:text-corporate-400 hover:text-corporate-700 dark:hover:text-corporate-300 transition-colors"
+                                        >
+                                            + Add Assertion
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {(request.assertions || []).length === 0 ? (

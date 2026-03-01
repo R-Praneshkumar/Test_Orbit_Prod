@@ -562,6 +562,193 @@ Every object MUST have: "method", "url", "suggested_body", "explanation".
             logger.error(f"Chat failed: {e}")
             return {"error": str(e)}
 
+    async def suggest_endpoint_tests(
+        self,
+        method: str,
+        url: str,
+        endpoint_name: str = "",
+        request_body_schema: dict = None,
+        response_body_sample: dict = None,
+        openapi_spec: str = None,
+        existing_assertions: list = None,
+        categories: list = None,
+    ):
+        """
+        Generates 5-8 test suggestions with assertions for a single API endpoint.
+        Uses Gemini 2.0 Flash, matching the generate_tests pattern.
+        """
+        if not categories:
+            categories = ["happy_path", "edge_case", "validation", "security", "performance"]
+
+        existing_hint = ""
+        if existing_assertions:
+            existing_hint = f"""
+The endpoint already has these assertions — do NOT duplicate them:
+```json
+{json.dumps(existing_assertions[:20], indent=2)}
+```
+Generate DIFFERENT tests that cover scenarios NOT already tested."""
+
+        spec_context = ""
+        if openapi_spec:
+            spec_context = f"""
+OpenAPI Spec (for schema reference):
+```
+{openapi_spec[:6000]}
+```"""
+
+        body_schema_hint = ""
+        if request_body_schema:
+            body_schema_hint = f"""
+Request Body Schema:
+```json
+{json.dumps(request_body_schema, indent=2)[:2000]}
+```"""
+
+        sample_hint = ""
+        if response_body_sample:
+            sample_hint = f"""
+Sample Response:
+```json
+{json.dumps(response_body_sample, indent=2)[:2000]}
+```"""
+
+        prompt = f"""You are an expert QA engineer. Generate 5-8 test suggestions for this single API endpoint.
+
+Endpoint: {method.upper()} {url}
+Name: {endpoint_name or f"{method.upper()} {url}"}
+{body_schema_hint}
+{sample_hint}
+{spec_context}
+{existing_hint}
+
+Target categories: {', '.join(categories)}
+
+ASSERTION RULES:
+- "type" MUST be one of: status_code, response_time, body_contains, body_not_contains, json_path, header_contains, body_json_schema
+- "comparison" MUST be one of: equals, not_equals, greater_than, greater_than_or_equal, less_than, less_than_or_equal, contains, not_contains, starts_with, ends_with, matches_regex, exists, is_not_null, is_null, is_empty, is_not_empty, length_equals, length_greater_than, length_less_than, is_type
+- Every assertion MUST have: type, comparison, expected, target, enabled (always true)
+- For status_code assertions: target should be ""
+- For json_path assertions: target is the JSON path (e.g. "data.id", "items[0].name")
+- For response_time assertions: expected is milliseconds as a string
+
+Return JSON:
+{{
+  "suggestions": [
+    {{
+      "name": "{method.upper()} {url.split('/')[-1] if '/' in url else url} - descriptive test name",
+      "category": "happy_path",
+      "description": "What this test verifies",
+      "confidence": "high",
+      "assertions": [
+        {{ "type": "status_code", "comparison": "equals", "expected": "200", "target": "", "enabled": true }},
+        {{ "type": "json_path", "comparison": "exists", "expected": "", "target": "data.id", "enabled": true }}
+      ],
+      "test_request": {{
+        "method": "{method.upper()}",
+        "endpoint": "{url}",
+        "payload": null,
+        "headers": {{}}
+      }}
+    }}
+  ]
+}}
+
+Categories: happy_path | edge_case | security | performance | validation
+Confidence: high | medium | low
+Generate between 5 and 8 suggestions covering different categories."""
+
+        try:
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
+                model=self.model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                ),
+            )
+            result = json.loads(self._clean_json(response.text))
+
+            # Validate and sanitize the suggestions
+            if isinstance(result, dict) and "suggestions" in result:
+                valid_types = {
+                    "status_code", "response_time", "body_contains",
+                    "body_not_contains", "json_path", "header_contains",
+                    "body_json_schema",
+                }
+                valid_comparisons = {
+                    "equals", "not_equals", "greater_than", "greater_than_or_equal",
+                    "less_than", "less_than_or_equal", "contains", "not_contains",
+                    "starts_with", "ends_with", "matches_regex", "exists",
+                    "is_not_null", "is_null", "is_empty", "is_not_empty",
+                    "length_equals", "length_greater_than", "length_less_than",
+                    "is_type",
+                }
+                for suggestion in result["suggestions"]:
+                    if "assertions" in suggestion:
+                        suggestion["assertions"] = [
+                            a for a in suggestion["assertions"]
+                            if a.get("type") in valid_types
+                            and a.get("comparison") in valid_comparisons
+                        ]
+                        for a in suggestion["assertions"]:
+                            a.setdefault("enabled", True)
+                            a.setdefault("target", "")
+                            a.setdefault("expected", "")
+
+            return result
+        except Exception as e:
+            logger.error(f"Suggest endpoint tests failed: {e}")
+            return {"error": str(e)}
+
+    async def explain_contract_drift(self, drift_result: dict):
+        """
+        Takes a contract drift result for an endpoint and returns a short
+        AI-generated explanation of the drifts and recommended fixes.
+        """
+        # Build a concise summary of drifts for the prompt
+        drifts = drift_result.get("drifts", [])
+        if not drifts:
+            return "No contract drift detected for this endpoint."
+
+        drift_summary = json.dumps(drifts[:15], indent=2)
+
+        prompt = f"""You are an API contract testing expert. Analyze these schema drifts between an API response and its OpenAPI specification.
+
+Endpoint: {drift_result.get('method', '?')} {drift_result.get('path', '?')}
+Status code: {drift_result.get('actual_status', '?')}
+Drift count: {drift_result.get('driftCount', len(drifts))}
+
+Drifts found:
+```json
+{drift_summary}
+```
+
+Provide a concise 2-4 sentence explanation of:
+1. What drifted and why it matters
+2. Whether this is likely an API change, a spec that needs updating, or a bug
+
+Return JSON:
+{{
+    "explanation": "Your concise explanation here",
+    "recommendation": "Update spec | Fix API | Investigate",
+    "severity_summary": "critical | moderate | minor"
+}}"""
+
+        try:
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
+                model=self.model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                ),
+            )
+            return json.loads(self._clean_json(response.text))
+        except Exception as e:
+            logger.error(f"Contract drift explanation failed: {e}")
+            return {"explanation": f"AI analysis unavailable: {str(e)}"}
+
     async def generate_mock_response(self, method: str, path: str):
         """
         Generates a realistic mock response for a given API endpoint.

@@ -73,7 +73,6 @@ export const IntelligencePanel = ({ onCollapse }) => {
     const createRequestFromAI = useWorkspaceStore(state => state.createRequestFromAI);
     const importFromOpenApiSpec = useWorkspaceStore(state => state.importFromOpenApiSpec);
     const addTestSuite = useWorkspaceStore(state => state.addTestSuite);
-    const deleteTestSuite = useWorkspaceStore(state => state.deleteTestSuite);
     const openRunnerForTestSuite = useWorkspaceStore(state => state.openRunnerForTestSuite);
 
     const testSuites = activeCollection?.testSuites || EMPTY_SUITES;
@@ -900,42 +899,73 @@ export const IntelligencePanel = ({ onCollapse }) => {
                         </button>
                     </div>
 
+                    {/* Quick stats */}
+                    <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 mb-3 text-[10px] text-slate-500 dark:text-slate-400">
+                        <div className="flex items-center justify-between">
+                            <span>{testSuites.length} suite{testSuites.length !== 1 ? 's' : ''}</span>
+                            <span>{testSuites.reduce((sum, s) => sum + (s.tests?.length || 0), 0)} total tests</span>
+                        </div>
+                        {testSuites.length > 0 && (() => {
+                            const lastRun = testSuites.find(s => s.lastRunSummary);
+                            if (!lastRun?.lastRunSummary) return null;
+                            const lrs = lastRun.lastRunSummary;
+                            return (
+                                <div className="mt-1.5 flex items-center gap-2 text-[9px]">
+                                    <span className="text-green-600 dark:text-green-400">{lrs.passed} passed</span>
+                                    {lrs.failed > 0 && <span className="text-red-600 dark:text-red-400">{lrs.failed} failed</span>}
+                                </div>
+                            );
+                        })()}
+                    </div>
+
+                    {/* Open Dashboard button */}
+                    <button
+                        onClick={() => useWorkspaceStore.getState().openTestDashboard(activeCollectionId)}
+                        className="w-full text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-corporate-300 dark:hover:border-corporate-700 text-slate-700 dark:text-slate-200 px-3 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors mb-3"
+                    >
+                        <FlaskConical size={13} /> Open Test Dashboard
+                    </button>
+
                     {/* Test prompt input */}
                     <textarea
                         value={testPrompt}
                         onChange={(e) => setTestPrompt(e.target.value)}
                         className="w-full text-[11px] p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 dark:text-slate-200 resize-none outline-none focus:ring-2 focus:ring-corporate-500 mb-3"
-                        rows={3}
-                        placeholder="Describe what tests you want... e.g. 'Test auth endpoints with invalid tokens, test rate limiting, check required fields on POST endpoints'"
+                        rows={2}
+                        placeholder="Describe what tests you want... or leave empty for auto-generated suite"
                     />
 
                     {testSuites.length === 0 && !generating && (
-                        <div className="text-center py-6">
-                            <FlaskConical size={28} className="mx-auto mb-3 text-slate-300 dark:text-slate-600" strokeWidth={1} />
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">No test suites yet</p>
-                            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 px-4">
-                                Describe what to test above, or leave empty for a comprehensive auto-generated suite.
+                        <div className="text-center py-4">
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 px-4">
+                                Generate tests above, or open the full dashboard for AI suggestions and contract testing.
                             </p>
                         </div>
                     )}
 
-                    {testSuites.map((suite, sIdx) => (
-                        <div key={suite.id} className="animate-slide-up" style={{ animationDelay: `${sIdx * 100}ms`, animationFillMode: 'both' }}>
-                            <TestSuiteCard
-                                suite={suite}
-                                colId={activeCollectionId}
-                                onDelete={() => deleteTestSuite(activeCollectionId, suite.id)}
-                                onRun={() => openRunnerForTestSuite(activeCollectionId, suite)}
-                                onImport={() => {
-                                    const importTests = useWorkspaceStore.getState().importTestsToCollection;
-                                    const result = importTests(activeCollectionId, suite.tests || []);
-                                    alert(`Imported ${result.imported} requests${result.skipped ? ` (${result.skipped} duplicates skipped)` : ''}`);
-                                }}
-                                categoryColors={CATEGORY_COLORS}
-                                methodColors={METHOD_COLORS}
-                            />
+                    {/* Compact suite list (top 3) */}
+                    {testSuites.slice(0, 3).map((suite) => (
+                        <div key={suite.id} className="flex items-center gap-2 px-2 py-2 mb-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            <FlaskConical size={11} className="text-corporate-500 shrink-0" />
+                            <span className="text-[11px] text-slate-700 dark:text-slate-300 truncate flex-1">{suite.test_suite_name || 'Test Suite'}</span>
+                            <span className="text-[9px] text-slate-400">{(suite.tests || []).length} tests</span>
+                            <button
+                                onClick={() => openRunnerForTestSuite(activeCollectionId, suite)}
+                                className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-400 hover:text-green-600 transition-colors"
+                                title="Run suite"
+                            >
+                                <Play size={10} />
+                            </button>
                         </div>
                     ))}
+                    {testSuites.length > 3 && (
+                        <button
+                            onClick={() => useWorkspaceStore.getState().openTestDashboard(activeCollectionId)}
+                            className="text-[10px] text-corporate-600 dark:text-corporate-400 hover:underline w-full text-center py-1"
+                        >
+                            +{testSuites.length - 3} more suites &mdash; Open Dashboard
+                        </button>
+                    )}
                 </div>
             )}
         </div>

@@ -59,6 +59,22 @@ class ChatRequest(BaseModel):
     conversation_history: Optional[List[Dict[str, str]]] = None
     context: Optional[str] = Field(None, max_length=2097152)  # 2MB
 
+class SuggestRequest(BaseModel):
+    method: str = Field(..., max_length=10)
+    url: str = Field(..., max_length=2048)
+    endpoint_name: Optional[str] = Field(None, max_length=200)
+    request_body_schema: Optional[Dict[str, Any]] = None
+    response_body_sample: Optional[Dict[str, Any]] = None
+    openapi_spec: Optional[str] = Field(None, max_length=2097152)  # 2MB
+    existing_assertions: Optional[List[Dict[str, Any]]] = None
+    categories: Optional[List[str]] = None
+
+class ContractCheckRequest(BaseModel):
+    openapi_spec: str = Field(..., max_length=2097152)  # 2MB
+    base_url: str = Field(..., max_length=2048)
+    endpoints: Optional[List[Dict[str, str]]] = None
+    include_ai_analysis: bool = False
+
 class ProxyRequest(BaseModel):
     url: str = Field(..., max_length=2048)
     method: str = Field("GET", max_length=10)
@@ -175,6 +191,64 @@ async def diagnose_failure(request: Request, req: DiagnoseRequest, user: dict = 
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result
+
+@router.post("/suggest")
+@limiter.limit(_settings.AI_RATE_LIMIT)
+async def suggest_tests(request: Request, req: SuggestRequest, user: dict = Depends(verify_token)):
+    """Generates AI-powered test suggestions with assertions for a single endpoint."""
+    try:
+        result = await ai_service.suggest_endpoint_tests(
+            method=req.method,
+            url=req.url,
+            endpoint_name=req.endpoint_name or "",
+            request_body_schema=req.request_body_schema,
+            response_body_sample=req.response_body_sample,
+            openapi_spec=req.openapi_spec,
+            existing_assertions=req.existing_assertions,
+            categories=req.categories,
+        )
+        if isinstance(result, dict) and "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Suggest tests error: {e}")
+        raise HTTPException(status_code=500, detail="Test suggestion generation failed")
+
+@router.post("/contract-check")
+@limiter.limit(_settings.AI_RATE_LIMIT)
+async def contract_check(request: Request, req: ContractCheckRequest, user: dict = Depends(verify_token)):
+    """Runs contract checks comparing live API responses against OpenAPI schemas."""
+    try:
+        results = await test_runner.run_contract_check(
+            openapi_spec=req.openapi_spec,
+            base_url=req.base_url,
+            endpoints=req.endpoints,
+        )
+
+        # Optionally add AI analysis for the top drifted endpoints
+        if req.include_ai_analysis:
+            drifted = [r for r in results if r.get("status") == "drift"]
+            # Sort by drift count descending, limit to top 5
+            drifted = sorted(drifted, key=lambda x: x.get("driftCount", 0), reverse=True)[:5]
+
+            async def attach_analysis(endpoint_result):
+                try:
+                    analysis = await ai_service.explain_contract_drift(endpoint_result)
+                    endpoint_result["ai_analysis"] = analysis
+                except Exception as e:
+                    logger.error(f"AI analysis failed for {endpoint_result.get('path')}: {e}")
+
+            if drifted:
+                await asyncio.gather(*[attach_analysis(r) for r in drifted])
+
+        return {"results": results}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Contract check error: {e}")
+        raise HTTPException(status_code=500, detail="Contract check failed")
 
 @router.post("/proxy")
 @limiter.limit(_settings.PROXY_RATE_LIMIT)

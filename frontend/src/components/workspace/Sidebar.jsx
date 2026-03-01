@@ -7,8 +7,6 @@ import { ImportCollectionModal } from './ImportCollectionModal';
 import ShareModal from './ShareModal';
 import { Users } from 'lucide-react';
 
-import { API_BASE, authFetch } from '../../config';
-
 const SidebarItem = ({ item, level = 0 }) => {
     const [expanded, setExpanded] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
@@ -26,11 +24,15 @@ const SidebarItem = ({ item, level = 0 }) => {
     const openRunner = useWorkspaceStore(state => state.openRunner);
     const setActiveCollection = useWorkspaceStore(state => state.setActiveCollection);
     const activeCollectionId = useWorkspaceStore(state => state.activeCollectionId);
-    const addTestSuite = useWorkspaceStore(state => state.addTestSuite);
     const collections = useWorkspaceStore(state => state.collections);
     const addRequestToFolder = useWorkspaceStore(state => state.addRequestToFolder);
     const moveItemToFolder = useWorkspaceStore(state => state.moveItemToFolder);
     const openCollectionSettings = useWorkspaceStore(state => state.openCollectionSettings);
+    const openTestDashboard = useWorkspaceStore(state => state.openTestDashboard);
+    const openRunnerForFolder = useWorkspaceStore(state => state.openRunnerForFolder);
+    const setActiveFolderId = useWorkspaceStore(state => state.setActiveFolderId);
+    const activeFolderId = useWorkspaceStore(state => state.activeFolderId);
+    const isActiveFolder = item.type === 'folder' && item.id === activeFolderId;
     const [showMoveMenu, setShowMoveMenu] = useState(false);
 
     // Close context menu on outside click
@@ -61,6 +63,7 @@ const SidebarItem = ({ item, level = 0 }) => {
             setActiveCollection(item.id);
         } else if (item.type === 'folder') {
             setExpanded(!expanded);
+            setActiveFolderId(expanded ? null : item.id);
         } else {
             // Works for both 'request' and 'websocket' types
             openTab(item);
@@ -101,36 +104,22 @@ const SidebarItem = ({ item, level = 0 }) => {
             case 'settings':
                 if (item.type === 'collection') openCollectionSettings(item.id);
                 break;
-            case 'generateTests':
+            case 'openTests':
+                if (item.type === 'collection') openTestDashboard(item.id);
+                break;
+            case 'newFolder':
                 if (item.type === 'collection') {
-                    (async () => {
-                        const col = collections.find(c => c.id === item.id);
-                        const allReqs = flattenItems(col?.items, 'request');
-                        const colBaseUrl = col?.baseUrl || allReqs[0]?.url || '';
-                        const openApiSpec = col?.openApiSpec || '';
-                        const endpointList = allReqs.map(i => `${i.method} ${i.url}`).join(', ');
-                        try {
-                            const res = await authFetch(`${API_BASE}/generate`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    url: colBaseUrl,
-                                    context: `Collection: ${col?.name}, Endpoints: ${endpointList}`,
-                                    openapi_spec: openApiSpec || undefined,
-                                    base_url: col?.baseUrl || undefined,
-                                })
-                            });
-                            const data = await res.json();
-                            const errMsg = data.error || data.detail;
-                            if (!res.ok || errMsg) {
-                                alert(`Failed to generate tests: ${errMsg || 'Unknown error'}`);
-                            } else {
-                                addTestSuite(item.id, data);
-                            }
-                        } catch (err) {
-                            alert(`Failed to generate tests: ${err.message}`);
-                        }
-                    })();
+                    useWorkspaceStore.getState().addFolder(item.id);
+                }
+                break;
+            case 'runFolder':
+                if (item.type === 'folder') {
+                    openRunnerForFolder(activeCollectionId, item.id);
+                }
+                break;
+            case 'openFolderTests':
+                if (item.type === 'folder') {
+                    openTestDashboard(activeCollectionId, item.id);
                 }
                 break;
             case 'export':
@@ -200,7 +189,9 @@ const SidebarItem = ({ item, level = 0 }) => {
                     group flex items-center gap-2 px-3 py-1.5 cursor-pointer text-sm transition-colors border-l-2
                     ${item.type === 'collection' && item.id === activeCollectionId
                         ? 'border-l-[3px] border-corporate-500 bg-corporate-100 dark:bg-corporate-900/30 text-slate-900 dark:text-slate-100 font-semibold'
-                        : `border-transparent ${level === 0 ? 'text-slate-800 dark:text-slate-100 font-medium' : 'text-slate-600 dark:text-slate-400'} hover:bg-slate-100 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600`
+                        : isActiveFolder
+                            ? 'border-l-2 border-amber-400 bg-amber-50/50 dark:bg-amber-900/10 text-slate-700 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                            : `border-transparent ${level === 0 ? 'text-slate-800 dark:text-slate-100 font-medium' : 'text-slate-600 dark:text-slate-400'} hover:bg-slate-100 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600`
                     }
                 `}
                 style={{ paddingLeft: `${level * 12 + 12}px` }}
@@ -274,10 +265,10 @@ const SidebarItem = ({ item, level = 0 }) => {
                                         <Play size={11} className="fill-current" /> Run All
                                     </button>
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); handleMenuAction('generateTests'); }}
+                                        onClick={(e) => { e.stopPropagation(); handleMenuAction('openTests'); }}
                                         className="w-full text-left px-3 py-2 text-xs text-corporate-600 dark:text-corporate-400 hover:bg-corporate-50 dark:hover:bg-corporate-900/20 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800"
                                     >
-                                        <FlaskConical size={11} /> Generate Tests
+                                        <FlaskConical size={11} /> Open Test Dashboard
                                     </button>
                                 </>
                             )}
@@ -302,6 +293,12 @@ const SidebarItem = ({ item, level = 0 }) => {
                                     >
                                         <Users size={11} /> Share
                                     </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleMenuAction('newFolder'); }}
+                                        className="w-full text-left px-3 py-2 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-2"
+                                    >
+                                        <FolderPlus size={11} /> New Folder
+                                    </button>
                                 </>
                             )}
                             {item.type === 'request' && (
@@ -312,19 +309,40 @@ const SidebarItem = ({ item, level = 0 }) => {
                                     <Copy size={11} /> Duplicate
                                 </button>
                             )}
-                            {item.type === 'folder' && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setShowMenu(false);
-                                        const col = collections.find(c => c.id === activeCollectionId);
-                                        if (col) addRequestToFolder(col.id, item.id);
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-xs text-corporate-600 dark:text-corporate-400 hover:bg-corporate-50 dark:hover:bg-corporate-900/20 flex items-center gap-2"
-                                >
-                                    <FilePlus size={11} /> New Request
-                                </button>
-                            )}
+                            {item.type === 'folder' && (() => {
+                                const folderHasRequests = flattenItems(item.items, 'request').length > 0;
+                                return (
+                                    <>
+                                        {folderHasRequests && (
+                                            <>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleMenuAction('runFolder'); }}
+                                                    className="w-full text-left px-3 py-2 text-xs text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center gap-2"
+                                                >
+                                                    <Play size={11} className="fill-current" /> Run Folder
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleMenuAction('openFolderTests'); }}
+                                                    className="w-full text-left px-3 py-2 text-xs text-corporate-600 dark:text-corporate-400 hover:bg-corporate-50 dark:hover:bg-corporate-900/20 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800"
+                                                >
+                                                    <FlaskConical size={11} /> Open Test Dashboard
+                                                </button>
+                                            </>
+                                        )}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setShowMenu(false);
+                                                const col = collections.find(c => c.id === activeCollectionId);
+                                                if (col) addRequestToFolder(col.id, item.id);
+                                            }}
+                                            className="w-full text-left px-3 py-2 text-xs text-corporate-600 dark:text-corporate-400 hover:bg-corporate-50 dark:hover:bg-corporate-900/20 flex items-center gap-2"
+                                        >
+                                            <FilePlus size={11} /> New Request
+                                        </button>
+                                    </>
+                                );
+                            })()}
                             {(item.type === 'request' || item.type === 'websocket') && (
                                 <div className="relative">
                                     <button

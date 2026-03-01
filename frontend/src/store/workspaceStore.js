@@ -41,6 +41,125 @@ export const flattenItems = (items, type) => {
     return result;
 };
 
+// Flatten items with folder path info — returns [{ item, folderPath: ['Auth'], folderId }]
+export const flattenItemsWithPath = (items, type, parentPath = [], parentFolderId = null) => {
+    const result = [];
+    for (const item of (items || [])) {
+        if (!type || item.type === type) {
+            result.push({ item, folderPath: [...parentPath], folderId: parentFolderId });
+        }
+        if (item.items) {
+            result.push(...flattenItemsWithPath(
+                item.items, type,
+                [...parentPath, item.name],
+                item.id
+            ));
+        }
+    }
+    return result;
+};
+
+// Find a folder by ID recursively in a nested items tree
+export const findFolderById = (items, folderId) => {
+    for (const item of (items || [])) {
+        if (item.id === folderId && item.type === 'folder') return item;
+        if (item.items) {
+            const found = findFolderById(item.items, folderId);
+            if (found) return found;
+        }
+    }
+    return null;
+};
+
+// Build endpoint signature: "POST::/v1/users" (strips base URL, normalizes path)
+export const buildEndpointSignature = (method, endpoint, baseUrl = '') => {
+    let path = endpoint || '';
+    if (baseUrl && path.startsWith(baseUrl)) path = path.slice(baseUrl.length);
+    try { path = new URL(path.startsWith('http') ? path : `https://x${path}`).pathname; } catch { /* keep as-is */ }
+    return `${(method || 'GET').toUpperCase()}::${path}`;
+};
+
+// Match a test case to the best matching request
+// Strategy: 1) requestId, 2) endpointSignature, 3) fuzzy URL tail
+export const matchTestToRequest = (test, requests, baseUrl = '') => {
+    if (test.requestId) {
+        const found = requests.find(r => r.id === test.requestId);
+        if (found) return found;
+    }
+    const testSig = test.endpointSignature || buildEndpointSignature(test.method, test.endpoint, baseUrl);
+    for (const req of requests) {
+        const reqSig = buildEndpointSignature(req.method, req.url, baseUrl);
+        if (reqSig === testSig) return req;
+    }
+    // Fuzzy: match by last 2 path segments + method
+    const testPath = testSig.split('::')[1] || '';
+    const testTail = testPath.split('/').filter(Boolean).slice(-2).join('/');
+    if (testTail) {
+        for (const req of requests) {
+            const reqPath = buildEndpointSignature(req.method, req.url, baseUrl).split('::')[1] || '';
+            const reqTail = reqPath.split('/').filter(Boolean).slice(-2).join('/');
+            if (reqTail === testTail && (req.method || 'GET').toUpperCase() === (test.method || 'GET').toUpperCase()) {
+                return req;
+            }
+        }
+    }
+    return null;
+};
+
+// Group test cases by the folder their linked request belongs to
+export const groupTestsByFolder = (tests, items, baseUrl = '') => {
+    const requestsWithPath = flattenItemsWithPath(items, 'request');
+    const allReqs = requestsWithPath.map(r => r.item);
+    const groups = new Map();
+
+    for (const test of tests) {
+        const matched = matchTestToRequest(test, allReqs, baseUrl);
+        if (!matched) {
+            const key = '(unlinked)';
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push({ ...test, _matchedRequest: null });
+            continue;
+        }
+        const entry = requestsWithPath.find(r => r.item.id === matched.id);
+        const folderName = entry?.folderPath?.length > 0 ? entry.folderPath.join(' / ') : '(root)';
+        if (!groups.has(folderName)) groups.set(folderName, []);
+        groups.get(folderName).push({ ...test, _matchedRequest: matched });
+    }
+    return groups;
+};
+
+// Group items into folders by first URL path segment (for spec import / test import)
+const groupItemsIntoFolders = (items) => {
+    const groups = {};
+    for (const item of items) {
+        let seg = '_root';
+        try {
+            const url = item.url || '';
+            const path = url.startsWith('http') ? new URL(url).pathname : url;
+            const parts = path.split('/').filter(Boolean);
+            // Skip version segments like v1, v2, api
+            const meaningful = parts.find(p => !/^(v\d+|api|docs)$/i.test(p));
+            if (meaningful) seg = meaningful;
+        } catch { /* keep _root */ }
+        if (!groups[seg]) groups[seg] = [];
+        groups[seg].push(item);
+    }
+    const structured = [];
+    for (const [seg, groupItems] of Object.entries(groups)) {
+        if (seg === '_root' || groupItems.length < 2) {
+            structured.push(...groupItems);
+        } else {
+            structured.push({
+                id: uuidv4 ? uuidv4() : `folder-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                name: seg.charAt(0).toUpperCase() + seg.slice(1),
+                type: 'folder',
+                items: groupItems
+            });
+        }
+    }
+    return structured;
+};
+
 // Find the immediate parent array containing a target item ID
 
 export const useWorkspaceStore = create(persist((set, get) => ({
@@ -106,6 +225,15 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
     // Collection Runner state (not persisted)
     runner: null,
+
+    // AI test suggestions pending review (not persisted — transient)
+    pendingSuggestions: {},   // { [requestId]: { suggestions: [], generatedAt, status } }
+
+    // Contract test results cache (not persisted — transient)
+    contractResults: {},     // { [collectionId]: { results: [], runAt, status } }
+
+    // Currently selected folder in sidebar (not persisted — transient)
+    activeFolderId: null,
 
     // Individual request history — global audit trail (persisted, capped at 50)
     requestHistory: [],
@@ -459,13 +587,14 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
     saveRunToCollection: (run) => set((state) => {
         const colId = state.activeCollectionId;
+        const folderId = state.runner?.folderId || null;
         return {
             collections: state.collections.map(col =>
                 col.id === colId
                     ? {
                         ...col,
                         runHistory: [
-                            { id: uuidv4(), timestamp: Date.now(), ...run },
+                            { id: uuidv4(), timestamp: Date.now(), folderId, ...run },
                             ...(col.runHistory || [])
                         ].slice(0, 20)
                     }
@@ -496,18 +625,36 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
     // --- Per-Collection Test Suites ---
 
-    addTestSuite: (colId, suite) => {
+    addTestSuite: (colId, suite, folderId = null) => {
+        const state = get();
+        const col = state.collections.find(c => c.id === colId);
+        const allRequests = col ? flattenItems(col.items, 'request') : [];
+
+        // Enrich each test with ID, endpointSignature, and auto-linked requestId
+        const enrichedTests = (suite.tests || []).map(test => {
+            const testId = test.id || uuidv4();
+            const sig = buildEndpointSignature(test.method, test.endpoint, col?.baseUrl);
+            const matched = matchTestToRequest({ ...test, endpointSignature: sig }, allRequests, col?.baseUrl);
+            return {
+                ...test,
+                id: testId,
+                requestId: matched?.id || null,
+                endpointSignature: sig,
+                lastResult: test.lastResult || null,
+            };
+        });
+
         set((state) => ({
-            collections: state.collections.map(col =>
-                col.id === colId
+            collections: state.collections.map(c =>
+                c.id === colId
                     ? {
-                        ...col,
+                        ...c,
                         testSuites: [
-                            { id: uuidv4(), createdAt: Date.now(), ...suite },
-                            ...(col.testSuites || [])
+                            { id: uuidv4(), createdAt: Date.now(), source: 'ai', folderId: folderId || null, ...suite, tests: enrichedTests },
+                            ...(c.testSuites || [])
                         ]
                     }
-                    : col
+                    : c
             )
         }));
         get().saveCollectionToSupabase(colId);
@@ -521,7 +668,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         )
     })),
 
-    // Import test suite endpoints as collection requests
+    // Import test suite endpoints as collection requests (folder-aware)
     importTestsToCollection: (colId, tests) => {
         const state = get();
         const col = state.collections.find(c => c.id === colId);
@@ -547,16 +694,18 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 headers: Object.entries(test.headers || {}).map(([k, v]) => ({ key: k, value: v, enabled: true })),
                 params: [],
                 body: { type: 'json', content: test.payload ? JSON.stringify(test.payload, null, 2) : '' },
-                assertions: test.expected_status ? [{ type: 'status', comparison: 'equals', expected: String(test.expected_status), enabled: true }] : [],
+                assertions: test.expected_status ? [{ id: uuidv4(), type: 'status_code', comparison: 'equals', expected: String(test.expected_status), enabled: true }] : [],
             });
             existingKeys.add(key);
             imported++;
         }
 
         if (newItems.length > 0) {
+            // Auto-organize into folders by URL path segment
+            const structured = groupItemsIntoFolders(newItems);
             set((s) => ({
                 collections: s.collections.map(c =>
-                    c.id === colId ? { ...c, items: [...(c.items || []), ...newItems] } : c
+                    c.id === colId ? { ...c, items: [...(c.items || []), ...structured] } : c
                 )
             }));
             get().debouncedSaveToSupabase(colId);
@@ -577,6 +726,148 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 : col
         )
     })),
+
+    // --- Test Dashboard & AI Suggestions ---
+
+    // Open test dashboard as a tab in the editor area (follows openCollectionSettings pattern)
+    openTestDashboard: (colId, folderId = null) => set((state) => {
+        const col = state.collections.find(c => c.id === colId);
+        if (!col) return {};
+        let tabName = `${col.name} Tests`;
+        if (folderId) {
+            const folder = findFolderById(col.items, folderId);
+            if (!folder) return {};
+            tabName = `${folder.name} Tests`;
+        }
+        const tabId = folderId
+            ? `test-dashboard-${colId}-folder-${folderId}`
+            : `test-dashboard-${colId}`;
+        const dashTab = {
+            id: tabId, type: 'test-dashboard', name: tabName,
+            collectionId: colId, folderId: folderId || null,
+        };
+        const existing = state.activeTabs.find(t => t.id === tabId);
+        if (existing) {
+            return { activeTabId: tabId, activeCollectionId: colId, currentView: 'workspace' };
+        }
+        return {
+            activeTabs: [...state.activeTabs, dashTab],
+            activeTabId: tabId, activeCollectionId: colId, currentView: 'workspace'
+        };
+    }),
+
+    // Store AI suggestions pending review (transient, per request)
+    setPendingSuggestions: (requestId, suggestions) => set((state) => ({
+        pendingSuggestions: {
+            ...state.pendingSuggestions,
+            [requestId]: { suggestions, generatedAt: Date.now(), status: 'ready' }
+        }
+    })),
+
+    clearPendingSuggestions: (requestId) => set((state) => {
+        const { [requestId]: _, ...rest } = state.pendingSuggestions;
+        return { pendingSuggestions: rest };
+    }),
+
+    // Approve a single suggestion: converts it to real assertions on the request
+    approveSuggestion: (requestId, suggestion) => {
+        const state = get();
+        // Find request across all collections
+        let targetColId = null;
+        for (const col of state.collections) {
+            if (flattenItems(col.items).some(i => i.id === requestId)) {
+                targetColId = col.id;
+                break;
+            }
+        }
+        if (!targetColId) return;
+
+        // Build assertions from suggestion
+        const newAssertions = (suggestion.assertions || []).map(a => ({
+            id: uuidv4(),
+            type: a.type || 'status_code',
+            target: a.target || '',
+            comparison: a.comparison || 'equals',
+            expected: a.expected || '',
+            enabled: a.enabled !== false,
+        }));
+
+        // Add to request's existing assertions
+        const updateRecursive = (items) => items.map(item => {
+            if (item.id === requestId) {
+                return { ...item, assertions: [...(item.assertions || []), ...newAssertions] };
+            }
+            if (item.items) return { ...item, items: updateRecursive(item.items) };
+            return item;
+        });
+
+        set((s) => ({
+            collections: s.collections.map(col =>
+                col.id === targetColId ? { ...col, items: updateRecursive(col.items) } : col
+            ),
+            // Also update the tab if it's open
+            activeTabs: s.activeTabs.map(t => {
+                if (t.id === requestId) {
+                    return { ...t, assertions: [...(t.assertions || []), ...newAssertions] };
+                }
+                return t;
+            })
+        }));
+        get().debouncedSaveToSupabase(targetColId);
+    },
+
+    // Approve all pending suggestions for a request
+    approveAllSuggestions: (requestId) => {
+        const state = get();
+        const pending = state.pendingSuggestions[requestId];
+        if (!pending?.suggestions?.length) return;
+        for (const sug of pending.suggestions) {
+            get().approveSuggestion(requestId, sug);
+        }
+        get().clearPendingSuggestions(requestId);
+    },
+
+    // Store contract test results (transient, per collection)
+    setContractResults: (colId, results) => set((state) => ({
+        contractResults: {
+            ...state.contractResults,
+            [colId]: { results, runAt: Date.now(), status: 'complete' }
+        }
+    })),
+
+    // Auto-link all tests in a suite to matching requests
+    autoLinkTestSuite: (colId, suiteId) => {
+        const state = get();
+        const col = state.collections.find(c => c.id === colId);
+        if (!col) return { linked: 0, unlinked: 0 };
+        const allRequests = flattenItems(col.items, 'request');
+        let linked = 0, unlinked = 0;
+
+        set((s) => ({
+            collections: s.collections.map(c => {
+                if (c.id !== colId) return c;
+                return {
+                    ...c,
+                    testSuites: (c.testSuites || []).map(suite => {
+                        if (suite.id !== suiteId) return suite;
+                        return {
+                            ...suite,
+                            tests: suite.tests.map(test => {
+                                const matched = matchTestToRequest(test, allRequests, col.baseUrl);
+                                if (matched) { linked++; return { ...test, requestId: matched.id }; }
+                                else { unlinked++; return test; }
+                            })
+                        };
+                    })
+                };
+            })
+        }));
+        get().debouncedSaveToSupabase(colId);
+        return { linked, unlinked };
+    },
+
+    // Track active folder in sidebar
+    setActiveFolderId: (folderId) => set({ activeFolderId: folderId }),
 
     // Open collection settings as a tab in the editor area
     openCollectionSettings: (colId) => set((state) => {
@@ -916,7 +1207,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         get().saveCollectionToSupabase(collectionId);
     },
 
-    // Delete a request from collections, tabs, and response cache
+    // Delete a request from collections, tabs, response cache, AND test suite references
     deleteRequest: (id) => {
         const colId = get().findCollectionForRequest(id);
 
@@ -934,7 +1225,17 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             const { [id]: _, ...restResponses } = state.responses;
 
             return {
-                collections: removeRecursive(state.collections),
+                // Remove from items tree AND null out test suite references
+                collections: state.collections.map(col => ({
+                    ...col,
+                    items: removeRecursive(col.items),
+                    testSuites: (col.testSuites || []).map(suite => ({
+                        ...suite,
+                        tests: (suite.tests || []).map(t =>
+                            t.requestId === id ? { ...t, requestId: null } : t
+                        )
+                    }))
+                })),
                 activeTabs: newTabs,
                 activeTabId: newActiveId,
                 responses: restResponses
@@ -1075,6 +1376,28 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 collectionId,
                 collectionName: col.name,
                 requests: flattenItems(col.items, 'request'),
+                running: false,
+                progress: 0,
+                results: [],
+                summary: null
+            }
+        };
+    }),
+
+    // Open runner for a specific folder (subset of collection requests)
+    openRunnerForFolder: (collectionId, folderId) => set((state) => {
+        const col = state.collections.find(c => c.id === collectionId);
+        if (!col) return {};
+        const folder = findFolderById(col.items, folderId);
+        if (!folder) return {};
+        const requests = flattenItems(folder.items, 'request');
+        if (requests.length === 0) return {};
+        return {
+            runner: {
+                collectionId,
+                folderId,
+                collectionName: `${col.name} › ${folder.name}`,
+                requests,
                 running: false,
                 progress: 0,
                 results: [],
@@ -1283,6 +1606,9 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
         if (items.length === 0) return { error: 'No endpoints found in the spec.' };
 
+        // Auto-organize into folders by URL path segment (e.g., /auth/login → "Auth" folder)
+        const structured = groupItemsIntoFolders(items);
+
         // Always import into the active collection
         const state = get();
         const targetId = state.activeCollectionId;
@@ -1292,7 +1618,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             set((s) => ({
                 collections: s.collections.map(col =>
                     col.id === targetId
-                        ? { ...col, items: [...col.items, ...items] }
+                        ? { ...col, items: [...col.items, ...structured] }
                         : col
                 )
             }));
@@ -1303,7 +1629,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             const newColId = uuidv4();
             set((s) => ({
                 collections: [...s.collections, {
-                    id: newColId, name: title, type: 'collection', items,
+                    id: newColId, name: title, type: 'collection', items: structured,
                     chatMessages: [], openApiSpec: specString, runHistory: [], testSuites: [],
                 }],
                 activeCollectionId: newColId
@@ -1313,10 +1639,12 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         }
     },
 
-    // Create request from AI suggestion — auto-targets active collection
-    createRequestFromAI: ({ method, url, body, name, collectionId }) => {
+    // Create request from AI suggestion — auto-targets active collection + optional folder
+    createRequestFromAI: ({ method, url, body, name, collectionId, folderId }) => {
         const state = get();
         const targetCol = collectionId || state.activeCollectionId || state.collections[0]?.id;
+        // Use provided folderId or the currently active folder from sidebar
+        const targetFolder = folderId || state.activeFolderId || null;
         const newId = uuidv4();
         const rawUrl = url || '';
 
@@ -1353,9 +1681,20 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         };
 
         set((s) => {
+            const insertIntoFolder = (items) => items.map(item => {
+                if (item.id === targetFolder && item.type === 'folder') {
+                    return { ...item, items: [...(item.items || []), newReq] };
+                }
+                if (item.items) return { ...item, items: insertIntoFolder(item.items) };
+                return item;
+            });
+
             const newCollections = s.collections.map(col => {
                 if (col.id === targetCol) {
-                    return { ...col, items: [...col.items, newReq] };
+                    // If a folder is targeted, insert inside it; otherwise push to root
+                    return targetFolder
+                        ? { ...col, items: insertIntoFolder(col.items) }
+                        : { ...col, items: [...col.items, newReq] };
                 }
                 return col;
             });
@@ -1371,7 +1710,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
 }), {
     name: 'gemini-workspace-storage',
-    version: 11,
+    version: 12,
     partialize: (state) => {
         // Exclude transient runtime data from persistence
         // _realtimeChannel contains circular refs (RealtimeChannel → socket → channels → channel)
@@ -1382,6 +1721,9 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             profile: _profile,
             _realtimeChannel,
             user: _user,
+            pendingSuggestions: _ps,
+            contractResults: _cr,
+            activeFolderId: _af,
             ...persisted
         } = state;
         return persisted;
@@ -1503,6 +1845,45 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             persisted.sidebarWidth = persisted.sidebarWidth || 256;
             persisted.intelligenceWidth = persisted.intelligenceWidth || 320;
             persisted.editorSplitRatio = persisted.editorSplitRatio || 0.5;
+        }
+        if (version < 12) {
+            // v11 → v12: Add test-request linking (id, requestId, endpointSignature)
+            persisted.collections = (persisted.collections || []).map(col => {
+                // Flatten all requests for auto-linking
+                const allReqs = [];
+                const flatten = (items) => {
+                    for (const item of (items || [])) {
+                        if (item.type === 'request') allReqs.push(item);
+                        if (item.items) flatten(item.items);
+                    }
+                };
+                flatten(col.items);
+
+                const migratedSuites = (col.testSuites || []).map(suite => ({
+                    ...suite,
+                    source: suite.source || 'ai',
+                    folderId: suite.folderId || null,
+                    tests: (suite.tests || []).map(test => {
+                        const testId = test.id || crypto.randomUUID();
+                        const method = (test.method || 'GET').toUpperCase();
+                        let path = test.endpoint || '';
+                        if (col.baseUrl && path.startsWith(col.baseUrl)) path = path.slice(col.baseUrl.length);
+                        try { path = new URL(path.startsWith('http') ? path : `https://x${path}`).pathname; } catch { /* keep */ }
+                        const sig = `${method}::${path}`;
+
+                        // Auto-link to matching request
+                        let matchedId = null;
+                        for (const req of allReqs) {
+                            let rp = req.url || '';
+                            if (col.baseUrl && rp.startsWith(col.baseUrl)) rp = rp.slice(col.baseUrl.length);
+                            try { rp = new URL(rp.startsWith('http') ? rp : `https://x${rp}`).pathname; } catch { /* keep */ }
+                            if (`${(req.method || 'GET').toUpperCase()}::${rp}` === sig) { matchedId = req.id; break; }
+                        }
+                        return { ...test, id: testId, requestId: matchedId, endpointSignature: sig, lastResult: test.lastResult || null };
+                    }),
+                }));
+                return { ...col, testSuites: migratedSuites };
+            });
         }
         return persisted;
     },

@@ -7,6 +7,7 @@ import { CollectionRunner } from './components/workspace/CollectionRunner';
 import { WebSocketTester } from './components/workspace/WebSocketTester';
 import { Dashboard } from './components/workspace/Dashboard';
 import { CollectionSettings } from './components/workspace/CollectionSettings';
+import { TestDashboard } from './components/workspace/TestDashboard';
 import { MockServerPanel } from './components/workspace/MockServerPanel';
 import { DocsPanel } from './components/workspace/DocsPanel';
 import { ResizeHandle } from './components/workspace/ResizeHandle';
@@ -279,9 +280,11 @@ function App() {
             ) : visibleTabId ? (
               visibleTab?.type === 'collection-settings'
                 ? <CollectionSettings collectionId={visibleTab.collectionId} />
-                : visibleTab?.type === 'websocket'
-                  ? <WebSocketTester tabId={visibleTabId} />
-                  : <RequestEditor tabId={visibleTabId} />
+                : visibleTab?.type === 'test-dashboard'
+                  ? <TestDashboard collectionId={visibleTab.collectionId} folderId={visibleTab.folderId || null} />
+                  : visibleTab?.type === 'websocket'
+                    ? <WebSocketTester tabId={visibleTabId} />
+                    : <RequestEditor tabId={visibleTabId} />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 bg-slate-50/50 dark:bg-slate-900/50">
                 <div className="w-20 h-20 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm rounded-xl flex items-center justify-center mb-6">
