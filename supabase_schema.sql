@@ -69,6 +69,25 @@ create policy "Users can update their own collections." on collections for updat
   )
 );
 
+-- SECURITY: Prevent editors from stealing ownership by changing owner_id
+-- RLS WITH CHECK cannot compare OLD vs NEW row, so a trigger is required
+drop trigger if exists guard_owner_id on collections;
+drop function if exists prevent_owner_id_hijack;
+
+create or replace function prevent_owner_id_hijack()
+returns trigger as $$
+begin
+  if OLD.owner_id is distinct from NEW.owner_id and auth.uid() != OLD.owner_id then
+    raise exception 'Only the owner can transfer ownership';
+  end if;
+  return NEW;
+end;
+$$ language plpgsql security definer;
+
+create trigger guard_owner_id
+  before update on collections
+  for each row execute function prevent_owner_id_hijack();
+
 -- COLLECTION SHARES (Collaborators)
 create table if not exists collection_shares (
   id uuid default uuid_generate_v4() primary key,
@@ -91,6 +110,14 @@ create policy "Users can view shares for their collections." on collection_share
 drop policy if exists "Owners can insert shares." on collection_shares;
 create policy "Owners can insert shares." on collection_shares for insert with check (
   exists ( select 1 from collections where id = collection_shares.collection_id and owner_id = auth.uid() )
+);
+
+drop policy if exists "Owners can update shares." on collection_shares;
+create policy "Owners can update shares." on collection_shares for update using (
+  exists ( select 1 from collections where id = collection_shares.collection_id and owner_id = auth.uid() )
+) with check (
+  role in ('viewer', 'editor')
+  and exists ( select 1 from collections where id = collection_shares.collection_id and owner_id = auth.uid() )
 );
 
 drop policy if exists "Owners can delete shares." on collection_shares;
