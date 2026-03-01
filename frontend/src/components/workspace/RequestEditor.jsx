@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Activity, AlertCircle, CheckCircle, Clock, FileText, Copy, Download, Link, Code2, Sparkles } from 'lucide-react';
+import { Play, Activity, AlertCircle, CheckCircle, Clock, FileText, Copy, Download, Link, Code2, Sparkles, Shield } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ResizeHandle } from './ResizeHandle';
 import { CustomMethodSelect } from './CustomMethodSelect';
@@ -269,7 +269,7 @@ const buildUrlWithParams = (url, params) => {
 };
 
 export const RequestEditor = ({ tabId }) => {
-    const updateRequest = useWorkspaceStore(state => state.updateRequest);
+    const originalUpdateRequest = useWorkspaceStore(state => state.updateRequest);
     const setResponseLoading = useWorkspaceStore(state => state.setResponseLoading);
     const setResponseData = useWorkspaceStore(state => state.setResponseData);
     const resolveVariables = useWorkspaceStore(state => state.resolveVariables);
@@ -284,6 +284,11 @@ export const RequestEditor = ({ tabId }) => {
     const collections = useWorkspaceStore(state => state.collections);
     const activeCollectionId = useWorkspaceStore(state => state.activeCollectionId);
     const localMode = useWorkspaceStore(state => state.localMode);
+    const getCollectionRole = useWorkspaceStore(state => state.getCollectionRole);
+    const role = getCollectionRole(activeCollectionId);
+    const isViewer = role === 'viewer';
+    // For viewers, block all edits. They can still Send (which doesn't modify the stored request).
+    const updateRequest = isViewer ? () => {} : originalUpdateRequest;
     const editorSplitRatio = useWorkspaceStore(state => state.editorSplitRatio);
     const setEditorSplitRatio = useWorkspaceStore(state => state.setEditorSplitRatio);
     const splitContainerRef = useRef(null);
@@ -800,6 +805,16 @@ export const RequestEditor = ({ tabId }) => {
 
     return (
         <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 h-full relative font-sans">
+            {/* Viewer Banner */}
+            {isViewer && (
+                <div className="px-4 py-1.5 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800">
+                    <p className="text-[10px] text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                        <Shield size={10} />
+                        View-only — changes will not be saved
+                    </p>
+                </div>
+            )}
+
             {/* Top Bar: URL & Method */}
             <div className="h-14 border-b border-slate-200 dark:border-slate-700 flex items-center px-4 gap-3 bg-white dark:bg-slate-900 shadow-sm z-10">
                 <div className="flex-1 flex items-center border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800 focus-within:ring-2 focus-within:ring-corporate-500/20 focus-within:border-corporate-500 transition-all h-10">

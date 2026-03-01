@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Shield, Terminal, History, CheckCircle, XCircle, Settings, FileText, Play } from 'lucide-react';
+import { Shield, Terminal, History, CheckCircle, XCircle, Settings, FileText, Play, Users } from 'lucide-react';
 import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
 import { proxyFetch } from '../../utils/proxyFetch';
+import ShareModal from './ShareModal';
 
 // --- Collection-Level Auto-Auth Panel ---
 const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
@@ -234,6 +235,10 @@ export const CollectionSettings = ({ collectionId }) => {
     const updateCollection = useWorkspaceStore(state => state.updateCollection);
     const openRunner = useWorkspaceStore(state => state.openRunner);
     const viewRunFromHistory = useWorkspaceStore(state => state.viewRunFromHistory);
+    const getCollectionRole = useWorkspaceStore(state => state.getCollectionRole);
+    const role = getCollectionRole(collectionId);
+    const isViewer = role === 'viewer';
+    const isOwner = role === 'owner';
 
     const collection = collections.find(c => c.id === collectionId);
     const [activeTab, setActiveTab] = useState('auth');
@@ -256,6 +261,7 @@ export const CollectionSettings = ({ collectionId }) => {
         { id: 'scripts', label: 'Scripts', icon: Terminal },
         { id: 'runs', label: 'Runs', icon: History, badge: runHistory.length || null },
         { id: 'overview', label: 'Overview', icon: Settings },
+        ...(isOwner ? [{ id: 'sharing', label: 'Sharing', icon: Users }] : []),
     ];
 
     const inputClass = "w-full text-xs font-mono px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-corporate-500/30 text-slate-700";
@@ -284,6 +290,16 @@ export const CollectionSettings = ({ collectionId }) => {
                     </button>
                 </div>
             </div>
+
+            {/* Viewer Banner */}
+            {isViewer && (
+                <div className="px-6 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800">
+                    <p className="text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                        <Shield size={12} />
+                        You have <strong>view-only</strong> access to this collection.
+                    </p>
+                </div>
+            )}
 
             {/* Tab Bar */}
             <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-6">
@@ -315,6 +331,7 @@ export const CollectionSettings = ({ collectionId }) => {
                         collection={collection}
                         updateCollection={updateCollection}
                         inputClass={inputClass}
+                        readOnly={isViewer}
                     />
                 )}
 
@@ -322,6 +339,7 @@ export const CollectionSettings = ({ collectionId }) => {
                     <ScriptsTabContent
                         collection={collection}
                         updateCollection={updateCollection}
+                        readOnly={isViewer}
                     />
                 )}
 
@@ -342,6 +360,10 @@ export const CollectionSettings = ({ collectionId }) => {
                         runHistory={runHistory}
                     />
                 )}
+
+                {activeTab === 'sharing' && isOwner && (
+                    <SharingTabContent collectionId={collectionId} collectionName={collection.name} />
+                )}
             </div>
         </div>
     );
@@ -349,11 +371,11 @@ export const CollectionSettings = ({ collectionId }) => {
 
 
 // === Auth Tab ===
-const AuthTabContent = ({ collection, updateCollection, inputClass }) => {
+const AuthTabContent = ({ collection, updateCollection, inputClass, readOnly }) => {
     const AUTH_LABELS = { bearer: 'Bearer Token', basic: 'Basic Auth', apikey: 'API Key', 'auto-auth': 'Auto-Auth (Login → Token)' };
 
     return (
-        <div className="max-w-2xl space-y-6">
+        <div className={`max-w-2xl space-y-6 ${readOnly ? 'opacity-70 pointer-events-none' : ''}`}>
             <div>
                 <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Collection Authorization</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -483,9 +505,9 @@ const AuthTabContent = ({ collection, updateCollection, inputClass }) => {
 
 
 // === Scripts Tab ===
-const ScriptsTabContent = ({ collection, updateCollection }) => {
+const ScriptsTabContent = ({ collection, updateCollection, readOnly }) => {
     return (
-        <div className="max-w-3xl space-y-6">
+        <div className={`max-w-3xl space-y-6 ${readOnly ? 'opacity-70 pointer-events-none' : ''}`}>
             <div>
                 <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Collection Scripts</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -702,6 +724,39 @@ const OverviewTabContent = ({ collection, updateCollection, requestCount, folder
                     )}
                 </span>
             </div>
+        </div>
+    );
+};
+
+// === Sharing Tab ===
+const SharingTabContent = ({ collectionId, collectionName }) => {
+    const [showShareModal, setShowShareModal] = useState(false);
+
+    return (
+        <div className="max-w-2xl space-y-6">
+            <div>
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Collection Sharing</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Manage who has access to this collection and their permissions.
+                </p>
+            </div>
+
+            <button
+                onClick={() => setShowShareModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-corporate-600 hover:bg-corporate-700 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+                <Users size={16} />
+                Manage Access
+            </button>
+
+            {showShareModal && (
+                <ShareModal
+                    isOpen={showShareModal}
+                    onClose={() => setShowShareModal(false)}
+                    collectionId={collectionId}
+                    collectionName={collectionName}
+                />
+            )}
         </div>
     );
 };

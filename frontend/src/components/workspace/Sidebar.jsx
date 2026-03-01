@@ -33,6 +33,12 @@ const SidebarItem = ({ item, level = 0 }) => {
     const setActiveFolderId = useWorkspaceStore(state => state.setActiveFolderId);
     const activeFolderId = useWorkspaceStore(state => state.activeFolderId);
     const isActiveFolder = item.type === 'folder' && item.id === activeFolderId;
+    const getCollectionRole = useWorkspaceStore(state => state.getCollectionRole);
+
+    const effectiveColId = item.type === 'collection' ? item.id : activeCollectionId;
+    const role = getCollectionRole(effectiveColId);
+    const isViewer = role === 'viewer';
+    const isShared = role && role !== 'owner';
     const [showMoveMenu, setShowMoveMenu] = useState(false);
 
     // Close context menu on outside click
@@ -225,6 +231,15 @@ const SidebarItem = ({ item, level = 0 }) => {
                 ) : (
                     <span className="truncate flex-1 flex items-center gap-1.5">
                         {item.name}
+                        {item.type === 'collection' && isShared && (
+                            <span className={`text-[8px] px-1 py-0.5 rounded-full shrink-0 ${
+                                role === 'editor'
+                                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
+                                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                            }`}>
+                                {role === 'editor' ? 'Editor' : 'Viewer'}
+                            </span>
+                        )}
                         {item.type === 'collection' && (item.testSuites || []).length > 0 && (
                             <span className="text-[8px] bg-corporate-100 dark:bg-corporate-900/30 text-corporate-600 dark:text-corporate-400 px-1 py-0.5 rounded-full shrink-0">
                                 {item.testSuites.length} tests
@@ -273,12 +288,14 @@ const SidebarItem = ({ item, level = 0 }) => {
                                 </>
                             )}
 
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleMenuAction('rename'); }}
-                                className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
-                            >
-                                <Pencil size={11} /> Rename
-                            </button>
+                            {!isViewer && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleMenuAction('rename'); }}
+                                    className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                >
+                                    <Pencil size={11} /> Rename
+                                </button>
+                            )}
                             {item.type === 'collection' && (
                                 <>
                                     <button
@@ -287,21 +304,25 @@ const SidebarItem = ({ item, level = 0 }) => {
                                     >
                                         <Settings size={11} /> Settings
                                     </button>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleMenuAction('share'); }}
-                                        className="w-full text-left px-3 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2"
-                                    >
-                                        <Users size={11} /> Share
-                                    </button>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleMenuAction('newFolder'); }}
-                                        className="w-full text-left px-3 py-2 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-2"
-                                    >
-                                        <FolderPlus size={11} /> New Folder
-                                    </button>
+                                    {role === 'owner' && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleMenuAction('share'); }}
+                                            className="w-full text-left px-3 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2"
+                                        >
+                                            <Users size={11} /> Share
+                                        </button>
+                                    )}
+                                    {!isViewer && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleMenuAction('newFolder'); }}
+                                            className="w-full text-left px-3 py-2 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-2"
+                                        >
+                                            <FolderPlus size={11} /> New Folder
+                                        </button>
+                                    )}
                                 </>
                             )}
-                            {item.type === 'request' && (
+                            {item.type === 'request' && !isViewer && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleMenuAction('duplicate'); }}
                                     className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
@@ -329,21 +350,23 @@ const SidebarItem = ({ item, level = 0 }) => {
                                                 </button>
                                             </>
                                         )}
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setShowMenu(false);
-                                                const col = collections.find(c => c.id === activeCollectionId);
-                                                if (col) addRequestToFolder(col.id, item.id);
-                                            }}
-                                            className="w-full text-left px-3 py-2 text-xs text-corporate-600 dark:text-corporate-400 hover:bg-corporate-50 dark:hover:bg-corporate-900/20 flex items-center gap-2"
-                                        >
-                                            <FilePlus size={11} /> New Request
-                                        </button>
+                                        {!isViewer && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setShowMenu(false);
+                                                    const col = collections.find(c => c.id === activeCollectionId);
+                                                    if (col) addRequestToFolder(col.id, item.id);
+                                                }}
+                                                className="w-full text-left px-3 py-2 text-xs text-corporate-600 dark:text-corporate-400 hover:bg-corporate-50 dark:hover:bg-corporate-900/20 flex items-center gap-2"
+                                            >
+                                                <FilePlus size={11} /> New Request
+                                            </button>
+                                        )}
                                     </>
                                 );
                             })()}
-                            {(item.type === 'request' || item.type === 'websocket') && (
+                            {(item.type === 'request' || item.type === 'websocket') && !isViewer && (
                                 <div className="relative">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setShowMoveMenu(!showMoveMenu); }}
@@ -385,12 +408,14 @@ const SidebarItem = ({ item, level = 0 }) => {
                                     <Download size={11} /> Export (Postman)
                                 </button>
                             )}
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleMenuAction('delete'); }}
-                                className="w-full text-left px-3 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 border-t border-slate-100 dark:border-slate-800"
-                            >
-                                <Trash2 size={11} /> Delete
-                            </button>
+                            {(item.type === 'collection' ? role === 'owner' : !isViewer) && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleMenuAction('delete'); }}
+                                    className="w-full text-left px-3 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 border-t border-slate-100 dark:border-slate-800"
+                                >
+                                    <Trash2 size={11} /> Delete
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -449,6 +474,7 @@ export const Sidebar = ({ onCollapse }) => {
     const addWebSocket = useWorkspaceStore(state => state.addWebSocket);
     const addCollection = useWorkspaceStore(state => state.addCollection);
     const addFolderAction = useWorkspaceStore(state => state.addFolder);
+    const canEditCollection = useWorkspaceStore(state => state.canEditCollection);
     const activeEnv = useWorkspaceStore(state => state.activeEnv);
     const requestHistory = useWorkspaceStore(state => state.requestHistory);
     const [searchQuery, setSearchQuery] = useState('');
@@ -535,7 +561,7 @@ export const Sidebar = ({ onCollapse }) => {
                         {showAddMenu && (
                             <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg rounded-lg overflow-y-auto max-h-[70vh] z-50">
                                 <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold px-3 pt-2 pb-1">New Request In</div>
-                                {collections.map(col => (
+                                {collections.filter(col => canEditCollection(col.id)).map(col => (
                                     <button
                                         key={col.id}
                                         onClick={() => { addRequest(col.id); setShowAddMenu(false); }}
@@ -546,7 +572,7 @@ export const Sidebar = ({ onCollapse }) => {
                                 ))}
                                 <div className="border-t border-slate-100 dark:border-slate-800 mt-1">
                                     <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold px-3 pt-2 pb-1">WebSocket In</div>
-                                    {collections.map(col => (
+                                    {collections.filter(col => canEditCollection(col.id)).map(col => (
                                         <button
                                             key={`ws-${col.id}`}
                                             onClick={() => { addWebSocket(col.id); setShowAddMenu(false); }}
@@ -558,7 +584,7 @@ export const Sidebar = ({ onCollapse }) => {
                                 </div>
                                 <div className="border-t border-slate-100 dark:border-slate-800 mt-1">
                                     <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold px-3 pt-2 pb-1">New Folder In</div>
-                                    {collections.map(col => (
+                                    {collections.filter(col => canEditCollection(col.id)).map(col => (
                                         <button
                                             key={`folder-${col.id}`}
                                             onClick={() => { addFolderAction(col.id); setShowAddMenu(false); }}

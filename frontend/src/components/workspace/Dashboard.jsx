@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, Play, FlaskConical, CheckCircle, XCircle, Plus, Terminal, Upload, Clock, ArrowRight, Zap, FileText } from 'lucide-react';
+import { Folder, Play, FlaskConical, CheckCircle, XCircle, Plus, Terminal, Upload, Clock, ArrowRight, Zap, FileText, Users, Shield, Pencil } from 'lucide-react';
 import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
 import { CurlImportModal } from './CurlImportModal';
 import { ImportCollectionModal } from './ImportCollectionModal';
@@ -9,6 +9,8 @@ export const Dashboard = () => {
     const setActiveCollection = useWorkspaceStore(state => state.setActiveCollection);
     const setCurrentView = useWorkspaceStore(state => state.setCurrentView);
     const addCollection = useWorkspaceStore(state => state.addCollection);
+    const user = useWorkspaceStore(state => state.user);
+    const getCollectionRole = useWorkspaceStore(state => state.getCollectionRole);
     const [showCurlImport, setShowCurlImport] = useState(false);
     const [showCollectionImport, setShowCollectionImport] = useState(false);
     const [showNewCollInput, setShowNewCollInput] = useState(false);
@@ -76,7 +78,11 @@ export const Dashboard = () => {
                         Welcome to TestOrbit
                     </h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                        {collections.length} collection{collections.length !== 1 ? 's' : ''} &middot; AI-powered API testing
+                        {collections.length} collection{collections.length !== 1 ? 's' : ''}
+                    {user && collections.filter(c => c.owner_id && c.owner_id !== user.id).length > 0 && (
+                        <span className="text-blue-500 dark:text-blue-400"> ({collections.filter(c => c.owner_id && c.owner_id !== user.id).length} shared)</span>
+                    )}
+                    {' '}&middot; AI-powered API testing
                     </p>
                 </div>
 
@@ -166,6 +172,24 @@ export const Dashboard = () => {
                                                     <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-corporate-600 dark:group-hover:text-corporate-400 transition-colors">
                                                         {col.name}
                                                     </h3>
+                                                    {(() => {
+                                                        const colRole = getCollectionRole(col.id);
+                                                        if (colRole === 'owner' || !colRole) return null;
+                                                        return (
+                                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                                <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                                                                    <Users size={9} /> Shared
+                                                                </span>
+                                                                <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${colRole === 'editor'
+                                                                    ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                                                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600'
+                                                                }`}>
+                                                                    {colRole === 'editor' ? <Pencil size={9} /> : <Shield size={9} />}
+                                                                    {colRole === 'editor' ? 'Editor' : 'Viewer'}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                             <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-corporate-500 transition-colors mt-1" />

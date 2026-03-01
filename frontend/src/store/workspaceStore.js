@@ -387,12 +387,22 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             .order('updated_at', { ascending: false });
 
         if (!error && data) {
-            // Merge DB columns (id, name) with the JSON blob (items, etc)
+            // Fetch this user's share records to determine roles
+            const { data: shares } = await supabase
+                .from('collection_shares')
+                .select('collection_id, role')
+                .eq('user_email', user.email);
+
+            const shareRoleMap = {};
+            (shares || []).forEach(s => { shareRoleMap[s.collection_id] = s.role; });
+
+            // Merge DB columns with JSON blob + annotate share role
             const loaded = data.map(row => ({
                 ...row.data,
                 id: row.id,
                 name: row.name,
-                owner_id: row.owner_id
+                owner_id: row.owner_id,
+                _shareRole: row.owner_id === user.id ? undefined : (shareRoleMap[row.id] || 'viewer'),
             }));
 
             if (loaded.length > 0) {
@@ -425,12 +435,12 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         const col = collections.find(c => c.id === colId);
         if (!col) return;
 
-        const { id, name, owner_id: _owner_id, ...rest } = col;
+        const { id, name, owner_id, _shareRole, ...rest } = col;
 
         await supabase.from('collections').upsert({
             id,
             name,
-            owner_id: user.id,
+            owner_id: owner_id || user.id,
             data: rest,
             updated_at: new Date().toISOString()
         });
@@ -510,7 +520,10 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         const channel = supabase
             .channel('collections-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'collections' }, () => {
-                // Re-fetch collections when any change is detected
+                get().fetchRemoteCollections();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'collection_shares' }, () => {
+                // Re-fetch when shares change (new invite, role update, or revocation)
                 get().fetchRemoteCollections();
             })
             .subscribe();
@@ -523,6 +536,22 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     getActiveCollection: () => {
         const state = get();
         return state.collections.find(c => c.id === state.activeCollectionId) || null;
+    },
+
+    // Determine the current user's role for a collection: 'owner' | 'editor' | 'viewer' | null
+    getCollectionRole: (colId) => {
+        const { user, collections } = get();
+        if (!user) return null;
+        const col = collections.find(c => c.id === colId);
+        if (!col) return null;
+        if (!col.owner_id || col.owner_id === user.id) return 'owner';
+        return col._shareRole || 'viewer';
+    },
+
+    // Convenience: check if user can edit a collection (owner or editor)
+    canEditCollection: (colId) => {
+        const role = get().getCollectionRole(colId);
+        return role === 'owner' || role === 'editor';
     },
 
     // --- Per-Collection Chat Actions ---

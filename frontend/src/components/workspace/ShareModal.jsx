@@ -51,12 +51,14 @@ const ShareModal = ({ isOpen, onClose, collectionId, collectionName }) => {
 
         try {
             // Ensure the collection exists in Supabase (it's stored locally, but shares need it in the DB)
+            const col = useWorkspaceStore.getState().collections.find(c => c.id === collectionId);
+            const effectiveOwnerId = col?.owner_id || user?.id;
             const { error: syncError } = await supabase
                 .from('collections')
                 .upsert({
                     id: collectionId,
                     name: collectionName || 'Untitled',
-                    owner_id: user?.id,
+                    owner_id: effectiveOwnerId,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'id' });
 
@@ -68,7 +70,7 @@ const ShareModal = ({ isOpen, onClose, collectionId, collectionName }) => {
                     .insert({
                         id: collectionId,
                         name: collectionName || 'Untitled',
-                        owner_id: user?.id
+                        owner_id: effectiveOwnerId
                     });
                 if (insertErr && !insertErr.message.includes('duplicate')) {
                     throw new Error(`Could not sync collection: ${insertErr.message}`);
