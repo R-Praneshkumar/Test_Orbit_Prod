@@ -153,9 +153,6 @@ function App() {
             </svg>
           </div>
           <span className="text-sm font-bold text-slate-800 dark:text-slate-100 tracking-tight">TestOrbit</span>
-          <span className="text-[9px] bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-700 px-1.5 py-0.5 rounded-full font-medium hidden sm:block">
-            Powered by Gemini
-          </span>
         </div>
 
         {/* Center: Navigation */}

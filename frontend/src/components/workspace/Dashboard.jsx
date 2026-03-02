@@ -68,81 +68,94 @@ const CAPABILITIES = [
     },
 ];
 
-const COMPARISON_ROWS = [
-    ['AI failure diagnosis', '❌', '❌', '✅ Free tier'],
-    ['AI chat about your API', '❌', '❌', '✅ Free tier'],
-    ['Natural lang → request', 'Postbot (Paid)', '❌', '✅ Free tier'],
-];
-
 function HeroBanner({ onCreateCollection, onLoadDemo, onDismiss }) {
     return (
-        <div className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden mb-8 shadow-sm">
-            {/* Purple left accent */}
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-500 to-indigo-600" />
+        <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-950 dark:via-purple-950/20 dark:to-slate-950">
+            {/* Subtle radial purple glow */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(124,58,237,0.13),transparent_60%)] pointer-events-none" />
 
             {/* Dismiss button */}
             <button
                 onClick={onDismiss}
                 title="Dismiss"
-                className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors z-10"
+                className="absolute top-4 right-4 p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-colors z-10"
             >
-                <X size={15} />
+                <X size={16} />
             </button>
 
-            <div className="pl-6 pr-12 py-7 flex flex-col lg:flex-row gap-8">
-                {/* Left: headline + subtext + CTAs */}
+            <div className="relative z-10 max-w-5xl mx-auto px-8 py-14 sm:py-16 flex flex-col lg:flex-row items-center gap-12">
+
+                {/* LEFT: headline + bullets + CTAs */}
                 <div className="flex-1 min-w-0">
-                    <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2.5 py-1 rounded-full mb-4">
+                    <div className="inline-flex text-[11px] font-semibold text-purple-300 bg-purple-500/20 border border-purple-500/30 px-3 py-1 rounded-full mb-5">
                         Welcome to TestOrbit
                     </div>
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 leading-tight mb-2">
-                        Ship APIs with confidence.<br className="hidden sm:block" /> Not hope.
+                    <h1 className="text-3xl sm:text-4xl font-bold text-white leading-tight mb-4">
+                        The only API tester<br />that writes its<br />own tests.
                     </h1>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 max-w-md">
-                        AI that diagnoses your failures, generates your tests, and answers
-                        anything about your API &mdash; features Postman charges for or doesn&apos;t have.
+                    <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6 max-w-sm">
+                        Stop writing test assertions manually. AI reads your endpoint and
+                        generates 20+ tests in seconds &mdash; edge cases included.
                     </p>
+
+                    {/* Competitor comparison bullets */}
+                    <div className="space-y-2.5 mb-8">
+                        <div className="flex items-center gap-2.5 text-sm text-slate-300">
+                            <span className="text-green-400 text-base leading-none">✓</span>
+                            <span><span className="text-white font-semibold">Unlike Postman</span> &mdash; AI features free, not $12+/mo</span>
+                        </div>
+                        <div className="flex items-center gap-2.5 text-sm text-slate-300">
+                            <span className="text-green-400 text-base leading-none">✓</span>
+                            <span><span className="text-white font-semibold">Unlike Bruno</span> &mdash; AI-powered, not manual scripting</span>
+                        </div>
+                    </div>
+
+                    {/* CTAs */}
                     <div className="flex flex-wrap gap-3">
                         <button
                             onClick={onCreateCollection}
-                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all active:scale-95"
+                            className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold rounded-lg shadow-lg shadow-purple-900/40 transition-all active:scale-95"
                         >
                             <Plus size={15} />
                             Start Testing Free
                         </button>
                         <button
                             onClick={onLoadDemo}
-                            className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
+                            className="flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-lg border border-white/20 transition-all active:scale-95"
                         >
                             <Sparkles size={15} />
-                            See 30-sec Demo
+                            See Demo (30sec)
                         </button>
                     </div>
                 </div>
 
-                {/* Right: competitor comparison table */}
-                <div className="lg:w-72 shrink-0">
-                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
-                        How we&apos;re different
-                    </p>
-                    <div className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden text-xs">
-                        {/* Header */}
-                        <div className="grid grid-cols-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                            <div className="col-span-1 p-2 text-[10px] font-medium text-slate-400" />
-                            <div className="p-2 text-center text-[10px] font-medium text-slate-500">Postman</div>
-                            <div className="p-2 text-center text-[10px] font-medium text-slate-500">Bruno</div>
-                            <div className="p-2 text-center text-[10px] font-bold text-purple-600 dark:text-purple-400">TestOrbit</div>
+                {/* RIGHT: Terminal mockup (desktop only) */}
+                <div className="hidden lg:block w-80 shrink-0">
+                    <div className="bg-slate-950 border border-slate-700 rounded-xl overflow-hidden shadow-2xl shadow-black/50">
+                        {/* Window chrome */}
+                        <div className="flex items-center gap-1.5 px-4 py-3 bg-slate-900 border-b border-slate-700">
+                            <div className="w-3 h-3 rounded-full bg-red-500/70" />
+                            <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
+                            <div className="w-3 h-3 rounded-full bg-green-500/70" />
+                            <span className="ml-2 text-[11px] text-slate-400 font-mono">TestOrbit AI</span>
                         </div>
-                        {COMPARISON_ROWS.map(([feature, postman, bruno, us]) => (
-                            <div key={feature} className="grid grid-cols-4 border-b last:border-b-0 border-slate-100 dark:border-slate-800">
-                                <div className="col-span-1 px-2.5 py-2 text-[11px] font-medium text-slate-600 dark:text-slate-300 leading-tight">{feature}</div>
-                                <div className="px-1 py-2 text-[10px] text-center text-slate-400 leading-tight">{postman}</div>
-                                <div className="px-1 py-2 text-[10px] text-center text-slate-400 leading-tight">{bruno}</div>
-                                <div className="px-1 py-2 text-[10px] text-center font-semibold text-purple-600 dark:text-purple-400 leading-tight">{us}</div>
-                            </div>
-                        ))}
+                        {/* Terminal body */}
+                        <div className="p-4 font-mono text-xs space-y-1.5">
+                            <div className="text-slate-400">$ Analyzing POST /api/users</div>
+                            <div className="text-slate-700">──────────────────────────</div>
+                            <div className="flex gap-2"><span className="text-green-400">✓</span><span className="text-slate-300">status is 200</span></div>
+                            <div className="flex gap-2"><span className="text-green-400">✓</span><span className="text-slate-300">body.user.id exists</span></div>
+                            <div className="flex gap-2"><span className="text-green-400">✓</span><span className="text-slate-300">email is valid format</span></div>
+                            <div className="flex gap-2"><span className="text-green-400">✓</span><span className="text-slate-300">response &lt; 500ms</span></div>
+                            <div className="flex gap-2"><span className="text-yellow-400">✓</span><span className="text-slate-300">rejects duplicate email</span></div>
+                            <div className="flex gap-2"><span className="text-yellow-400">✓</span><span className="text-slate-300">validates required fields</span></div>
+                            <div className="text-slate-700">──────────────────────────</div>
+                            <div className="text-purple-400 font-semibold">+ 16 more tests generated</div>
+                            <div className="text-slate-500 text-[10px]">Completed in 2.3s</div>
+                        </div>
                     </div>
                 </div>
+
             </div>
         </div>
     );
@@ -292,20 +305,25 @@ export const Dashboard = () => {
     const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
 
     return (
-        <div className="flex-1 overflow-auto bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-8">
-            <div className="max-w-5xl mx-auto">
+        <div className="flex-1 overflow-auto bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
 
-                {showHero && (
-                    <>
-                        {/* ===== HERO BANNER — shown until user dismisses ===== */}
-                        <HeroBanner
-                            onCreateCollection={handleNewCollection}
-                            onLoadDemo={handleLoadDemo}
-                            onDismiss={dismissOnboarding}
-                        />
-                        {isNewUser && <CapabilityCards />}
-                        {isNewUser && <FreePlanSummary onViewPricing={() => setCurrentView('pricing')} />}
-                        {isNewUser && (
+            {/* ===== HERO BANNER — full-bleed, outside p-8 container ===== */}
+            {showHero && (
+                <HeroBanner
+                    onCreateCollection={handleNewCollection}
+                    onLoadDemo={handleLoadDemo}
+                    onDismiss={dismissOnboarding}
+                />
+            )}
+
+            {/* ===== PADDED CONTENT BELOW HERO ===== */}
+            <div className="p-8">
+                <div className="max-w-5xl mx-auto">
+
+                    {showHero && isNewUser && (
+                        <>
+                            <CapabilityCards />
+                            <FreePlanSummary onViewPricing={() => setCurrentView('pricing')} />
                             <div className="flex flex-wrap gap-3 mb-8">
                                 <button
                                     onClick={() => setShowCurlImport(true)}
@@ -322,9 +340,9 @@ export const Dashboard = () => {
                                     Import Collection
                                 </button>
                             </div>
-                        )}
-                    </>
-                )}
+                        </>
+                    )}
+
                 {!showHero && (
                     <>
                         {/* ===== RETURNING USER EXPERIENCE ===== */}
@@ -555,22 +573,23 @@ export const Dashboard = () => {
                 )}
             </div>
 
-            {/* Footer links */}
-            <div className="max-w-5xl mx-auto mt-8 pb-2">
-                <div className="flex items-center justify-center gap-3 text-[11px] text-slate-400 dark:text-slate-500">
-                    <button onClick={() => setCurrentView('pricing')} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                        Pricing
-                    </button>
-                    <span>&middot;</span>
-                    <button onClick={() => setCurrentView('terms')} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                        Terms of Service
-                    </button>
-                    <span>&middot;</span>
-                    <button onClick={() => setCurrentView('privacy')} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                        Privacy Policy
-                    </button>
+                {/* Footer links */}
+                <div className="max-w-5xl mx-auto mt-8 pb-2">
+                    <div className="flex items-center justify-center gap-3 text-[11px] text-slate-400 dark:text-slate-500">
+                        <button onClick={() => setCurrentView('pricing')} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                            Pricing
+                        </button>
+                        <span>&middot;</span>
+                        <button onClick={() => setCurrentView('terms')} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                            Terms of Service
+                        </button>
+                        <span>&middot;</span>
+                        <button onClick={() => setCurrentView('privacy')} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                            Privacy Policy
+                        </button>
+                    </div>
                 </div>
-            </div>
+            </div>{/* end p-8 wrapper */}
 
             {/* Modals */}
             {showCurlImport && <CurlImportModal onClose={() => setShowCurlImport(false)} />}
