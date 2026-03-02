@@ -46,15 +46,23 @@ export const WebSocketTester = ({ tabId }) => {
         };
     }, []);
 
+    // Cap messages at 500 to prevent memory leaks in long sessions
+    const appendMessage = useCallback((msg) => {
+        setMessages(prev => {
+            const next = [...prev, msg];
+            return next.length > 500 ? next.slice(-500) : next;
+        });
+    }, []);
+
     const addSystemMsg = useCallback((text, level = 'info') => {
-        setMessages(prev => [...prev, {
+        appendMessage({
             id: Date.now() + Math.random(),
             type: 'system',
             data: text,
             level,
             timestamp: Date.now(),
-        }]);
-    }, []);
+        });
+    }, [appendMessage]);
 
     const handleConnect = useCallback(() => {
         if (wsRef.current) {
@@ -95,14 +103,14 @@ export const WebSocketTester = ({ tabId }) => {
                     isJson = true;
                 } catch { /* not JSON */ }
 
-                setMessages(prev => [...prev, {
+                appendMessage({
                     id: Date.now() + Math.random(),
                     type: 'received',
                     data: isJson ? JSON.stringify(parsed, null, 2) : data,
                     isJson,
                     timestamp: Date.now(),
                     size: new Blob([data]).size,
-                }]);
+                });
             };
 
             ws.onerror = () => {
@@ -125,7 +133,7 @@ export const WebSocketTester = ({ tabId }) => {
             setStatus('error');
             addSystemMsg(`Failed to connect: ${err.message}`, 'error');
         }
-    }, [localUrl, protocols, tabId, updateRequest, addSystemMsg]);
+    }, [localUrl, protocols, tabId, updateRequest, addSystemMsg, appendMessage]);
 
     const handleDisconnect = useCallback(() => {
         if (wsRef.current) {
@@ -138,16 +146,16 @@ export const WebSocketTester = ({ tabId }) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !inputMsg.trim()) return;
 
         wsRef.current.send(inputMsg);
-        setMessages(prev => [...prev, {
+        appendMessage({
             id: Date.now() + Math.random(),
             type: 'sent',
             data: inputMsg,
             isJson: (() => { try { JSON.parse(inputMsg); return true; } catch { return false; } })(),
             timestamp: Date.now(),
             size: new Blob([inputMsg]).size,
-        }]);
+        });
         setInputMsg('');
-    }, [inputMsg]);
+    }, [inputMsg, appendMessage]);
 
 
 

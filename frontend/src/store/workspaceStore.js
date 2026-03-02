@@ -15,6 +15,13 @@ import yaml from 'js-yaml';
 const _syncTimers = {};
 const SYNC_DEBOUNCE_MS = 1500;
 
+// Dirty tracking: collections with unsaved local edits (skip overwrite from realtime)
+const _dirtyColIds = new Set();
+
+// Debounce timer for realtime sync (prevents fetch flood from rapid DB changes)
+let _realtimeSyncTimer = null;
+const REALTIME_DEBOUNCE_MS = 2000;
+
 // Built-in dynamic variables (generated fresh on each resolution)
 const RANDOM_NAMES = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry', 'Ivy', 'Jack', 'Karen', 'Leo', 'Mia', 'Noah', 'Olivia'];
 function resolveDynamicVar(key) {
@@ -238,6 +245,9 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     // Individual request history — global audit trail (persisted, capped at 50)
     requestHistory: [],
 
+    // Subscription state (persisted)
+    subscription: { plan: 'free', status: 'active', expiresAt: null },
+
     // --- Supabase Auth & Sync ---
     user: null,
     profile: null,
@@ -406,7 +416,25 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             }));
 
             if (loaded.length > 0) {
-                set({ collections: loaded, activeCollectionId: loaded[0].id });
+                // Smart merge: preserve local state for collections with unsaved edits
+                const { collections: localCols, activeCollectionId } = get();
+                const merged = loaded.map(remote => {
+                    if (_dirtyColIds.has(remote.id)) {
+                        // Keep local version — it has unsaved edits pending sync
+                        const local = localCols.find(c => c.id === remote.id);
+                        return local || remote;
+                    }
+                    return remote;
+                });
+                // Also keep any local-only collections not yet synced
+                const remoteIds = new Set(loaded.map(c => c.id));
+                const localOnly = localCols.filter(c => !remoteIds.has(c.id) && _dirtyColIds.has(c.id));
+                const finalCollections = [...merged, ...localOnly];
+
+                set({
+                    collections: finalCollections,
+                    activeCollectionId: finalCollections.find(c => c.id === activeCollectionId) ? activeCollectionId : finalCollections[0].id,
+                });
             } else {
                 // User has no cloud data yet. Give them a fresh start.
                 set({
@@ -435,6 +463,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         const col = collections.find(c => c.id === colId);
         if (!col) return;
 
+        _dirtyColIds.add(colId);
         const { id, name, owner_id, _shareRole, ...rest } = col;
 
         await supabase.from('collections').upsert({
@@ -444,14 +473,18 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             data: rest,
             updated_at: new Date().toISOString()
         });
+        _dirtyColIds.delete(colId);
     },
 
     // Debounced version — waits for inactivity before syncing (for keystroke-heavy operations)
     debouncedSaveToSupabase: (colId) => {
+        _dirtyColIds.add(colId);
         if (_syncTimers[colId]) clearTimeout(_syncTimers[colId]);
         _syncTimers[colId] = setTimeout(() => {
             delete _syncTimers[colId];
-            get().saveCollectionToSupabase(colId);
+            get().saveCollectionToSupabase(colId).then(() => {
+                _dirtyColIds.delete(colId);
+            });
         }, SYNC_DEBOUNCE_MS);
     },
 
@@ -517,15 +550,18 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             supabase.removeChannel(prev);
         }
 
+        const debouncedFetch = () => {
+            if (_realtimeSyncTimer) clearTimeout(_realtimeSyncTimer);
+            _realtimeSyncTimer = setTimeout(() => {
+                _realtimeSyncTimer = null;
+                get().fetchRemoteCollections();
+            }, REALTIME_DEBOUNCE_MS);
+        };
+
         const channel = supabase
             .channel('collections-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'collections' }, () => {
-                get().fetchRemoteCollections();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'collection_shares' }, () => {
-                // Re-fetch when shares change (new invite, role update, or revocation)
-                get().fetchRemoteCollections();
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'collections' }, debouncedFetch)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'collection_shares' }, debouncedFetch)
             .subscribe();
 
         set({ _realtimeChannel: channel });
@@ -559,11 +595,11 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     addCollectionChatMessage: (msg) => set((state) => {
         const colId = state.activeCollectionId;
         return {
-            collections: state.collections.map(col =>
-                col.id === colId
-                    ? { ...col, chatMessages: [...(col.chatMessages || []), msg] }
-                    : col
-            )
+            collections: state.collections.map(col => {
+                if (col.id !== colId) return col;
+                const msgs = [...(col.chatMessages || []), msg];
+                return { ...col, chatMessages: msgs.length > 100 ? msgs.slice(-100) : msgs };
+            })
         };
     }),
 
@@ -615,7 +651,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     // --- Per-Collection Run History ---
 
     saveRunToCollection: (run) => set((state) => {
-        const colId = state.activeCollectionId;
+        const colId = state.runner?.collectionId || state.activeCollectionId;
         const folderId = state.runner?.folderId || null;
         return {
             collections: state.collections.map(col =>
@@ -983,6 +1019,9 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     setIntelligenceWidth: (w) => set({ intelligenceWidth: Math.max(240, Math.min(480, w)) }),
     setEditorSplitRatio: (r) => set({ editorSplitRatio: Math.max(0.25, Math.min(0.75, r)) }),
 
+    // Subscription
+    setSubscription: (sub) => set({ subscription: { ...sub } }),
+
     // Tour Actions
     startTour: (tourName) => set(() => {
         const updates = { activeTour: tourName, tourStep: 0 };
@@ -1045,6 +1084,41 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             activeCollectionId: newId
         }));
         get().saveCollectionToSupabase(newId);
+    },
+
+    // Load a pre-built demo collection (JSONPlaceholder) for new users
+    loadDemoCollection: () => {
+        const colId = uuidv4();
+        const BASE = 'https://jsonplaceholder.typicode.com';
+        const mkReq = (name, method, path, body) => ({
+            id: uuidv4(), name, type: 'request', method, url: `${BASE}${path}`,
+            headers: body ? [{ key: 'Content-Type', value: 'application/json', enabled: true }] : [],
+            params: [], body: { type: 'json', content: body || '' },
+            preScript: '', postScript: '', assertions: [], collectionId: colId,
+        });
+        const items = [
+            mkReq('List Posts', 'GET', '/posts', null),
+            mkReq('Get Post', 'GET', '/posts/1', null),
+            mkReq('Create Post', 'POST', '/posts', JSON.stringify({ title: 'Hello TestOrbit', body: 'AI-powered API testing!', userId: 1 }, null, 2)),
+            mkReq('Update Post', 'PUT', '/posts/1', JSON.stringify({ id: 1, title: 'Updated Title', body: 'Updated body', userId: 1 }, null, 2)),
+            mkReq('Delete Post', 'DELETE', '/posts/1', null),
+        ];
+        set((state) => ({
+            collections: [...state.collections, {
+                id: colId, name: 'JSONPlaceholder Demo', type: 'collection',
+                items, chatMessages: [], openApiSpec: '', baseUrl: BASE,
+                runHistory: [], testSuites: [],
+                authType: 'none', authToken: '', authUsername: '', authPassword: '',
+                authKeyName: '', authKeyValue: '',
+                autoAuthLoginUrl: '', autoAuthMethod: 'POST', autoAuthBody: '',
+                autoAuthTokenPath: 'token', autoAuthLoginHeaders: [],
+                autoAuthToken: '', autoAuthTokenTime: null,
+                forceCollectionAuth: false, preScript: '', postScript: '',
+            }],
+            activeCollectionId: colId,
+            activeTabs: [items[0]],
+            activeTabId: items[0].id,
+        }));
     },
 
     // Update collection-level properties (auth, baseUrl, etc.)
@@ -1739,7 +1813,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
 }), {
     name: 'gemini-workspace-storage',
-    version: 12,
+    version: 14,
     partialize: (state) => {
         // Exclude transient runtime data from persistence
         // _realtimeChannel contains circular refs (RealtimeChannel → socket → channels → channel)
@@ -1755,6 +1829,41 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             activeFolderId: _af,
             ...persisted
         } = state;
+
+        // S1.8: Strip secret env var values from localStorage (memory-only)
+        persisted.environments = (persisted.environments || []).map(env => ({
+            ...env,
+            vars: (env.vars || []).map(v =>
+                v.isSecret ? { ...v, value: '' } : v
+            ),
+        }));
+
+        // S1.8: Strip sensitive auth credential values from collections and request items.
+        // Auth config (authType, authKeyName, authUsername, URLs) is kept — only actual
+        // secrets (tokens, passwords, keys, OAuth secrets) are redacted from localStorage.
+        const SENSITIVE_AUTH_KEYS = [
+            'authToken', 'authPassword', 'authKeyValue',
+            'oauthClientSecret', 'oauthAccessToken', 'oauthRefreshToken',
+            'autoAuthToken', 'autoAuthBody',
+        ];
+        const stripSecrets = (obj) => {
+            const cleaned = { ...obj };
+            for (const key of SENSITIVE_AUTH_KEYS) {
+                if (key in cleaned) cleaned[key] = '';
+            }
+            return cleaned;
+        };
+        const stripItemSecrets = (items) => (items || []).map(item => {
+            const cleaned = stripSecrets(item);
+            if (cleaned.items) cleaned.items = stripItemSecrets(cleaned.items);
+            return cleaned;
+        });
+        persisted.collections = (persisted.collections || []).map(col => {
+            const cleaned = stripSecrets(col);
+            cleaned.items = stripItemSecrets(col.items);
+            return cleaned;
+        });
+
         return persisted;
     },
     migrate: (persisted, version) => {
@@ -1913,6 +2022,20 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 }));
                 return { ...col, testSuites: migratedSuites };
             });
+        }
+        if (version < 13) {
+            // v12 → v13: Add isSecret flag to environment variables
+            persisted.environments = (persisted.environments || []).map(env => ({
+                ...env,
+                vars: (env.vars || []).map(v => ({
+                    ...v,
+                    isSecret: v.isSecret || false,
+                })),
+            }));
+        }
+        if (version < 14) {
+            // v13 → v14: Add subscription state
+            persisted.subscription = persisted.subscription || { plan: 'free', status: 'active', expiresAt: null };
         }
         return persisted;
     },

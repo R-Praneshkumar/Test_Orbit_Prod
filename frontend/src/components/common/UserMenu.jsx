@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LogOut, User, ChevronDown } from 'lucide-react';
+import { LogOut, User, ChevronDown, Sparkles, Crown } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 
 /**
@@ -12,6 +12,7 @@ const UserMenu = () => {
     const profile = useWorkspaceStore(state => state.profile);
     const logout = useWorkspaceStore(state => state.logout);
     const setCurrentView = useWorkspaceStore(state => state.setCurrentView);
+    const subscription = useWorkspaceStore(state => state.subscription);
 
     const [open, setOpen] = useState(false);
     const menuRef = useRef(null);
@@ -78,9 +79,18 @@ const UserMenu = () => {
             {/* Dropdown */}
             {open && (
                 <div className="absolute right-0 top-full mt-1.5 w-60 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-lg shadow-slate-200/50 dark:shadow-slate-900/50 z-50 overflow-hidden">
-                    {/* User info */}
+                    {/* User info + plan badge */}
                     <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{displayName}</p>
+                        <div className="flex items-center justify-between mb-0.5">
+                            <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{displayName}</p>
+                            {subscription?.plan === 'free' ? (
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">Free</span>
+                            ) : (
+                                <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+                                    <Crown size={9} /> Pro
+                                </span>
+                            )}
+                        </div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.email}</p>
                     </div>
 
@@ -93,6 +103,15 @@ const UserMenu = () => {
                             <User size={15} className="text-slate-400" />
                             Profile & Settings
                         </button>
+                        {subscription?.plan === 'free' && (
+                            <button
+                                onClick={() => { setOpen(false); setCurrentView('pricing'); }}
+                                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors"
+                            >
+                                <Sparkles size={15} />
+                                Upgrade to Pro
+                            </button>
+                        )}
                     </div>
 
                     <div className="border-t border-slate-100 dark:border-slate-800 py-1">

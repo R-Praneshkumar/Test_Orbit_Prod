@@ -5,6 +5,7 @@
 
   ### AI-Native API Testing Platform Powered by Google Gemini
 
+  [![CI](https://github.com/R-Praneshkumar/Test_Orbit_Prod/actions/workflows/ci.yml/badge.svg)](https://github.com/R-Praneshkumar/Test_Orbit_Prod/actions/workflows/ci.yml)
   [![Google Gemini](https://img.shields.io/badge/Powered%20by-Google%20Gemini%203-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
   [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
   [![FastAPI](https://img.shields.io/badge/FastAPI-0.128-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)

@@ -3,6 +3,7 @@ import { X, Code2, Loader2, Sparkles } from 'lucide-react';
 import { CodeViewer } from './JsonViewer';
 
 import { API_BASE, authFetch } from '../../config';
+import { checkLimitExceeded } from '../../utils/upgradePrompt';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 
 const LANGUAGES = [
@@ -166,6 +167,7 @@ export const CodeGenModal = ({ request, onClose }) => {
             });
 
             if (!res.ok) {
+                if (await checkLimitExceeded(res)) return;
                 const errData = await res.json().catch(() => ({}));
                 throw new Error(errData.detail || `Server error ${res.status}`);
             }

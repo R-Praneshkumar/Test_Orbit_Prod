@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(.venv/Scripts/pip.exe install:*)",
+      "Bash(npm install:*)",
+      "Bash(npm test:*)",
+      "Bash(npx vitest:*)",
+      "Bash(grep:*)",
+      "Bash(npx vite-bundle-visualizer:*)",
+      "WebSearch",
+      "WebFetch(domain:stripe.com)",
+      "WebFetch(domain:razorpay.com)",
+      "WebFetch(domain:www.infinityapp.in)",
+      "Bash(npx eslint:*)",
+      "WebFetch(domain:www.appcues.com)",
+      "WebFetch(domain:blog.logrocket.com)",
+      "WebFetch(domain:linear.app)",
+      "WebFetch(domain:vercel.com)",
+      "WebFetch(domain:blog.postman.com)",
+      "WebFetch(domain:hoppscotch.io)",
+      "WebFetch(domain:www.wearetenet.com)",
+      "WebFetch(domain:procreator.design)"
+    ]
+  }
+}

@@ -168,8 +168,28 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
+-- USAGE LOGS (AI endpoint call tracking — daily/monthly analytics)
+create table if not exists usage_logs (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users not null,
+  endpoint text not null,        -- e.g. 'generate', 'chat', 'codegen'
+  category text not null,        -- 'ai_calls', 'test_gen', 'code_gen'
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- RLS for Usage Logs
+alter table usage_logs enable row level security;
+
+drop policy if exists "Users can view own usage logs." on usage_logs;
+create policy "Users can view own usage logs." on usage_logs for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own usage logs." on usage_logs;
+create policy "Users can insert own usage logs." on usage_logs for insert with check (auth.uid() = user_id);
+
 -- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_collections_owner_id ON collections(owner_id);
 CREATE INDEX IF NOT EXISTS idx_collection_shares_user_email ON collection_shares(user_email);
 CREATE INDEX IF NOT EXISTS idx_collection_shares_collection_id ON collection_shares(collection_id);
 CREATE INDEX IF NOT EXISTS idx_environments_owner_id ON environments(owner_id);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_user_date ON usage_logs(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_category ON usage_logs(user_id, category, created_at);

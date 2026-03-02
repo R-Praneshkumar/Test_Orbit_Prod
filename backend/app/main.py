@@ -1,4 +1,5 @@
 import time
+import sentry_sdk
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -12,6 +13,16 @@ _start_time = time.time()
 
 # Install secret masking on all loggers before anything else logs
 install_secret_masking()
+
+# Initialize Sentry error tracking (only when DSN is configured)
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.ENV,
+        release="testorbit-backend@1.0.0",
+        traces_sample_rate=0.2 if settings.ENV == "production" else 1.0,
+        send_default_pii=False,
+    )
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -54,10 +65,12 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 from app.api.routes import router as api_router
 from app.api.mock_routes import router as mock_router
 from app.api.oauth_routes import router as oauth_router
+from app.api.razorpay_routes import router as razorpay_router
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 app.include_router(mock_router, prefix="/mock-server", tags=["Mock Server"])
 app.include_router(oauth_router, prefix=settings.API_V1_STR, tags=["OAuth 2.0"])
+app.include_router(razorpay_router, prefix=settings.API_V1_STR, tags=["Razorpay Billing"])
 
 @app.get("/")
 async def root():

@@ -321,6 +321,17 @@ const AuthPage = () => {
                     >
                         Skip for now &mdash; continue as guest
                     </button>
+
+                    {/* Legal links */}
+                    <div className="flex items-center justify-center gap-3 mt-6 text-[11px] text-slate-400 dark:text-slate-500">
+                        <button onClick={() => setCurrentView('terms')} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                            Terms of Service
+                        </button>
+                        <span>&middot;</span>
+                        <button onClick={() => setCurrentView('privacy')} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                            Privacy Policy
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

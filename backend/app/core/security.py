@@ -6,6 +6,7 @@ import ipaddress
 import json
 import logging
 import re
+import socket as socket_module
 import time
 from urllib.parse import urlparse
 from fastapi import Request, HTTPException, Depends
@@ -168,18 +169,16 @@ async def _fetch_jwks(jwks_url: str) -> list:
 
 async def _decode_jwks(token: str, header: dict, alg: str, settings) -> dict:
     """Verify an ES256/RS256 JWT using the Supabase JWKS public key."""
-    # Derive the JWKS URL from SUPABASE_URL setting or from the token's iss claim
+    # SECURITY: Always derive JWKS URL from the trusted SUPABASE_URL config.
+    # Never use the token's iss claim — an attacker could forge a token pointing
+    # to their own JWKS endpoint, enabling complete token forgery.
     supabase_url = settings.SUPABASE_URL.rstrip("/") if settings.SUPABASE_URL else None
 
     if not supabase_url:
-        # Fall back to iss claim in the token
-        try:
-            unverified = jwt.decode(token, options={"verify_signature": False}, algorithms=[alg])
-            iss = unverified.get("iss", "")
-            # iss is like "https://project.supabase.co/auth/v1"
-            supabase_url = iss.rstrip("/").removesuffix("/auth/v1")
-        except Exception:
-            raise HTTPException(status_code=500, detail="Cannot determine SUPABASE_URL for JWKS lookup")
+        raise HTTPException(
+            status_code=401,
+            detail="SUPABASE_URL not configured. Cannot verify asymmetric JWT."
+        )
 
     jwks_url = f"{supabase_url}/auth/v1/.well-known/jwks.json"
     keys = await _fetch_jwks(jwks_url)
@@ -241,11 +240,45 @@ BLOCKED_HOSTNAMES = {
 }
 
 
-async def validate_proxy_url(url: str) -> None:
+class PinnedResolver:
+    """
+    DNS resolver that returns pre-resolved addresses to prevent DNS rebinding.
+    Used by the proxy endpoint to ensure the connection goes to the same IP
+    that was validated by validate_proxy_url(), closing the TOCTOU gap.
+    """
+
+    def __init__(self, hostname: str, resolved_addrs: list):
+        self._hostname = hostname
+        self._resolved_addrs = resolved_addrs
+
+    async def resolve(self, host: str, port: int = 0, family: int = socket_module.AF_INET):
+        if host == self._hostname:
+            results = []
+            for ip_str, addr_family in self._resolved_addrs:
+                if family != socket_module.AF_UNSPEC and family != 0 and addr_family != family:
+                    continue
+                results.append({
+                    "hostname": host,
+                    "host": ip_str,
+                    "port": port,
+                    "family": addr_family,
+                    "proto": 0,
+                    "flags": socket_module.AI_NUMERICHOST,
+                })
+            if results:
+                return results
+        raise OSError(f"No pre-resolved addresses for {host}")
+
+    async def close(self):
+        pass
+
+
+async def validate_proxy_url(url: str) -> tuple:
     """
     Validate a URL for the proxy endpoint.
+    Returns (hostname, resolved_addrs) where resolved_addrs is a list of
+    (ip_str, family) tuples for use with PinnedResolver.
     Raises HTTPException(400) if the URL is blocked.
-    DNS resolution is run in a thread pool to avoid blocking the async event loop.
 
     In development mode (ENV != "production"), localhost and private IPs are
     allowed so developers can test against local APIs.  In production, all
@@ -273,25 +306,33 @@ async def validate_proxy_url(url: str) -> None:
     if is_production and hostname.lower() in BLOCKED_HOSTNAMES:
         raise HTTPException(status_code=400, detail=f"Hostname '{hostname}' is not allowed")
 
-    # Resolve hostname to IP and check against blocked ranges
-    # Run blocking DNS lookup in executor to avoid blocking the event loop
+    # Resolve hostname to IP and check against blocked ranges.
+    # The resolved addresses are returned so the proxy can pin the connection
+    # to these exact IPs, preventing DNS rebinding (TOCTOU) attacks.
     try:
-        import socket
         loop = asyncio.get_event_loop()
-        addr_info = await loop.run_in_executor(None, socket.getaddrinfo, hostname, None)
-        if is_production:
-            for _, _, _, _, sockaddr in addr_info:
-                ip = ipaddress.ip_address(sockaddr[0])
+        addr_info = await loop.run_in_executor(
+            None, socket_module.getaddrinfo, hostname, None
+        )
+        resolved_addrs = []
+        for family, _, _, _, sockaddr in addr_info:
+            ip = ipaddress.ip_address(sockaddr[0])
+            if is_production:
                 for network in BLOCKED_NETWORKS:
                     if ip in network:
                         raise HTTPException(
                             status_code=400,
-                            detail=f"Target address resolves to a blocked IP range"
+                            detail="Target address resolves to a blocked IP range"
                         )
+            resolved_addrs.append((sockaddr[0], family))
+
+        if not resolved_addrs:
+            raise HTTPException(status_code=400, detail="Hostname resolved to no addresses")
+
+        return hostname, resolved_addrs
     except HTTPException:
         raise
     except Exception as e:
-        # DNS resolution failed — reject the request to prevent SSRF bypass via DNS instability
         logger.warning(f"DNS resolution failed for {hostname}: {e}")
         raise HTTPException(
             status_code=400,

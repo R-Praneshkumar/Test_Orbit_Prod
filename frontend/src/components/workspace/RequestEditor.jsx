@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Activity, AlertCircle, CheckCircle, Clock, FileText, Copy, Download, Link, Code2, Sparkles, Shield } from 'lucide-react';
+import { Play, Activity, AlertCircle, CheckCircle, Clock, FileText, Copy, Download, Link, Code2, Sparkles, Shield, Upload } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ResizeHandle } from './ResizeHandle';
 import { CustomMethodSelect } from './CustomMethodSelect';
@@ -11,6 +11,7 @@ import { evaluateAssertions, createAssertion } from '../../utils/assertionEngine
 
 import { API_BASE, authFetch } from '../../config';
 import { proxyFetch } from '../../utils/proxyFetch';
+import { toast } from '../../utils/toast';
 
 // --- Auto-Auth Panel (Smart Token Management) ---
 const AutoAuthPanel = ({ request, handleChange }) => {
@@ -316,6 +317,7 @@ export const RequestEditor = ({ tabId }) => {
     const [assertionResults, setAssertionResults] = useState(null); // evaluated assertion results
     const [responseViewMode, setResponseViewMode] = useState('json'); // 'json' | 'table'
     const [debugEntries, setDebugEntries] = useState([]); // debug console entries
+    const [selectedFile, setSelectedFile] = useState(null); // for file body type
 
     // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
     useEffect(() => { setLocalUrl(request?.url || ''); }, [request?.id]);
@@ -407,7 +409,7 @@ export const RequestEditor = ({ tabId }) => {
         const currentCol = collections.find(c => c.id === activeCollectionId);
         let colPreResult = null;
         if (currentCol?.preScript?.trim()) {
-            colPreResult = runPreRequestScript(currentCol.preScript, {
+            colPreResult = await runPreRequestScript(currentCol.preScript, {
                 variables: { ...chainVars },
                 environment: getEnvVars(),
                 request: { ...request, url: resolvedUrl },
@@ -423,7 +425,7 @@ export const RequestEditor = ({ tabId }) => {
         // --- Run Request Pre-request Script ---
         let preResult = null;
         if (request.preScript?.trim()) {
-            preResult = runPreRequestScript(request.preScript, {
+            preResult = await runPreRequestScript(request.preScript, {
                 variables: { ...chainVars, ...(colPreResult?.updatedVars || {}) },
                 environment: getEnvVars(),
                 request: { ...request, url: resolvedUrl },
@@ -551,18 +553,36 @@ export const RequestEditor = ({ tabId }) => {
                 debugLog.push({ type: 'info', message: `Auth: ${effectiveAuthType}${authSource !== request ? ' (inherited from collection)' : ''}`, timestamp: Date.now() });
             }
 
-            // Parse body if it's a string (with variable resolution)
+            // Build body based on body type (with variable resolution)
             let body = null;
+            let bodyContentType = null;
+            const bodyType = request.body?.type || 'json';
             if (request.method !== 'GET' && request.method !== 'HEAD') {
                 const bodyContent = request.body?.content;
-                if (bodyContent) {
-                    const resolvedBody = resolveVariables(bodyContent);
-                    try {
-                        body = JSON.parse(resolvedBody);
-                    } catch {
-                        body = resolvedBody; // Send as-is if not valid JSON
+                if (bodyType === 'file' && selectedFile) {
+                    body = selectedFile;
+                    bodyContentType = 'file';
+                    debugLog.push({ type: 'info', message: `File: ${selectedFile.name} (${selectedFile.size} bytes)`, timestamp: Date.now() });
+                } else if (bodyContent) {
+                    if (bodyType === 'json') {
+                        const resolvedBody = resolveVariables(bodyContent);
+                        try { body = JSON.parse(resolvedBody); } catch { body = resolvedBody; }
+                    } else if (bodyType === 'form' || bodyType === 'urlencoded') {
+                        let pairs = [];
+                        try { pairs = JSON.parse(bodyContent); } catch { pairs = []; }
+                        body = pairs.filter(p => p.enabled !== false && p.key)
+                            .map(p => ({ key: resolveVariables(p.key), value: resolveVariables(p.value || '') }));
+                        bodyContentType = bodyType;
+                    } else if (bodyType === 'raw') {
+                        body = resolveVariables(bodyContent);
+                        bodyContentType = 'raw';
                     }
-                    debugLog.push({ type: 'info', message: `Body: ${typeof body === 'object' ? JSON.stringify(body).slice(0, 200) : String(body).slice(0, 200)}`, timestamp: Date.now() });
+                    if (body != null) {
+                        const preview = bodyContentType === 'form' || bodyContentType === 'urlencoded'
+                            ? body.map(p => `${p.key}=${p.value}`).join('&').slice(0, 200)
+                            : (typeof body === 'object' ? JSON.stringify(body).slice(0, 200) : String(body).slice(0, 200));
+                        debugLog.push({ type: 'info', message: `Body (${bodyType}): ${preview}`, timestamp: Date.now() });
+                    }
                 }
             }
 
@@ -573,13 +593,33 @@ export const RequestEditor = ({ tabId }) => {
                 // --- Local Mode: direct browser fetch (enables localhost testing) ---
                 try {
                     const fetchHeaders = { ...headers };
-                    if (!fetchHeaders['Content-Type']) fetchHeaders['Content-Type'] = 'application/json';
                     const fetchOpts = {
                         method: request.method || 'GET',
                         headers: fetchHeaders,
                     };
-                    if (body && request.method !== 'GET' && request.method !== 'HEAD') {
-                        fetchOpts.body = typeof body === 'string' ? body : JSON.stringify(body);
+                    if (body != null && request.method !== 'GET' && request.method !== 'HEAD') {
+                        if (bodyContentType === 'file' && body instanceof File) {
+                            const fd = new FormData();
+                            fd.append(request.body?.content || 'file', body);
+                            fetchOpts.body = fd;
+                            delete fetchOpts.headers['Content-Type'];
+                        } else if (bodyContentType === 'form' && Array.isArray(body)) {
+                            const fd = new FormData();
+                            body.forEach(p => fd.append(p.key, p.value));
+                            fetchOpts.body = fd;
+                            delete fetchOpts.headers['Content-Type'];
+                        } else if (bodyContentType === 'urlencoded' && Array.isArray(body)) {
+                            fetchOpts.body = body.map(p => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`).join('&');
+                            fetchOpts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+                        } else if (bodyContentType === 'raw') {
+                            fetchOpts.body = body;
+                            if (!fetchOpts.headers['Content-Type']) fetchOpts.headers['Content-Type'] = 'text/plain';
+                        } else {
+                            fetchOpts.body = typeof body === 'string' ? body : JSON.stringify(body);
+                            if (!fetchOpts.headers['Content-Type']) fetchOpts.headers['Content-Type'] = 'application/json';
+                        }
+                    } else if (!fetchOpts.headers['Content-Type']) {
+                        fetchOpts.headers['Content-Type'] = 'application/json';
                     }
                     const directRes = await fetch(resolvedUrl, fetchOpts);
                     elapsed = Date.now() - startTime;
@@ -629,14 +669,20 @@ export const RequestEditor = ({ tabId }) => {
                 }
             } else {
                 // --- Cloud Proxy Mode: route through backend /proxy ---
+                let cloudBody = body;
+                if (bodyContentType === 'file') {
+                    debugLog.push({ type: 'warn', message: 'File upload requires Local Mode. Switch to Local Mode in the sidebar.', timestamp: Date.now() });
+                    cloudBody = null;
+                }
                 const proxyRes = await authFetch(`${API_BASE}/proxy`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         url: resolvedUrl,
                         method: request.method || 'GET',
-                        headers: { 'Content-Type': 'application/json', ...headers },
-                        body: body
+                        headers,
+                        body: cloudBody,
+                        body_type: bodyType
                     })
                 });
 
@@ -675,7 +721,7 @@ export const RequestEditor = ({ tabId }) => {
             // --- Run Request Post-response Script ---
             let postResult = null;
             if (request.postScript?.trim()) {
-                postResult = runPostResponseScript(request.postScript, {
+                postResult = await runPostResponseScript(request.postScript, {
                     variables: preResult?.updatedVars || { ...chainVars },
                     environment: getEnvVars(),
                     request: { ...request, url: resolvedUrl, resolvedHeaders: headers },
@@ -693,7 +739,7 @@ export const RequestEditor = ({ tabId }) => {
             // --- Run Collection Post-response Script ---
             let colPostResult = null;
             if (currentCol?.postScript?.trim()) {
-                colPostResult = runPostResponseScript(currentCol.postScript, {
+                colPostResult = await runPostResponseScript(currentCol.postScript, {
                     variables: postResult?.updatedVars || preResult?.updatedVars || { ...chainVars },
                     environment: getEnvVars(),
                     request: { ...request, url: resolvedUrl, resolvedHeaders: headers },
@@ -772,12 +818,33 @@ export const RequestEditor = ({ tabId }) => {
             }
         });
 
-        // Add body
+        // Add body based on type
+        const curBodyType = request.body?.type || 'json';
         if (request.method !== 'GET' && request.method !== 'HEAD') {
             const bodyContent = request.body?.content;
             if (bodyContent) {
-                curl += ` \\\n  -H 'Content-Type: application/json'`;
-                curl += ` \\\n  -d '${resolveVariables(bodyContent)}'`;
+                if (curBodyType === 'json') {
+                    curl += ` \\\n  -H 'Content-Type: application/json'`;
+                    curl += ` \\\n  -d '${resolveVariables(bodyContent)}'`;
+                } else if (curBodyType === 'form') {
+                    let pairs = [];
+                    try { pairs = JSON.parse(bodyContent); } catch { /* skip */ }
+                    pairs.filter(p => p.enabled !== false && p.key).forEach(p => {
+                        curl += ` \\\n  -F '${resolveVariables(p.key)}=${resolveVariables(p.value || '')}'`;
+                    });
+                } else if (curBodyType === 'urlencoded') {
+                    curl += ` \\\n  -H 'Content-Type: application/x-www-form-urlencoded'`;
+                    let pairs = [];
+                    try { pairs = JSON.parse(bodyContent); } catch { /* skip */ }
+                    pairs.filter(p => p.enabled !== false && p.key).forEach(p => {
+                        curl += ` \\\n  --data-urlencode '${resolveVariables(p.key)}=${resolveVariables(p.value || '')}'`;
+                    });
+                } else if (curBodyType === 'raw') {
+                    curl += ` \\\n  -H 'Content-Type: text/plain'`;
+                    curl += ` \\\n  -d '${resolveVariables(bodyContent)}'`;
+                } else if (curBodyType === 'file' && selectedFile) {
+                    curl += ` \\\n  -F '${bodyContent || 'file'}=@${selectedFile.name}'`;
+                }
             }
         }
 
@@ -786,6 +853,7 @@ export const RequestEditor = ({ tabId }) => {
 
     const handleCopyCurl = () => {
         navigator.clipboard.writeText(generateCurl());
+        toast.success('cURL copied to clipboard');
     };
 
     const getStatusColor = (status) => {
@@ -906,35 +974,141 @@ export const RequestEditor = ({ tabId }) => {
                             />
                         )}
 
-                        {activeSubTab === 'body' && (
+                        {activeSubTab === 'body' && (() => {
+                            const currentBodyType = request.body?.type || 'json';
+                            const bodyPairs = (() => {
+                                if (currentBodyType !== 'form' && currentBodyType !== 'urlencoded') return [];
+                                try { return JSON.parse(request.body?.content || '[]'); } catch { return []; }
+                            })();
+                            return (
                             <div className="h-full flex flex-col">
                                 <div className="p-2 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">Raw JSON</span>
-                                    <button
-                                        onClick={() => {
-                                            try {
-                                                const current = request.body?.content || '';
-                                                if (!current) return;
-                                                const formatted = JSON.stringify(JSON.parse(current), null, 2);
-                                                handleChange('body', { ...request.body, content: formatted });
-                                            } catch {
-                                                alert("Invalid JSON: Cannot beautify");
+                                    <select
+                                        value={currentBodyType}
+                                        onChange={(e) => {
+                                            const newType = e.target.value;
+                                            if (newType === currentBodyType) return;
+                                            let newContent = '';
+                                            if (newType === 'form' || newType === 'urlencoded') {
+                                                if (currentBodyType !== 'form' && currentBodyType !== 'urlencoded') {
+                                                    newContent = JSON.stringify([{ key: '', value: '', enabled: true }]);
+                                                } else {
+                                                    newContent = request.body?.content || JSON.stringify([{ key: '', value: '', enabled: true }]);
+                                                }
+                                            } else if (newType === 'file') {
+                                                newContent = 'file';
+                                            } else if (currentBodyType === 'form' || currentBodyType === 'urlencoded') {
+                                                newContent = '';
+                                            } else {
+                                                newContent = request.body?.content || '';
                                             }
+                                            handleChange('body', { type: newType, content: newContent });
+                                            if (newType !== 'file') setSelectedFile(null);
                                         }}
-                                        className="text-[10px] text-corporate-600 hover:underline"
+                                        className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-transparent border border-slate-200 dark:border-slate-700 rounded px-2 py-1 outline-none cursor-pointer uppercase tracking-wider"
                                     >
-                                        Beautify
-                                    </button>
+                                        <option value="json">JSON</option>
+                                        <option value="form">Form Data</option>
+                                        <option value="urlencoded">URL-encoded</option>
+                                        <option value="raw">Raw</option>
+                                        <option value="file">File</option>
+                                    </select>
+                                    {currentBodyType === 'json' && (
+                                        <button
+                                            onClick={() => {
+                                                try {
+                                                    const current = request.body?.content || '';
+                                                    if (!current) return;
+                                                    const formatted = JSON.stringify(JSON.parse(current), null, 2);
+                                                    handleChange('body', { ...request.body, content: formatted });
+                                                } catch {
+                                                    // invalid JSON
+                                                }
+                                            }}
+                                            className="text-[10px] text-corporate-600 hover:underline"
+                                        >
+                                            Beautify
+                                        </button>
+                                    )}
                                 </div>
-                                <textarea
-                                    className="flex-1 w-full p-4 font-mono text-xs text-slate-700 dark:text-slate-300 resize-none outline-none focus:bg-slate-50/30 bg-white dark:bg-slate-900"
-                                    placeholder="{}"
-                                    value={request.body?.content || ''}
-                                    onChange={(e) => handleChange('body', { ...request.body, content: e.target.value })}
-                                    onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleRun(); } }}
-                                />
+
+                                {currentBodyType === 'json' && (
+                                    <textarea
+                                        className="flex-1 w-full p-4 font-mono text-xs text-slate-700 dark:text-slate-300 resize-none outline-none focus:bg-slate-50/30 bg-white dark:bg-slate-900"
+                                        placeholder="{}"
+                                        value={request.body?.content || ''}
+                                        onChange={(e) => handleChange('body', { ...request.body, content: e.target.value })}
+                                        onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleRun(); } }}
+                                    />
+                                )}
+
+                                {(currentBodyType === 'form' || currentBodyType === 'urlencoded') && (
+                                    <div className="flex-1 overflow-y-auto">
+                                        <KeyValueEditor
+                                            items={bodyPairs}
+                                            onChange={(pairs) => handleChange('body', { ...request.body, content: JSON.stringify(pairs) })}
+                                            placeholderKey={currentBodyType === 'form' ? 'Field name' : 'Key'}
+                                        />
+                                        <p className="px-3 py-2 text-[9px] text-slate-400 dark:text-slate-500">
+                                            {currentBodyType === 'form'
+                                                ? 'Sent as multipart/form-data'
+                                                : 'Sent as application/x-www-form-urlencoded'}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {currentBodyType === 'raw' && (
+                                    <textarea
+                                        className="flex-1 w-full p-4 font-mono text-xs text-slate-700 dark:text-slate-300 resize-none outline-none focus:bg-slate-50/30 bg-white dark:bg-slate-900"
+                                        placeholder="Raw request body (text/plain)"
+                                        value={request.body?.content || ''}
+                                        onChange={(e) => handleChange('body', { ...request.body, content: e.target.value })}
+                                        onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleRun(); } }}
+                                    />
+                                )}
+
+                                {currentBodyType === 'file' && (
+                                    <div className="p-4 space-y-3">
+                                        <div>
+                                            <label className="text-[10px] text-slate-500 dark:text-slate-400 mb-1 block">Form Field Name</label>
+                                            <input
+                                                type="text"
+                                                value={request.body?.content || 'file'}
+                                                onChange={(e) => handleChange('body', { ...request.body, content: e.target.value })}
+                                                placeholder="file"
+                                                className="w-48 text-xs font-mono px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 outline-none focus:ring-1 focus:ring-corporate-500 text-slate-700 dark:text-slate-300"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] text-slate-500 dark:text-slate-400 mb-1 block">Select File</label>
+                                            <label className="inline-flex items-center gap-2 px-4 py-2 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer hover:border-corporate-500 transition-colors">
+                                                <Upload size={14} className="text-slate-400" />
+                                                <span className="text-xs text-slate-500 dark:text-slate-400">
+                                                    {selectedFile ? selectedFile.name : 'Choose file...'}
+                                                </span>
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                                />
+                                            </label>
+                                            {selectedFile && (
+                                                <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1">
+                                                    {(selectedFile.size / 1024).toFixed(1)} KB — {selectedFile.type || 'unknown type'}
+                                                </p>
+                                            )}
+                                        </div>
+                                        {!localMode && (
+                                            <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                                <AlertCircle size={10} />
+                                                File upload requires Local Mode. Enable it in the sidebar.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                        )}
+                            );
+                        })()}
 
                         {activeSubTab === 'auth' && (() => {
                             const authCol = collections.find(c => c.id === activeCollectionId);

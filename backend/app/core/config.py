@@ -33,6 +33,16 @@ class Settings(BaseSettings):
             return [o.strip() for o in allowed.split(",") if o.strip()]
         return v
 
+    # Razorpay (INR billing via Razorpay)
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+    RAZORPAY_PLAN_PRO_ID: str = ""       # monthly ₹250 plan ID from Razorpay dashboard
+    RAZORPAY_PLAN_PRO_ANNUAL_ID: str = ""  # annual ₹2500 plan ID
+
+    # Sentry error tracking (optional — set DSN to enable)
+    SENTRY_DSN: str = ""
+
     # Rate limiting
     AI_RATE_LIMIT: str = "10/minute"
     PROXY_RATE_LIMIT: str = "60/minute"

@@ -3,6 +3,7 @@ import { Shield, Terminal, History, CheckCircle, XCircle, Settings, FileText, Pl
 import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
 import { proxyFetch } from '../../utils/proxyFetch';
 import ShareModal from './ShareModal';
+import { toast } from '../../utils/toast';
 
 // --- Collection-Level Auto-Auth Panel ---
 const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
@@ -193,7 +194,7 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
                         </span>
                         <div className="flex items-center gap-2">
                             <button
-                                onClick={() => { navigator.clipboard.writeText(collection.autoAuthToken); }}
+                                onClick={() => { navigator.clipboard.writeText(collection.autoAuthToken); toast.success('Token copied to clipboard'); }}
                                 className="text-[10px] px-2 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-700 transition-colors"
                             >Copy</button>
                             <button

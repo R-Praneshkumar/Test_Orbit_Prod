@@ -1,10 +1,12 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { Play, X, Activity, CheckCircle, XCircle, Clock, Zap, BarChart3, ArrowDown, ArrowUp, FileText, History, Sparkles, ToggleLeft, ToggleRight, Stethoscope, Lightbulb, AlertTriangle, Upload, Database } from 'lucide-react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { Play, X, Activity, CheckCircle, XCircle, Clock, Zap, BarChart3, ArrowDown, ArrowUp, FileText, History, Sparkles, ToggleLeft, ToggleRight, Stethoscope, Lightbulb, AlertTriangle, Upload, Database, Square, Download } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { runPreRequestScript, runPostResponseScript } from '../../utils/scriptEngine';
+import { toast } from '../../utils/toast';
 
 import { API_BASE, authFetch } from '../../config';
 import { proxyFetch } from '../../utils/proxyFetch';
+import { generateJunitXml, generateHtmlReport, downloadFile } from '../../utils/exportResults';
 
 const METHOD_COLORS = {
     GET: 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/20',
@@ -84,6 +86,21 @@ export const CollectionRunner = () => {
     const [activeIteration, setActiveIteration] = useState(0);
     const [iterationResults, setIterationResults] = useState([]);
     const dataFileRef = useRef(null);
+    const abortRef = useRef(null);
+
+    // Cleanup: abort any in-flight run on unmount
+    useEffect(() => {
+        return () => {
+            if (abortRef.current) abortRef.current.abort();
+        };
+    }, []);
+
+    const cancelRun = useCallback(() => {
+        if (abortRef.current) abortRef.current.abort();
+        abortRef.current = null;
+        setIsRunning(false);
+        setRunnerState({ running: false });
+    }, [setRunnerState]);
 
     const handleDiagnose = async (result) => {
         if (diagnosing[result.id]) return;
@@ -216,6 +233,9 @@ export const CollectionRunner = () => {
         const requests = runner.requests;
         if (requests.length === 0) return;
 
+        const controller = new AbortController();
+        abortRef.current = controller;
+
         setIsRunning(true);
         setRunnerState({ running: true, progress: 0, results: [], summary: null });
         setOptimizations([]);
@@ -227,6 +247,7 @@ export const CollectionRunner = () => {
         const startTotal = Date.now();
 
         for (let iter = 0; iter < iterations.length; iter++) {
+        if (controller.signal.aborted) break;
         const iterRow = iterations[iter];
         // Set data row values as chain vars for this iteration
         if (iterRow) {
@@ -238,6 +259,7 @@ export const CollectionRunner = () => {
         let runningVars = iterRow ? { ...chainVars, ...iterRow } : { ...chainVars };
 
         for (let i = 0; i < requests.length; i++) {
+            if (controller.signal.aborted) break;
             const req = requests[i];
             setRunnerState({ progress: i });
 
@@ -249,7 +271,7 @@ export const CollectionRunner = () => {
                 // --- Run Collection Pre-request Script ---
                 const currentColForScripts = useWorkspaceStore.getState().collections.find(c => c.id === runner.collectionId);
                 if (currentColForScripts?.preScript?.trim()) {
-                    const colPreResult = runPreRequestScript(currentColForScripts.preScript, {
+                    const colPreResult = await runPreRequestScript(currentColForScripts.preScript, {
                         variables: runningVars,
                         environment: getEnvVars(),
                         request: req,
@@ -263,7 +285,7 @@ export const CollectionRunner = () => {
 
                 // --- Run Request Pre-request Script ---
                 if (req.preScript?.trim()) {
-                    const preResult = runPreRequestScript(req.preScript, {
+                    const preResult = await runPreRequestScript(req.preScript, {
                         variables: runningVars,
                         environment: getEnvVars(),
                         request: req,
@@ -360,11 +382,24 @@ export const CollectionRunner = () => {
                 }
 
                 let body = null;
+                let bodyContentType = null;
+                const bodyType = req.body?.type || 'json';
                 if (req.method !== 'GET' && req.method !== 'HEAD') {
                     const bodyContent = req.body?.content;
                     if (bodyContent) {
-                        const resolved = resolveVariables(bodyContent);
-                        try { body = JSON.parse(resolved); } catch { body = resolved; }
+                        if (bodyType === 'json') {
+                            const resolved = resolveVariables(bodyContent);
+                            try { body = JSON.parse(resolved); } catch { body = resolved; }
+                        } else if (bodyType === 'form' || bodyType === 'urlencoded') {
+                            let pairs = [];
+                            try { pairs = JSON.parse(bodyContent); } catch { pairs = []; }
+                            body = pairs.filter(p => p.enabled !== false && p.key)
+                                .map(p => ({ key: resolveVariables(p.key), value: resolveVariables(p.value || '') }));
+                            bodyContentType = bodyType;
+                        } else if (bodyType === 'raw') {
+                            body = resolveVariables(bodyContent);
+                            bodyContentType = 'raw';
+                        }
                     }
                 }
 
@@ -373,10 +408,25 @@ export const CollectionRunner = () => {
                 if (localMode) {
                     // --- Local Mode: direct browser fetch ---
                     const fetchHeaders = { ...headers };
-                    if (!fetchHeaders['Content-Type']) fetchHeaders['Content-Type'] = 'application/json';
-                    const fetchOpts = { method: req.method || 'GET', headers: fetchHeaders };
-                    if (body && req.method !== 'GET' && req.method !== 'HEAD') {
-                        fetchOpts.body = typeof body === 'string' ? body : JSON.stringify(body);
+                    const fetchOpts = { method: req.method || 'GET', headers: fetchHeaders, signal: controller.signal };
+                    if (body != null && req.method !== 'GET' && req.method !== 'HEAD') {
+                        if (bodyContentType === 'form' && Array.isArray(body)) {
+                            const fd = new FormData();
+                            body.forEach(p => fd.append(p.key, p.value));
+                            fetchOpts.body = fd;
+                            delete fetchOpts.headers['Content-Type'];
+                        } else if (bodyContentType === 'urlencoded' && Array.isArray(body)) {
+                            fetchOpts.body = body.map(p => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`).join('&');
+                            fetchOpts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+                        } else if (bodyContentType === 'raw') {
+                            fetchOpts.body = body;
+                            if (!fetchOpts.headers['Content-Type']) fetchOpts.headers['Content-Type'] = 'text/plain';
+                        } else {
+                            fetchOpts.body = typeof body === 'string' ? body : JSON.stringify(body);
+                            if (!fetchOpts.headers['Content-Type']) fetchOpts.headers['Content-Type'] = 'application/json';
+                        }
+                    } else if (!fetchOpts.headers['Content-Type']) {
+                        fetchOpts.headers['Content-Type'] = 'application/json';
                     }
                     try {
                         const directRes = await fetch(resolvedUrl, fetchOpts);
@@ -403,9 +453,11 @@ export const CollectionRunner = () => {
                         body: JSON.stringify({
                             url: resolvedUrl,
                             method: req.method || 'GET',
-                            headers: { 'Content-Type': 'application/json', ...headers },
-                            body
-                        })
+                            headers,
+                            body,
+                            body_type: bodyType
+                        }),
+                        signal: controller.signal,
                     });
                     const data = await proxyRes.json();
                     elapsed = Date.now() - startTime;
@@ -426,7 +478,7 @@ export const CollectionRunner = () => {
                     data: responseBody, headers: resHeaders,
                 };
                 if (req.postScript?.trim()) {
-                    const postResult = runPostResponseScript(req.postScript, {
+                    const postResult = await runPostResponseScript(req.postScript, {
                         variables: runningVars,
                         environment: getEnvVars(),
                         request: { ...req, url: resolvedUrl, resolvedHeaders: headers },
@@ -442,7 +494,7 @@ export const CollectionRunner = () => {
 
                 // --- Run Collection Post-response Script ---
                 if (currentColForScripts?.postScript?.trim()) {
-                    const colPostResult = runPostResponseScript(currentColForScripts.postScript, {
+                    const colPostResult = await runPostResponseScript(currentColForScripts.postScript, {
                         variables: runningVars,
                         environment: getEnvVars(),
                         request: { ...req, url: resolvedUrl, resolvedHeaders: headers },
@@ -481,6 +533,16 @@ export const CollectionRunner = () => {
         allIterResults.push(results);
         } // end iteration loop
 
+        // If cancelled mid-run, finalize with partial results
+        if (controller.signal.aborted) {
+            const partialResults = allIterResults.length > 0 ? allIterResults[allIterResults.length - 1] : [];
+            setIterationResults(allIterResults);
+            setRunnerState({ results: partialResults, progress: partialResults.length, running: false });
+            setIsRunning(false);
+            if (partialResults.length > 0) finishRun(partialResults, Date.now() - startTotal);
+            return;
+        }
+
         // Show last iteration results in runner state; store all iterations
         setIterationResults(allIterResults);
         setActiveIteration(allIterResults.length - 1);
@@ -495,6 +557,9 @@ export const CollectionRunner = () => {
         if (!runner || isRunning) return;
         const requests = runner.requests;
         if (requests.length === 0) return;
+
+        const controller = new AbortController();
+        abortRef.current = controller;
 
         setIsRunning(true);
         setRunnerState({ running: true, progress: 0, results: [], summary: null });
@@ -577,11 +642,24 @@ export const CollectionRunner = () => {
                 }
 
                 let payload = null;
+                let payloadType = null;
+                const bType = req.body?.type || 'json';
                 if (req.method !== 'GET' && req.method !== 'HEAD') {
                     const bodyContent = req.body?.content;
                     if (bodyContent) {
-                        const resolved = resolveVariables(bodyContent);
-                        try { payload = JSON.parse(resolved); } catch { payload = resolved; }
+                        if (bType === 'json') {
+                            const resolved = resolveVariables(bodyContent);
+                            try { payload = JSON.parse(resolved); } catch { payload = resolved; }
+                        } else if (bType === 'form' || bType === 'urlencoded') {
+                            let pairs = [];
+                            try { pairs = JSON.parse(bodyContent); } catch { pairs = []; }
+                            payload = pairs.filter(p => p.enabled !== false && p.key)
+                                .map(p => ({ key: resolveVariables(p.key), value: resolveVariables(p.value || '') }));
+                            payloadType = bType;
+                        } else if (bType === 'raw') {
+                            payload = resolveVariables(bodyContent);
+                            payloadType = 'raw';
+                        }
                     }
                 }
 
@@ -591,8 +669,10 @@ export const CollectionRunner = () => {
                     url: resolvedUrl,
                     endpoint: resolvedUrl,
                     payload,
-                    headers: { 'Content-Type': 'application/json', ...headers },
+                    payloadType,
+                    headers,
                     expected_status: req.expected_status || 200,
+                    body_type: bType,
                 };
             });
 
@@ -603,9 +683,25 @@ export const CollectionRunner = () => {
                 const fetches = tests.map(async (t, idx) => {
                     const start = Date.now();
                     try {
-                        const fetchOpts = { method: t.method, headers: t.headers };
-                        if (t.payload && t.method !== 'GET' && t.method !== 'HEAD') {
-                            fetchOpts.body = typeof t.payload === 'string' ? t.payload : JSON.stringify(t.payload);
+                        const fetchOpts = { method: t.method, headers: { ...t.headers }, signal: controller.signal };
+                        if (t.payload != null && t.method !== 'GET' && t.method !== 'HEAD') {
+                            if (t.payloadType === 'form' && Array.isArray(t.payload)) {
+                                const fd = new FormData();
+                                t.payload.forEach(p => fd.append(p.key, p.value));
+                                fetchOpts.body = fd;
+                                delete fetchOpts.headers['Content-Type'];
+                            } else if (t.payloadType === 'urlencoded' && Array.isArray(t.payload)) {
+                                fetchOpts.body = t.payload.map(p => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`).join('&');
+                                fetchOpts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+                            } else if (t.payloadType === 'raw') {
+                                fetchOpts.body = t.payload;
+                                if (!fetchOpts.headers['Content-Type']) fetchOpts.headers['Content-Type'] = 'text/plain';
+                            } else {
+                                fetchOpts.body = typeof t.payload === 'string' ? t.payload : JSON.stringify(t.payload);
+                                if (!fetchOpts.headers['Content-Type']) fetchOpts.headers['Content-Type'] = 'application/json';
+                            }
+                        } else if (!fetchOpts.headers['Content-Type']) {
+                            fetchOpts.headers['Content-Type'] = 'application/json';
                         }
                         const r = await fetch(t.url, fetchOpts);
                         const elapsed = Date.now() - start;
@@ -643,7 +739,8 @@ export const CollectionRunner = () => {
                 const res = await authFetch(`${API_BASE}/run`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ base_url: baseUrl, tests })
+                    body: JSON.stringify({ base_url: baseUrl, tests }),
+                    signal: controller.signal,
                 });
 
                 const data = await res.json();
@@ -690,10 +787,16 @@ export const CollectionRunner = () => {
             setRunnerState({ results, progress: results.length });
             finishRun(results, totalTime);
         } catch (err) {
+            if (err.name === 'AbortError') {
+                // User cancelled — keep partial state, don't show error
+                setRunnerState({ running: false });
+                setIsRunning(false);
+                return;
+            }
             // Fallback: if /run fails, show error
             setRunnerState({ running: false });
             setIsRunning(false);
-            alert(`Parallel execution failed: ${err.message}. Try sequential mode.`);
+            toast.error(`Parallel execution failed: ${err.message}. Try sequential mode.`);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [runner, isRunning, setRunnerState, resolveVariables]);
@@ -816,17 +919,23 @@ export const CollectionRunner = () => {
                 )}
 
                 {!isHistorical && (
-                    <button
-                        onClick={runAll}
-                        disabled={isRunning}
-                        className="bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white px-4 py-2 rounded-lg font-semibold text-xs flex items-center gap-2 transition-colors"
-                    >
-                        {isRunning ? (
-                            <><Activity size={14} className="animate-spin" /><span>Running...</span></>
-                        ) : (
-                            <><Play size={14} className="fill-current" /><span>Run All</span></>
-                        )}
-                    </button>
+                    isRunning ? (
+                        <button
+                            onClick={cancelRun}
+                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold text-xs flex items-center gap-2 transition-colors"
+                        >
+                            <Square size={14} className="fill-current" />
+                            <span>Cancel</span>
+                        </button>
+                    ) : (
+                        <button
+                            onClick={runAll}
+                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-xs flex items-center gap-2 transition-colors"
+                        >
+                            <Play size={14} className="fill-current" />
+                            <span>Run All</span>
+                        </button>
+                    )
                 )}
                 <button
                     onClick={closeRunner}
@@ -874,7 +983,35 @@ export const CollectionRunner = () => {
                 {/* Summary Cards */}
                 {summary && (
                     <div className="p-6 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                        <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Performance Summary</h3>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Performance Summary</h3>
+                            {!isRunning && results.length > 0 && (
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        onClick={() => {
+                                            const xml = generateJunitXml(results, summary, runner.collectionName || 'TestOrbit Run');
+                                            const safeName = (runner.collectionName || 'testorbit').replace(/[^a-zA-Z0-9_-]/g, '_');
+                                            downloadFile(xml, `${safeName}_results.xml`, 'application/xml');
+                                        }}
+                                        className="flex items-center gap-1 text-[10px] font-medium text-slate-500 dark:text-slate-400 hover:text-corporate-600 dark:hover:text-corporate-400 transition-colors px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+                                        title="Export as JUnit XML (for CI/CD)"
+                                    >
+                                        <Download size={10} /> JUnit XML
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const html = generateHtmlReport(results, summary, runner.collectionName || 'TestOrbit Run');
+                                            const safeName = (runner.collectionName || 'testorbit').replace(/[^a-zA-Z0-9_-]/g, '_');
+                                            downloadFile(html, `${safeName}_report.html`, 'text/html');
+                                        }}
+                                        className="flex items-center gap-1 text-[10px] font-medium text-slate-500 dark:text-slate-400 hover:text-corporate-600 dark:hover:text-corporate-400 transition-colors px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+                                        title="Export as standalone HTML report"
+                                    >
+                                        <Download size={10} /> HTML Report
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                         <div className="grid grid-cols-4 gap-3 mb-4">
                             <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-3 text-center">
                                 <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{summary.totalRequests}</div>

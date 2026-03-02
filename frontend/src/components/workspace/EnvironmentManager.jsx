@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Trash2, Globe, Eye, EyeOff } from 'lucide-react';
+import { X, Plus, Trash2, Globe, Eye, EyeOff, Lock, Unlock } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 
 export const EnvironmentManager = ({ onClose }) => {
@@ -26,7 +26,7 @@ export const EnvironmentManager = ({ onClose }) => {
     };
 
     const addRow = () => {
-        updateEnvVars(selectedEnv, [...vars, { key: '', value: '', enabled: true }]);
+        updateEnvVars(selectedEnv, [...vars, { key: '', value: '', enabled: true, isSecret: false }]);
     };
 
     const deleteRow = (index) => {
@@ -34,9 +34,15 @@ export const EnvironmentManager = ({ onClose }) => {
     };
 
     const handleAddEnvSubmit = () => {
-        if (newEnvName.trim()) {
-            addEnvironment(newEnvName.trim());
-            setSelectedEnv(newEnvName.trim());
+        const name = newEnvName.trim();
+        if (name) {
+            if (environments.some(e => e.name === name)) {
+                setNewEnvName('');
+                setShowNewEnvInput(false);
+                return;
+            }
+            addEnvironment(name);
+            setSelectedEnv(name);
         }
         setShowNewEnvInput(false);
         setNewEnvName('');
@@ -167,6 +173,9 @@ export const EnvironmentManager = ({ onClose }) => {
                                 {showValues ? <Eye size={10} /> : <EyeOff size={10} />}
                             </button>
                         </div>
+                        <div className="w-8 py-2 text-center border-r border-slate-200 dark:border-slate-700" title="Secret — value not saved to browser storage">
+                            <Lock size={9} className="mx-auto text-slate-400 dark:text-slate-500" />
+                        </div>
                         <div className="w-10 py-2 text-center"></div>
                     </div>
 
@@ -199,6 +208,19 @@ export const EnvironmentManager = ({ onClose }) => {
                                         placeholder="value"
                                         className="w-full h-full px-3 py-2 text-xs text-slate-700 dark:text-slate-300 font-mono outline-none bg-transparent placeholder-slate-300 dark:placeholder-slate-600"
                                     />
+                                </div>
+                                <div className="w-8 flex items-center justify-center border-r border-slate-100 dark:border-slate-700">
+                                    <button
+                                        onClick={() => updateRow(index, 'isSecret', !row.isSecret)}
+                                        className={`p-1 rounded transition-colors ${
+                                            row.isSecret
+                                                ? 'text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300'
+                                                : 'opacity-0 group-hover:opacity-100 text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-400'
+                                        }`}
+                                        title={row.isSecret ? 'Secret — value not saved to browser storage. Click to unmark.' : 'Mark as secret (value won\'t be saved to browser storage)'}
+                                    >
+                                        {row.isSecret ? <Lock size={11} /> : <Unlock size={11} />}
+                                    </button>
                                 </div>
                                 <div className="w-10 flex items-center justify-center">
                                     <button

@@ -3,9 +3,11 @@ import { Sparkles, ArrowRight, Zap, Activity, Play, FileText, ChevronDown, Chevr
 import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
 import { JsonViewer } from './JsonViewer';
 import yaml from 'js-yaml';
+import { toast } from '../../utils/toast';
 
 import { API_BASE, authFetch } from '../../config';
 import { proxyFetch } from '../../utils/proxyFetch';
+import { checkLimitExceeded } from '../../utils/upgradePrompt';
 
 const EMPTY_MESSAGES = [];
 const EMPTY_SUITES = [];
@@ -158,6 +160,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
                     })
                 });
                 if (!res.ok) {
+                    if (await checkLimitExceeded(res)) return;
                     const errData = await res.json();
                     const errMsg = safeErrorMessage(errData.error?.message || errData.error || errData.detail || 'Request failed');
                     addCollectionChatMessage({ role: 'error', content: errMsg });
@@ -207,6 +210,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
                     })
                 });
                 if (!res.ok) {
+                    if (await checkLimitExceeded(res)) return;
                     const errData = await res.json();
                     const errMsg = safeErrorMessage(errData.error?.message || errData.error || errData.detail || 'AI service error');
                     addCollectionChatMessage({ role: 'error', content: errMsg });
@@ -243,7 +247,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
             method,
             url,
             body,
-            name: `AI: ${method} ${url.split('/').pop() || 'Request'}`
+            name: `AI: ${method} ${(url || '').split('/').pop() || 'Request'}`
         });
 
         if (shouldRun && url) {
@@ -355,15 +359,17 @@ export const IntelligencePanel = ({ onCollapse }) => {
                     base_url: col?.baseUrl || undefined,
                 })
             });
+            if (!res.ok && await checkLimitExceeded(res)) return;
             const data = await res.json();
-            const errMsg = data.error || data.detail;
+            const rawErr = data.error || data.detail;
+            const errMsg = rawErr ? (typeof rawErr === 'string' ? rawErr : (rawErr.message || JSON.stringify(rawErr))) : null;
             if (!res.ok || errMsg) {
-                alert(`Test generation failed: ${errMsg || 'Unknown error'}`);
+                toast.error(`Test generation failed: ${errMsg || 'Unknown error'}`);
             } else {
                 addTestSuite(activeCollectionId, data);
             }
         } catch (e) {
-            alert(`Failed to connect to AI service: ${e.message}`);
+            toast.error(`Failed to connect to AI service: ${e.message}`);
         } finally {
             setGenerating(false);
         }
@@ -520,7 +526,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
                                                                                     method: extractedMethod,
                                                                                     url: extractedUrl,
                                                                                     body: extractedBody,
-                                                                                    name: `AI: ${extractedMethod} ${extractedUrl.split('/').pop() || 'Request'}`
+                                                                                    name: `AI: ${extractedMethod} ${(extractedUrl || '').split('/').pop() || 'Request'}`
                                                                                 });
                                                                             }}
                                                                             className="flex-1 bg-corporate-600 hover:bg-corporate-700 text-white text-[10px] font-bold py-1.5 rounded transition-colors"
@@ -533,7 +539,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
                                                                                     method: extractedMethod,
                                                                                     url: extractedUrl,
                                                                                     body: extractedBody,
-                                                                                    name: `AI: ${extractedMethod} ${extractedUrl.split('/').pop() || 'Request'}`
+                                                                                    name: `AI: ${extractedMethod} ${(extractedUrl || '').split('/').pop() || 'Request'}`
                                                                                 });
                                                                                 // Small delay to let the tab open, then trigger run
                                                                                 setTimeout(() => {
@@ -1130,7 +1136,7 @@ const TestItemRow = ({ test, colId, methodColors, categoryColors }) => {
                                     e.stopPropagation();
                                     const importTests = useWorkspaceStore.getState().importTestsToCollection;
                                     const result = importTests(colId, [test]);
-                                    alert(result.imported ? 'Imported as request' : 'Already exists in collection');
+                                    toast[result.imported ? 'success' : 'info'](result.imported ? 'Imported as request' : 'Already exists in collection');
                                 }}
                                 className="text-[9px] text-corporate-600 dark:text-corporate-400 hover:underline flex items-center gap-0.5"
                             >

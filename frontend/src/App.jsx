@@ -1,22 +1,29 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, Suspense, lazy } from 'react';
 import { Sidebar } from './components/workspace/Sidebar';
 import { TabManager } from './components/workspace/TabManager';
-import { RequestEditor } from './components/workspace/RequestEditor';
-import { IntelligencePanel } from './components/workspace/IntelligencePanel';
-import { CollectionRunner } from './components/workspace/CollectionRunner';
-import { WebSocketTester } from './components/workspace/WebSocketTester';
-import { Dashboard } from './components/workspace/Dashboard';
-import { CollectionSettings } from './components/workspace/CollectionSettings';
-import { TestDashboard } from './components/workspace/TestDashboard';
-import { MockServerPanel } from './components/workspace/MockServerPanel';
-import { DocsPanel } from './components/workspace/DocsPanel';
 import { ResizeHandle } from './components/workspace/ResizeHandle';
 import { useWorkspaceStore, flattenItems } from './store/workspaceStore';
 import { Layout, Home, Wrench, Server, Book, Sun, Moon, Wifi, WifiOff, PanelLeftOpen, PanelRightOpen, FolderTree, Search, Sparkles, MessageSquare, FlaskConical } from 'lucide-react';
 import AuthPage from './components/common/AuthPage';
-import ProfilePage from './components/common/ProfilePage';
 import UserMenu from './components/common/UserMenu';
 import GuestBanner from './components/common/GuestBanner';
+import { ToastContainer } from './components/common/Toast';
+import { UsageBanner, UpgradeModal } from './components/common/UpgradePrompt';
+
+// Lazy-loaded panels — each gets its own chunk
+const RequestEditor = lazy(() => import('./components/workspace/RequestEditor').then(m => ({ default: m.RequestEditor })));
+const IntelligencePanel = lazy(() => import('./components/workspace/IntelligencePanel').then(m => ({ default: m.IntelligencePanel })));
+const CollectionRunner = lazy(() => import('./components/workspace/CollectionRunner').then(m => ({ default: m.CollectionRunner })));
+const WebSocketTester = lazy(() => import('./components/workspace/WebSocketTester').then(m => ({ default: m.WebSocketTester })));
+const Dashboard = lazy(() => import('./components/workspace/Dashboard').then(m => ({ default: m.Dashboard })));
+const CollectionSettings = lazy(() => import('./components/workspace/CollectionSettings').then(m => ({ default: m.CollectionSettings })));
+const TestDashboard = lazy(() => import('./components/workspace/TestDashboard').then(m => ({ default: m.TestDashboard })));
+const MockServerPanel = lazy(() => import('./components/workspace/MockServerPanel').then(m => ({ default: m.MockServerPanel })));
+const DocsPanel = lazy(() => import('./components/workspace/DocsPanel').then(m => ({ default: m.DocsPanel })));
+const ProfilePage = lazy(() => import('./components/common/ProfilePage'));
+const PricingPage = lazy(() => import('./components/common/PricingPage'));
+const TermsOfService = lazy(() => import('./components/common/LegalPages').then(m => ({ default: m.TermsOfService })));
+const PrivacyPolicy = lazy(() => import('./components/common/LegalPages').then(m => ({ default: m.PrivacyPolicy })));
 
 function App() {
   const activeTabId = useWorkspaceStore(state => state.activeTabId);
@@ -126,6 +133,7 @@ function App() {
     return (
       <div className="flex flex-col h-screen w-screen overflow-hidden bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
         <AuthPage />
+        <ToastContainer />
       </div>
     );
   }
@@ -224,10 +232,18 @@ function App() {
 
       {/* Guest Banner */}
       <GuestBanner />
+      <UsageBanner />
 
       {/* Main Content */}
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center"><div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" /></div>}>
       {currentView === 'profile' ? (
         <ProfilePage />
+      ) : currentView === 'pricing' ? (
+        <PricingPage />
+      ) : currentView === 'terms' ? (
+        <TermsOfService />
+      ) : currentView === 'privacy' ? (
+        <PrivacyPolicy />
       ) : currentView === 'dashboard' ? (
         <Dashboard />
       ) : currentView === 'mock-server' ? (
@@ -341,6 +357,9 @@ function App() {
           )}
         </div>
       )}
+      </Suspense>
+      <ToastContainer />
+      <UpgradeModal />
     </div>
   );
 }

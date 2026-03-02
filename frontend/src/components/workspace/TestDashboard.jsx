@@ -7,7 +7,9 @@ import {
 } from 'lucide-react';
 import { useWorkspaceStore, flattenItems, flattenItemsWithPath, groupTestsByFolder, findFolderById, matchTestToRequest } from '../../store/workspaceStore';
 import { API_BASE, authFetch } from '../../config';
+import { checkLimitExceeded } from '../../utils/upgradePrompt';
 import { runLocalContractChecks } from '../../utils/contractEngine';
+import { toast } from '../../utils/toast';
 
 // ── Shared Constants ──────────────────────────────────────────────
 
@@ -184,15 +186,18 @@ const SuitesTab = ({ collectionId, collection, folderId = null, scopedItems = nu
                     base_url: collection.baseUrl || undefined,
                 })
             });
+            if (!res.ok && await checkLimitExceeded(res)) return;
             const data = await res.json();
-            if (!res.ok || data.error || data.detail) {
-                alert(`Test generation failed: ${data.error || data.detail || 'Unknown error'}`);
+            const rawErr = data.error || data.detail;
+            const errMsg = rawErr ? (typeof rawErr === 'string' ? rawErr : (rawErr.message || JSON.stringify(rawErr))) : null;
+            if (!res.ok || errMsg) {
+                toast.error(`Test generation failed: ${errMsg || 'Unknown error'}`);
             } else {
                 addTestSuite(collectionId, data, folderId);
                 setTestPrompt('');
             }
         } catch (e) {
-            alert(`Failed to connect to AI service: ${e.message}`);
+            toast.error(`Failed to connect to AI service: ${e.message}`);
         } finally {
             setGenerating(false);
         }
@@ -283,11 +288,11 @@ const SuitesTab = ({ collectionId, collection, folderId = null, scopedItems = nu
                     onRun={() => openRunnerForTestSuite(collectionId, suite)}
                     onImport={() => {
                         const result = importTestsToCollection(collectionId, suite.tests || []);
-                        alert(`Imported ${result.imported} requests${result.skipped ? ` (${result.skipped} duplicates skipped)` : ''}`);
+                        toast.success(`Imported ${result.imported} requests${result.skipped ? ` (${result.skipped} duplicates skipped)` : ''}`);
                     }}
                     onRelink={() => {
                         const result = autoLinkTestSuite(collectionId, suite.id);
-                        alert(`Linked ${result.linked} tests (${result.unlinked} unlinked)`);
+                        toast.success(`Linked ${result.linked} tests (${result.unlinked} unlinked)`);
                     }}
                 />
             ))}
@@ -470,9 +475,11 @@ const SuggestTab = ({ collection, scopedItems = null }) => {
                     base_url: collection.baseUrl || undefined,
                 })
             });
+            if (!res.ok && await checkLimitExceeded(res)) return;
             const data = await res.json();
-            if (!res.ok || data.error || data.detail) {
-                setError(data.error || data.detail || 'Failed to get suggestions');
+            const rawErr2 = data.error || data.detail;
+            if (!res.ok || rawErr2) {
+                setError(typeof rawErr2 === 'string' ? rawErr2 : (rawErr2 ? (rawErr2.message || JSON.stringify(rawErr2)) : 'Failed to get suggestions'));
             } else {
                 const sugs = (data.suggestions || []).map((s, i) => ({ ...s, _id: `sug-${i}-${Date.now()}` }));
                 setSuggestions(sugs);
@@ -704,9 +711,11 @@ const ContractTab = ({ collection, scopedItems = null }) => {
                     local_mode: localMode,
                 })
             });
+            if (!res.ok && await checkLimitExceeded(res)) return;
             const data = await res.json();
-            if (!res.ok || data.error || data.detail) {
-                setError(data.error || data.detail || 'Contract check failed');
+            const rawErr3 = data.error || data.detail;
+            if (!res.ok || rawErr3) {
+                setError(typeof rawErr3 === 'string' ? rawErr3 : (rawErr3 ? (rawErr3.message || JSON.stringify(rawErr3)) : 'Contract check failed'));
             } else {
                 setResults(data.results || []);
             }

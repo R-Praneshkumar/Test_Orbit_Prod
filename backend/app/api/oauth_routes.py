@@ -2,7 +2,11 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 from typing import Optional
 import aiohttp
+import hashlib
+import hmac as hmac_module
 import logging
+import time
+import uuid
 from app.api.routes import limiter
 from app.core.config import get_settings
 from app.core.security import verify_token, validate_proxy_url
@@ -10,6 +14,50 @@ from app.core.security import verify_token, validate_proxy_url
 router = APIRouter()
 logger = logging.getLogger(__name__)
 _settings = get_settings()
+
+# --- OAuth State Token (CSRF Protection) ---
+# State tokens expire after 10 minutes
+_OAUTH_STATE_TTL = 600
+
+
+def _get_state_secret() -> bytes:
+    """Get the HMAC signing key for OAuth state tokens."""
+    secret = _settings.SUPABASE_JWT_SECRET or "testorbit-dev-oauth-state-fallback"
+    return secret.encode()
+
+
+def generate_oauth_state() -> str:
+    """Generate a signed, time-limited OAuth state token (stateless HMAC approach)."""
+    nonce = uuid.uuid4().hex
+    ts = str(int(time.time()))
+    payload = f"{nonce}:{ts}"
+    sig = hmac_module.new(_get_state_secret(), payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}:{sig}"
+
+
+def validate_oauth_state(state: str) -> bool:
+    """Validate an OAuth state token's HMAC signature and expiration."""
+    if not state:
+        return False
+    parts = state.split(":")
+    if len(parts) != 3:
+        return False
+    nonce, ts, sig = parts
+
+    # Verify HMAC signature (constant-time comparison)
+    payload = f"{nonce}:{ts}"
+    expected_sig = hmac_module.new(_get_state_secret(), payload.encode(), hashlib.sha256).hexdigest()
+    if not hmac_module.compare_digest(sig, expected_sig):
+        return False
+
+    # Verify not expired
+    try:
+        if time.time() - int(ts) > _OAUTH_STATE_TTL:
+            return False
+    except (ValueError, OverflowError):
+        return False
+
+    return True
 
 
 class TokenRequest(BaseModel):
@@ -21,6 +69,7 @@ class TokenRequest(BaseModel):
     code: Optional[str] = None  # Required for authorization_code
     redirect_uri: Optional[str] = None  # Required for authorization_code
     scope: Optional[str] = None
+    state: Optional[str] = None  # CSRF protection for authorization_code grant
 
 
 class RefreshRequest(BaseModel):
@@ -31,6 +80,13 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+@router.get("/oauth/state")
+@limiter.limit(_settings.AI_RATE_LIMIT)
+async def get_oauth_state(request: Request, user: dict = Depends(verify_token)):
+    """Generate a signed OAuth state token for CSRF protection in authorization flows."""
+    return {"state": generate_oauth_state()}
+
+
 @router.post("/oauth/token")
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def exchange_token(request: Request, req: TokenRequest, user: dict = Depends(verify_token)):
@@ -38,6 +94,8 @@ async def exchange_token(request: Request, req: TokenRequest, user: dict = Depen
     Proxies the OAuth 2.0 token exchange request to the provider.
     This avoids CORS issues and keeps client_secret off the frontend.
     """
+    is_production = _settings.ENV == "production"
+
     try:
         data = {
             "grant_type": req.grant_type,
@@ -50,6 +108,14 @@ async def exchange_token(request: Request, req: TokenRequest, user: dict = Depen
         if req.grant_type == "authorization_code":
             if not req.code:
                 raise HTTPException(status_code=400, detail="Authorization code is required for authorization_code grant")
+
+            # CSRF protection: validate OAuth state parameter
+            if req.state:
+                if not validate_oauth_state(req.state):
+                    raise HTTPException(status_code=400, detail="Invalid or expired OAuth state parameter")
+            elif is_production:
+                raise HTTPException(status_code=400, detail="OAuth state parameter is required")
+
             data["code"] = req.code
             if req.redirect_uri:
                 data["redirect_uri"] = req.redirect_uri

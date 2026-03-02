@@ -391,21 +391,21 @@ These MUST be fixed before deploying to production.
 
 | # | Component | File | Description | Status |
 |---|-----------|------|-------------|--------|
-| B1 | IntelligencePanel + RequestEditor | `IntelligencePanel.jsx:468`, `RequestEditor.jsx:642` | **"Apply & Run" never fires.** Chat "Apply & Run" button does `document.querySelector('[data-run-btn="true"]').click()` but Send button has no `data-run-btn` attribute. Dead feature. | `[ ]` Fix |
-| B2 | scriptEngine | `scriptEngine.js:102-103` | **`pm.expect(v).to.be.true` always crashes.** `.true` and `.false` are IIFEs that both execute when `.be` is accessed. For any value, one always throws. All boolean assertions broken. | `[ ]` Fix |
-| B3 | Dashboard | `Dashboard.jsx:188,238` | **Pass/fail counts never display.** Accesses `run.passed`/`run.failed` but data stored at `run.summary.passed`/`run.summary.failed`. Stats always show undefined. | `[ ]` Fix |
-| B4 | scriptEngine | `scriptEngine.js:47-48` | **`pm.environment.set()` is a no-op.** Changes written to local `envMap` copy but never propagated back to environment store. Scripts that set env vars silently fail. | `[ ]` Fix |
+| B1 | IntelligencePanel + RequestEditor | `IntelligencePanel.jsx:468`, `RequestEditor.jsx:642` | **"Apply & Run" never fires.** Chat "Apply & Run" button does `document.querySelector('[data-run-btn="true"]').click()` but Send button has no `data-run-btn` attribute. Dead feature. | `[x]` Fixed |
+| B2 | scriptEngine | `scriptEngine.js:102-103` | **`pm.expect(v).to.be.true` always crashes.** `.true` and `.false` are IIFEs that both execute when `.be` is accessed. For any value, one always throws. All boolean assertions broken. | `[x]` Fixed — lazy getters via Object.defineProperty |
+| B3 | Dashboard | `Dashboard.jsx:188,238` | **Pass/fail counts never display.** Accesses `run.passed`/`run.failed` but data stored at `run.summary.passed`/`run.summary.failed`. Stats always show undefined. | `[x]` Fixed |
+| B4 | scriptEngine | `scriptEngine.js:47-48` | **`pm.environment.set()` is a no-op.** Changes written to local `envMap` copy but never propagated back to environment store. Scripts that set env vars silently fail. | `[x]` Fixed — getUpdatedEnvVars() + applyEnvVarChanges() |
 
 ### HIGH Bugs
 
 | # | Component | File | Description | Status |
 |---|-----------|------|-------------|--------|
-| B5 | CollectionRunner | `CollectionRunner.jsx:255-341` | **Parallel mode drops all auth headers.** Sequential mode applies Bearer/Basic/API Key; parallel mode sends to `/run` without auth applied. | `[ ]` Fix |
-| B6 | CollectionRunner | `CollectionRunner.jsx:78-252` | **No run cancellation.** No AbortController, no cancel flag. Network requests continue even after unmount. | `[ ]` Fix |
-| B7 | Sidebar | `Sidebar.jsx:87-88` | **No confirmation for collection deletion.** One click permanently deletes all requests, chat, run history, test suites. Irreversible. | `[ ]` Fix |
-| B8 | workspaceStore | `workspaceStore.js` (multiple) | **No Supabase sync debouncing.** Every keystroke in URL/header/env triggers `saveCollectionToSupabase()`. 50-char URL = 50 concurrent upserts. | `[ ]` Fix |
-| B9 | CollectionRunner + Store | `workspaceStore.js:421-436` | **Run history saved to wrong collection.** Uses `state.activeCollectionId`, not the runner's collection. Switching collections mid-run saves to wrong place. | `[ ]` Fix |
-| B10 | workspaceStore | `workspaceStore.js:230,334` | **Realtime sync overwrites local edits.** Remote changes trigger full collection replacement, discarding unsaved edits. No conflict resolution. | `[ ]` Fix |
+| B5 | CollectionRunner | `CollectionRunner.jsx:255-341` | **Parallel mode drops all auth headers.** Sequential mode applies Bearer/Basic/API Key; parallel mode sends to `/run` without auth applied. | `[x]` Fixed |
+| B6 | CollectionRunner | `CollectionRunner.jsx:78-252` | **No run cancellation.** No AbortController, no cancel flag. Network requests continue even after unmount. | `[x]` Fixed — AbortController added to both sequential/parallel modes, Cancel button in UI, cleanup on unmount |
+| B7 | Sidebar | `Sidebar.jsx:87-88` | **No confirmation for collection deletion.** One click permanently deletes all requests, chat, run history, test suites. Irreversible. | `[x]` Fixed |
+| B8 | workspaceStore | `workspaceStore.js` (multiple) | **No Supabase sync debouncing.** Every keystroke in URL/header/env triggers `saveCollectionToSupabase()`. 50-char URL = 50 concurrent upserts. | `[x]` Fixed |
+| B9 | CollectionRunner + Store | `workspaceStore.js:421-436` | **Run history saved to wrong collection.** Uses `state.activeCollectionId`, not the runner's collection. Switching collections mid-run saves to wrong place. | `[x]` Fixed — now uses `state.runner?.collectionId` with fallback |
+| B10 | workspaceStore | `workspaceStore.js:230,334` | **Realtime sync overwrites local edits.** Remote changes trigger full collection replacement, discarding unsaved edits. No conflict resolution. | `[x]` Fixed — dirty-flag tracking + smart merge skips dirty collections, 2s debounce on realtime handler |
 
 ### MEDIUM Bugs
 
