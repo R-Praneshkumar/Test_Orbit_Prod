@@ -1,5 +1,5 @@
 {
-  "name": "test-orbit-prod",
+  "name": "testorbit",
   "compatibility_date": "2026-02-14",
   "assets": {
     "directory": "./dist",
