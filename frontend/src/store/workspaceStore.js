@@ -248,6 +248,10 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     // Subscription state (persisted)
     subscription: { plan: 'free', status: 'active', expiresAt: null },
 
+    // Onboarding banner — shown until user explicitly dismisses it (persisted)
+    dismissedOnboarding: false,
+    dismissOnboarding: () => set({ dismissedOnboarding: true }),
+
     // --- Supabase Auth & Sync ---
     user: null,
     profile: null,
@@ -1813,7 +1817,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
 }), {
     name: 'gemini-workspace-storage',
-    version: 14,
+    version: 15,
     partialize: (state) => {
         // Exclude transient runtime data from persistence
         // _realtimeChannel contains circular refs (RealtimeChannel → socket → channels → channel)
@@ -2036,6 +2040,10 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         if (version < 14) {
             // v13 → v14: Add subscription state
             persisted.subscription = persisted.subscription || { plan: 'free', status: 'active', expiresAt: null };
+        }
+        if (version < 15) {
+            // v14 → v15: Add dismissedOnboarding for persistent hero banner
+            persisted.dismissedOnboarding = persisted.dismissedOnboarding ?? false;
         }
         return persisted;
     },

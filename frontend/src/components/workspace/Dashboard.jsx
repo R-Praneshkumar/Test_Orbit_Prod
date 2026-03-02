@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, FlaskConical, CheckCircle, XCircle, Plus, Terminal, Upload, Clock, ArrowRight, FileText, Users, Shield, Pencil, Sparkles, Code, FlaskRound, MessageSquare, Server, Check } from 'lucide-react';
+import { Folder, FlaskConical, CheckCircle, XCircle, Plus, Terminal, Upload, Clock, ArrowRight, FileText, Users, Shield, Pencil, Sparkles, Code, FlaskRound, MessageSquare, Server, Check, X } from 'lucide-react';
 import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
 import { API_BASE, authFetch } from '../../config';
 import { CurlImportModal } from './CurlImportModal';
@@ -68,47 +68,80 @@ const CAPABILITIES = [
     },
 ];
 
-function HeroBanner({ onCreateCollection, onLoadDemo }) {
-    return (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 p-8 sm:p-10 mb-8">
-            {/* Decorative elements */}
-            <div className="absolute top-10 -right-10 w-56 h-56 bg-purple-500/20 rounded-full blur-3xl" />
-            <div className="absolute -bottom-10 left-20 w-40 h-40 bg-indigo-400/20 rounded-full blur-3xl" />
-            <div className="absolute top-1/2 right-1/3 w-24 h-24 bg-white/5 rounded-full blur-2xl" />
+const COMPARISON_ROWS = [
+    ['AI failure diagnosis', '❌', '❌', '✅ Free tier'],
+    ['AI chat about your API', '❌', '❌', '✅ Free tier'],
+    ['Natural lang → request', 'Postbot (Paid)', '❌', '✅ Free tier'],
+];
 
-            {/* Orbit icon */}
-            <div className="relative z-10">
-                <div className="w-12 h-12 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/20 mb-5">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="12" cy="12" r="3" fill="white" />
-                        <circle cx="12" cy="12" r="8" stroke="white" strokeWidth="1.5" fill="none" opacity="0.6" />
-                        <circle cx="20" cy="12" r="2" fill="white" />
-                    </svg>
+function HeroBanner({ onCreateCollection, onLoadDemo, onDismiss }) {
+    return (
+        <div className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden mb-8 shadow-sm">
+            {/* Purple left accent */}
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-500 to-indigo-600" />
+
+            {/* Dismiss button */}
+            <button
+                onClick={onDismiss}
+                title="Dismiss"
+                className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors z-10"
+            >
+                <X size={15} />
+            </button>
+
+            <div className="pl-6 pr-12 py-7 flex flex-col lg:flex-row gap-8">
+                {/* Left: headline + subtext + CTAs */}
+                <div className="flex-1 min-w-0">
+                    <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2.5 py-1 rounded-full mb-4">
+                        Welcome to TestOrbit
+                    </div>
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 leading-tight mb-2">
+                        Ship APIs with confidence.<br className="hidden sm:block" /> Not hope.
+                    </h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 max-w-md">
+                        AI that diagnoses your failures, generates your tests, and answers
+                        anything about your API &mdash; features Postman charges for or doesn&apos;t have.
+                    </p>
+                    <div className="flex flex-wrap gap-3">
+                        <button
+                            onClick={onCreateCollection}
+                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all active:scale-95"
+                        >
+                            <Plus size={15} />
+                            Start Testing Free
+                        </button>
+                        <button
+                            onClick={onLoadDemo}
+                            className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
+                        >
+                            <Sparkles size={15} />
+                            See 30-sec Demo
+                        </button>
+                    </div>
                 </div>
 
-                <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight mb-3">
-                    Test APIs smarter, not harder.
-                </h1>
-                <p className="text-purple-200 text-sm sm:text-base max-w-lg leading-relaxed mb-6">
-                    AI-powered testing, mock servers, and code generation &mdash; all in one workspace.
-                    Powered by Google Gemini 2.0 Flash.
-                </p>
-
-                <div className="flex flex-wrap gap-3">
-                    <button
-                        onClick={onCreateCollection}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-white text-purple-700 text-sm font-semibold rounded-lg shadow-lg shadow-purple-900/30 hover:bg-purple-50 transition-all active:scale-95"
-                    >
-                        <Plus size={16} />
-                        Create Collection
-                    </button>
-                    <button
-                        onClick={onLoadDemo}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-white/15 backdrop-blur-sm text-white text-sm font-medium rounded-lg border border-white/25 hover:bg-white/25 transition-all active:scale-95"
-                    >
-                        <Sparkles size={16} />
-                        Explore Demo API
-                    </button>
+                {/* Right: competitor comparison table */}
+                <div className="lg:w-72 shrink-0">
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+                        How we&apos;re different
+                    </p>
+                    <div className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden text-xs">
+                        {/* Header */}
+                        <div className="grid grid-cols-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                            <div className="col-span-1 p-2 text-[10px] font-medium text-slate-400" />
+                            <div className="p-2 text-center text-[10px] font-medium text-slate-500">Postman</div>
+                            <div className="p-2 text-center text-[10px] font-medium text-slate-500">Bruno</div>
+                            <div className="p-2 text-center text-[10px] font-bold text-purple-600 dark:text-purple-400">TestOrbit</div>
+                        </div>
+                        {COMPARISON_ROWS.map(([feature, postman, bruno, us]) => (
+                            <div key={feature} className="grid grid-cols-4 border-b last:border-b-0 border-slate-100 dark:border-slate-800">
+                                <div className="col-span-1 px-2.5 py-2 text-[11px] font-medium text-slate-600 dark:text-slate-300 leading-tight">{feature}</div>
+                                <div className="px-1 py-2 text-[10px] text-center text-slate-400 leading-tight">{postman}</div>
+                                <div className="px-1 py-2 text-[10px] text-center text-slate-400 leading-tight">{bruno}</div>
+                                <div className="px-1 py-2 text-[10px] text-center font-semibold text-purple-600 dark:text-purple-400 leading-tight">{us}</div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>
@@ -176,6 +209,8 @@ export const Dashboard = () => {
     const profile = useWorkspaceStore(state => state.profile);
     const getCollectionRole = useWorkspaceStore(state => state.getCollectionRole);
     const subscription = useWorkspaceStore(state => state.subscription);
+    const dismissedOnboarding = useWorkspaceStore(state => state.dismissedOnboarding);
+    const dismissOnboarding = useWorkspaceStore(state => state.dismissOnboarding);
     const [showCurlImport, setShowCurlImport] = useState(false);
     const [showCollectionImport, setShowCollectionImport] = useState(false);
     const [showNewCollInput, setShowNewCollInput] = useState(false);
@@ -233,6 +268,9 @@ export const Dashboard = () => {
     };
 
     const recentRuns = getAllRecentRuns();
+    // showHero: show banner until user explicitly dismisses it (survives navigation + demo loading)
+    const showHero = !dismissedOnboarding;
+    // isNewUser: still used for capability cards / free plan summary (no collections yet)
     const isNewUser = collections.length === 0 || (collections.length === 1 && collections[0].id === 'default-col');
 
     // Update time reference every 60 seconds for fresh "ago" displays
@@ -257,32 +295,37 @@ export const Dashboard = () => {
         <div className="flex-1 overflow-auto bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-8">
             <div className="max-w-5xl mx-auto">
 
-                {isNewUser ? (
+                {showHero && (
                     <>
-                        {/* ===== NEW USER EXPERIENCE ===== */}
-                        <HeroBanner onCreateCollection={handleNewCollection} onLoadDemo={handleLoadDemo} />
-                        <CapabilityCards />
-                        <FreePlanSummary onViewPricing={() => setCurrentView('pricing')} />
-
-                        {/* Import options */}
-                        <div className="flex flex-wrap gap-3 mb-8">
-                            <button
-                                onClick={() => setShowCurlImport(true)}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
-                            >
-                                <Terminal size={16} />
-                                Import cURL
-                            </button>
-                            <button
-                                onClick={() => setShowCollectionImport(true)}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
-                            >
-                                <Upload size={16} />
-                                Import Collection
-                            </button>
-                        </div>
+                        {/* ===== HERO BANNER — shown until user dismisses ===== */}
+                        <HeroBanner
+                            onCreateCollection={handleNewCollection}
+                            onLoadDemo={handleLoadDemo}
+                            onDismiss={dismissOnboarding}
+                        />
+                        {isNewUser && <CapabilityCards />}
+                        {isNewUser && <FreePlanSummary onViewPricing={() => setCurrentView('pricing')} />}
+                        {isNewUser && (
+                            <div className="flex flex-wrap gap-3 mb-8">
+                                <button
+                                    onClick={() => setShowCurlImport(true)}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
+                                >
+                                    <Terminal size={16} />
+                                    Import cURL
+                                </button>
+                                <button
+                                    onClick={() => setShowCollectionImport(true)}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
+                                >
+                                    <Upload size={16} />
+                                    Import Collection
+                                </button>
+                            </div>
+                        )}
                     </>
-                ) : (
+                )}
+                {!showHero && (
                     <>
                         {/* ===== RETURNING USER EXPERIENCE ===== */}
 
