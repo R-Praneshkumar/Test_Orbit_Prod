@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, FlaskConical, CheckCircle, XCircle, Plus, Terminal, Upload, Clock, ArrowRight, FileText, Users, Shield, Pencil, Sparkles, Code, FlaskRound, MessageSquare, Server, Check, X } from 'lucide-react';
+import { Folder, FlaskConical, CheckCircle, XCircle, Plus, Terminal, Upload, Clock, ArrowRight, FileText, Users, Shield, Pencil, Sparkles, Code, FlaskRound, MessageSquare, Server, Check } from 'lucide-react';
 import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
 import { API_BASE, authFetch } from '../../config';
 import { CurlImportModal } from './CurlImportModal';
@@ -68,20 +68,14 @@ const CAPABILITIES = [
     },
 ];
 
-function HeroBanner({ onCreateCollection, onLoadDemo, onDismiss }) {
+function HeroBanner({ onSignUp, onLoadDemo }) {
     return (
         <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-950 dark:via-purple-950/20 dark:to-slate-950">
             {/* Subtle radial purple glow */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(124,58,237,0.13),transparent_60%)] pointer-events-none" />
 
-            {/* Dismiss button */}
-            <button
-                onClick={onDismiss}
-                title="Dismiss"
-                className="absolute top-4 right-4 p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-colors z-10"
-            >
-                <X size={16} />
-            </button>
+            {/* Gradient fade into page background */}
+            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-b from-transparent to-slate-50 dark:to-slate-950 pointer-events-none" />
 
             <div className="relative z-10 max-w-5xl mx-auto px-8 py-14 sm:py-16 flex flex-col lg:flex-row items-center gap-12">
 
@@ -113,7 +107,7 @@ function HeroBanner({ onCreateCollection, onLoadDemo, onDismiss }) {
                     {/* CTAs */}
                     <div className="flex flex-wrap gap-3">
                         <button
-                            onClick={onCreateCollection}
+                            onClick={onSignUp}
                             className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold rounded-lg shadow-lg shadow-purple-900/40 transition-all active:scale-95"
                         >
                             <Plus size={15} />
@@ -222,8 +216,6 @@ export const Dashboard = () => {
     const profile = useWorkspaceStore(state => state.profile);
     const getCollectionRole = useWorkspaceStore(state => state.getCollectionRole);
     const subscription = useWorkspaceStore(state => state.subscription);
-    const dismissedOnboarding = useWorkspaceStore(state => state.dismissedOnboarding);
-    const dismissOnboarding = useWorkspaceStore(state => state.dismissOnboarding);
     const [showCurlImport, setShowCurlImport] = useState(false);
     const [showCollectionImport, setShowCollectionImport] = useState(false);
     const [showNewCollInput, setShowNewCollInput] = useState(false);
@@ -281,10 +273,8 @@ export const Dashboard = () => {
     };
 
     const recentRuns = getAllRecentRuns();
-    // showHero: show banner until user explicitly dismisses it (survives navigation + demo loading)
-    const showHero = !dismissedOnboarding;
-    // isNewUser: still used for capability cards / free plan summary (no collections yet)
-    const isNewUser = collections.length === 0 || (collections.length === 1 && collections[0].id === 'default-col');
+    // showHero: show hero + landing page only to non-logged-in guests (conversion funnel)
+    const showHero = !user;
 
     // Update time reference every 60 seconds for fresh "ago" displays
     const [now, setNow] = useState(() => Date.now());
@@ -310,9 +300,8 @@ export const Dashboard = () => {
             {/* ===== HERO BANNER — full-bleed, outside p-8 container ===== */}
             {showHero && (
                 <HeroBanner
-                    onCreateCollection={handleNewCollection}
+                    onSignUp={() => setCurrentView('login')}
                     onLoadDemo={handleLoadDemo}
-                    onDismiss={dismissOnboarding}
                 />
             )}
 
@@ -320,7 +309,7 @@ export const Dashboard = () => {
             <div className="p-8">
                 <div className="max-w-5xl mx-auto">
 
-                    {showHero && isNewUser && (
+                    {!user && (
                         <>
                             <CapabilityCards />
                             <FreePlanSummary onViewPricing={() => setCurrentView('pricing')} />
