@@ -233,7 +233,7 @@ export const Dashboard = () => {
     };
 
     const recentRuns = getAllRecentRuns();
-    const isNewUser = collections.length === 0;
+    const isNewUser = collections.length === 0 || (collections.length === 1 && collections[0].id === 'default-col');
 
     // Update time reference every 60 seconds for fresh "ago" displays
     const [now, setNow] = useState(() => Date.now());
