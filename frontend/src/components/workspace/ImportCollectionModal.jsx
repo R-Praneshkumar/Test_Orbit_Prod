@@ -38,6 +38,38 @@ function extractPostmanScripts(events) {
     return { preScript, postScript };
 }
 
+function parsePostmanBody(body) {
+    if (!body) return { type: 'json', content: '' };
+    const mode = body.mode;
+    if (mode === 'urlencoded') {
+        const pairs = (body.urlencoded || []).map(p => ({
+            key: p.key || '', value: p.value || '', enabled: !p.disabled
+        }));
+        return { type: 'urlencoded', content: JSON.stringify(pairs) };
+    }
+    if (mode === 'formdata') {
+        const pairs = (body.formdata || []).map(p => ({
+            key: p.key || '', value: p.value || p.src || '', enabled: !p.disabled
+        }));
+        return { type: 'form', content: JSON.stringify(pairs) };
+    }
+    if (mode === 'graphql') {
+        const gql = body.graphql || {};
+        const payload = { query: gql.query || '', variables: gql.variables || '' };
+        return { type: 'json', content: JSON.stringify(payload, null, 2) };
+    }
+    if (mode === 'file') {
+        return { type: 'file', content: '' };
+    }
+    // raw mode — detect if JSON or plain text
+    const raw = body.raw || '';
+    const lang = body.options?.raw?.language;
+    if (lang && lang !== 'json') {
+        return { type: 'raw', content: raw };
+    }
+    return { type: 'json', content: raw };
+}
+
 function parsePostmanCollection(json) {
     const mapItem = (item) => {
         if (item.item) {
@@ -56,10 +88,11 @@ function parsePostmanCollection(json) {
             url: urlObj.raw || '',
             headers: (req.header || []).map(h => ({ key: h.key, value: h.value, enabled: !h.disabled })),
             params: (urlObj.query || []).map(q => ({ key: q.key, value: q.value, enabled: !q.disabled })),
-            body: { type: 'json', content: req.body?.raw || '' },
+            body: parsePostmanBody(req.body),
             description: req.description || '',
             preScript: scripts.preScript,
             postScript: scripts.postScript,
+            assertions: [],
             ...authFields,
         };
     };
@@ -246,6 +279,19 @@ function parseThunderClient(json) {
     };
 }
 
+// --- Postman Environment parser ---
+function parsePostmanEnvironment(json) {
+    const vars = (json.values || []).map(v => ({
+        key: v.key || '', value: v.value || '', enabled: v.enabled !== false, isSecret: v.type === 'secret'
+    }));
+    return {
+        isEnvironment: true,
+        envName: json.name || 'Imported Environment',
+        vars,
+        format: 'Postman Environment',
+    };
+}
+
 // --- Auto-detect format ---
 function detectAndParse(text) {
     let json;
@@ -253,6 +299,11 @@ function detectAndParse(text) {
         json = JSON.parse(text);
     } catch {
         return { error: 'Invalid JSON. Please paste a valid JSON collection file.' };
+    }
+
+    // Postman Environment (*.postman_environment.json)
+    if (json._postman_variable_scope === 'environment' || (json.name && json.values && !json.item && !json.info)) {
+        return parsePostmanEnvironment(json);
     }
 
     // Postman v2.1
@@ -285,7 +336,7 @@ function detectAndParse(text) {
         return parsePostmanCollection(json);
     }
 
-    return { error: 'Unrecognized format. Supports: Postman v2.1, Insomnia v4, OpenAPI/Swagger, Thunder Client.' };
+    return { error: 'Unrecognized format. Supports: Postman v2.1, Insomnia v4, OpenAPI/Swagger, Thunder Client, Postman Environment.' };
 }
 
 // --- Component ---
@@ -318,11 +369,39 @@ export const ImportCollectionModal = ({ onClose }) => {
         }
     };
 
+    const setCollectionIds = (items, colId) => {
+        for (const item of items) {
+            item.collectionId = colId;
+            if (item.items) setCollectionIds(item.items, colId);
+        }
+    };
+
     const handleImport = () => {
         if (!preview) return;
         const store = useWorkspaceStore.getState();
+
+        // Handle Postman Environment import (no collection created)
+        if (preview.isEnvironment) {
+            const existingEnvs = store.environments || [];
+            const envName = preview.envName;
+            if (existingEnvs.find(e => e.name === envName)) {
+                setResult({ error: `Environment "${envName}" already exists.` });
+                return;
+            }
+            useWorkspaceStore.setState({
+                environments: [...existingEnvs, { name: envName, vars: preview.vars }],
+                activeEnv: envName,
+            });
+            setResult({ success: true, name: envName, count: preview.vars.length, format: preview.format, isEnv: true });
+            setTimeout(onClose, 1500);
+            return;
+        }
+
+        const colId = uuidv4();
+        setCollectionIds(preview.items, colId);
+
         const newCol = {
-            id: uuidv4(),
+            id: colId,
             name: preview.name,
             type: 'collection',
             items: preview.items,
@@ -337,7 +416,7 @@ export const ImportCollectionModal = ({ onClose }) => {
         };
         const updates = {
             collections: [...store.collections, newCol],
-            activeCollectionId: newCol.id,
+            activeCollectionId: colId,
         };
 
         // Create environment from collection variables if any
@@ -352,17 +431,19 @@ export const ImportCollectionModal = ({ onClose }) => {
 
         useWorkspaceStore.setState(updates);
         // Sync to Supabase
-        useWorkspaceStore.getState().saveCollectionToSupabase(newCol.id);
-        setResult({ success: true, name: preview.name, count: countRequests(preview.items), format: preview.format });
+        useWorkspaceStore.getState().saveCollectionToSupabase(colId);
+        const reqCount = countItems(preview.items, 'request');
+        const folderCount = countItems(preview.items, 'folder');
+        setResult({ success: true, name: preview.name, count: reqCount, folders: folderCount, format: preview.format });
         // Close modal after brief success display
         setTimeout(onClose, 1500);
     };
 
-    const countRequests = (items) => {
+    const countItems = (items, type) => {
         let count = 0;
         for (const item of items) {
-            if (item.type === 'request') count++;
-            if (item.items) count += countRequests(item.items);
+            if (item.type === type) count++;
+            if (item.items) count += countItems(item.items, type);
         }
         return count;
     };
@@ -395,7 +476,7 @@ export const ImportCollectionModal = ({ onClose }) => {
                 <div className="p-5">
                     {/* Supported formats badge */}
                     <div className="flex flex-wrap gap-1.5 mb-4">
-                        {['Postman v2.1', 'Insomnia v4', 'OpenAPI 3.x', 'Swagger 2.0', 'Thunder Client'].map(fmt => (
+                        {['Postman v2.1', 'Postman Env', 'Insomnia v4', 'OpenAPI 3.x', 'Swagger 2.0', 'Thunder Client'].map(fmt => (
                             <span key={fmt} className="text-[9px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full font-medium">
                                 {fmt}
                             </span>
@@ -412,7 +493,7 @@ export const ImportCollectionModal = ({ onClose }) => {
                         <Upload size={32} className="mx-auto mb-3 text-slate-300 dark:text-slate-600" />
                         <p className="text-sm text-slate-600 dark:text-slate-300 font-medium">Drop a collection file here</p>
                         <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">or click to browse (.json)</p>
-                        <input ref={fileRef} type="file" accept=".json" onChange={handleFile} className="hidden" />
+                        <input ref={fileRef} type="file" accept=".json,.postman_collection,.postman_environment" onChange={handleFile} className="hidden" />
                     </div>
 
                     {/* Or paste JSON */}
@@ -439,12 +520,25 @@ export const ImportCollectionModal = ({ onClose }) => {
                         <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                             <div className="flex items-center gap-2 mb-2">
                                 <FileText size={14} className="text-green-600 dark:text-green-400" />
-                                <span className="text-xs font-semibold text-green-700 dark:text-green-300">{preview.name}</span>
+                                <span className="text-xs font-semibold text-green-700 dark:text-green-300">{preview.isEnvironment ? preview.envName : preview.name}</span>
                                 <span className="text-[9px] bg-green-100 dark:bg-green-800 text-green-600 dark:text-green-300 px-1.5 py-0.5 rounded-full font-medium ml-auto">
                                     {preview.format}
                                 </span>
                             </div>
-                            <p className="text-[10px] text-green-600 dark:text-green-400">{countRequests(preview.items)} requests found</p>
+                            {preview.isEnvironment ? (
+                                <p className="text-[10px] text-green-600 dark:text-green-400">{preview.vars.length} variable{preview.vars.length !== 1 ? 's' : ''} found</p>
+                            ) : (
+                                <>
+                                    <p className="text-[10px] text-green-600 dark:text-green-400">
+                                        {countItems(preview.items, 'request')} request{countItems(preview.items, 'request') !== 1 ? 's' : ''}
+                                        {countItems(preview.items, 'folder') > 0 && `, ${countItems(preview.items, 'folder')} folder${countItems(preview.items, 'folder') !== 1 ? 's' : ''}`}
+                                        {preview.collectionVars?.length > 0 && `, ${preview.collectionVars.length} variable${preview.collectionVars.length !== 1 ? 's' : ''}`}
+                                    </p>
+                                    {preview.collectionAuth?.authType && preview.collectionAuth.authType !== 'none' && (
+                                        <p className="text-[10px] text-green-500 dark:text-green-400 mt-0.5">Auth: {preview.collectionAuth.authType}</p>
+                                    )}
+                                </>
+                            )}
                             {preview.baseUrl && (
                                 <p className="text-[10px] text-green-500 dark:text-green-400 flex items-center gap-1 mt-1">
                                     <Globe size={9} /> Base URL: {preview.baseUrl}
@@ -454,7 +548,7 @@ export const ImportCollectionModal = ({ onClose }) => {
                                 onClick={handleImport}
                                 className="mt-2 w-full bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 rounded transition-colors"
                             >
-                                Import Collection
+                                {preview.isEnvironment ? 'Import Environment' : 'Import Collection'}
                             </button>
                         </div>
                     )}
@@ -469,7 +563,10 @@ export const ImportCollectionModal = ({ onClose }) => {
                             {result.success ? (
                                 <span className="flex items-center gap-1">
                                     <CheckCircle size={12} />
-                                    Imported "{result.name}" ({result.format}) with {result.count} requests
+                                    {result.isEnv
+                                        ? `Imported environment "${result.name}" with ${result.count} variables`
+                                        : `Imported "${result.name}" (${result.format}) — ${result.count} requests${result.folders > 0 ? `, ${result.folders} folders` : ''}`
+                                    }
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1">

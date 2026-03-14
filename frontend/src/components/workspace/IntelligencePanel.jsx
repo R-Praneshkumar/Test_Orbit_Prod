@@ -419,6 +419,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
                             onClick={onCollapse}
                             className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 transition-colors ml-0.5"
                             title="Collapse Intelligence Panel (Ctrl+J)"
+                            aria-label="Collapse Intelligence Panel"
                         >
                             <PanelRightClose size={14} />
                         </button>
@@ -637,7 +638,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
                                                 )}
 
                                                 {msg.executionResult && (
-                                                    <div className={`mt-2 rounded-lg p-2 border text-[10px] ${msg.executionResult.success ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'}`}>
+                                                    <div className={`mt-2 rounded-lg p-2 border text-[10px] ${msg.executionResult.success ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'}`} aria-live="polite">
                                                         <div className="font-bold flex justify-between mb-1">
                                                             <span className={msg.executionResult.success ? 'text-green-600' : 'text-red-600'}>
                                                                 {msg.executionResult.success ? 'Success' : 'Failed'}
@@ -680,7 +681,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
                             ))}
 
                             {loading && (
-                                <div className="flex gap-2 items-start mb-3">
+                                <div className="flex gap-2 items-start mb-3" role="status" aria-live="polite">
                                     <div className="w-5 h-5 rounded-full bg-corporate-100 dark:bg-corporate-900/30 flex items-center justify-center shrink-0 mt-0.5">
                                         <Sparkles size={10} className="text-corporate-600 dark:text-corporate-400" />
                                     </div>

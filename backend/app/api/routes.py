@@ -11,6 +11,8 @@ from slowapi.util import get_remote_address
 from app.services.ai_service import ai_service
 from app.services.test_runner import test_runner
 from app.services.usage_service import usage_service
+from app.services.security_scanner import security_scanner
+from app.services.perf_analyzer import perf_analyzer
 from app.core.config import get_settings
 from app.core.security import validate_proxy_url, verify_token, PinnedResolver
 
@@ -37,12 +39,23 @@ def _get_rate_limit_key(request: Request) -> str:
 limiter = Limiter(key_func=_get_rate_limit_key)
 
 
-def _enforce_daily_limit(endpoint: str, user: dict):
+async def _get_user_plan(user_id: str) -> str:
+    """Look up user's plan from Supabase subscriptions table. Falls back to 'free'."""
+    from app.api.razorpay_routes import _get_user_plan as _lookup
+    try:
+        sub = await _lookup(user_id)
+        return sub.get("plan", "free") if sub.get("status") == "active" else "free"
+    except Exception:
+        return "free"
+
+
+async def _enforce_daily_limit(endpoint: str, user: dict):
     """Check daily usage limits before an AI call. Raises 429 if exceeded."""
     user_id = user.get("sub", "anonymous")
     if user_id == "anonymous":
         return
-    exceeded = usage_service.check_limit(user_id, endpoint)
+    plan = await _get_user_plan(user_id)
+    exceeded = usage_service.check_limit(user_id, endpoint, plan)
     if exceeded:
         raise HTTPException(
             status_code=429,
@@ -207,12 +220,24 @@ class ContractCheckRequest(BaseModel):
     endpoints: Optional[List[Dict[str, str]]] = None
     include_ai_analysis: bool = False
 
+class SecurityScanRequest(BaseModel):
+    method: str = Field(..., max_length=10)
+    url: str = Field(..., max_length=2048)
+    request_headers: Optional[Dict[str, str]] = None
+    request_body: Optional[str] = Field(None, max_length=1048576)
+    response_status: int = 200
+    response_body: Optional[str] = Field(None, max_length=1048576)
+    response_headers: Optional[Dict[str, str]] = None
+
+class PerfAnalyzeRequest(BaseModel):
+    results: List[Dict[str, Any]] = Field(..., max_length=100)
+
 class ProxyRequest(BaseModel):
     url: str = Field(..., max_length=2048)
     method: str = Field("GET", max_length=10)
     headers: Optional[Dict[str, str]] = None
     body: Optional[Any] = None
-    body_type: str = Field("json", max_length=20)
+    body_type: str = Field("json", pattern=r"^(json|form|urlencoded|raw|file)$")
 
     @field_validator('body', mode='before')
     @classmethod
@@ -231,7 +256,7 @@ class ProxyRequest(BaseModel):
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def generate_tests(request: Request, req: GenerateRequest, user: dict = Depends(verify_token)):
     """Generates test cases using Gemini 3."""
-    _enforce_daily_limit("generate", user)
+    await _enforce_daily_limit("generate", user)
     context = f"{req.url} {req.context or ''}"
     result = await ai_service.generate_tests(
         context,
@@ -248,7 +273,7 @@ async def generate_tests(request: Request, req: GenerateRequest, user: dict = De
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def run_tests(request: Request, req: RunRequest, user: dict = Depends(verify_token)):
     """Runs tests in parallel using aiohttp."""
-    _enforce_daily_limit("run", user)
+    await _enforce_daily_limit("run", user)
     logger.info(f"Running batch for {len(req.tests)} tests...")
     results = await test_runner.run_batch(req.tests, req.base_url)
     logger.info("Batch execution complete. Analyzing optimizations...")
@@ -279,7 +304,7 @@ async def run_tests(request: Request, req: RunRequest, user: dict = Depends(veri
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def chat(request: Request, req: ChatRequest, user: dict = Depends(verify_token)):
     """Conversational AI assistant for API testing help."""
-    _enforce_daily_limit("chat", user)
+    await _enforce_daily_limit("chat", user)
     try:
         result = await ai_service.chat(
             message=req.message,
@@ -296,7 +321,7 @@ async def chat(request: Request, req: ChatRequest, user: dict = Depends(verify_t
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def process_voice(request: Request, cmd: VoiceCommand, user: dict = Depends(verify_token)):
     """Processes natural language commands with optional OpenAPI spec and conversation history."""
-    _enforce_daily_limit("voice", user)
+    await _enforce_daily_limit("voice", user)
     try:
         result = await ai_service.generate_payload_from_intent(
             cmd.transcript,
@@ -314,7 +339,7 @@ async def process_voice(request: Request, cmd: VoiceCommand, user: dict = Depend
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def generate_code(request: Request, req: CodeGenRequest, user: dict = Depends(verify_token)):
     """Generates code snippets for a given API request using Gemini AI."""
-    _enforce_daily_limit("codegen", user)
+    await _enforce_daily_limit("codegen", user)
     result = await ai_service.generate_code(
         method=req.method,
         url=req.url,
@@ -333,7 +358,7 @@ async def generate_code(request: Request, req: CodeGenRequest, user: dict = Depe
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def diagnose_failure(request: Request, req: DiagnoseRequest, user: dict = Depends(verify_token)):
     """Diagnoses why an API test failed using Gemini AI."""
-    _enforce_daily_limit("diagnose", user)
+    await _enforce_daily_limit("diagnose", user)
     result = await ai_service.diagnose_failure(
         method=req.method,
         url=req.url,
@@ -354,7 +379,7 @@ async def diagnose_failure(request: Request, req: DiagnoseRequest, user: dict = 
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def suggest_tests(request: Request, req: SuggestRequest, user: dict = Depends(verify_token)):
     """Generates AI-powered test suggestions with assertions for a single endpoint."""
-    _enforce_daily_limit("suggest", user)
+    await _enforce_daily_limit("suggest", user)
     try:
         result = await ai_service.suggest_endpoint_tests(
             method=req.method,
@@ -380,7 +405,7 @@ async def suggest_tests(request: Request, req: SuggestRequest, user: dict = Depe
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def contract_check(request: Request, req: ContractCheckRequest, user: dict = Depends(verify_token)):
     """Runs contract checks comparing live API responses against OpenAPI schemas."""
-    _enforce_daily_limit("contract-check", user)
+    await _enforce_daily_limit("contract-check", user)
     try:
         results = await test_runner.run_contract_check(
             openapi_spec=req.openapi_spec,
@@ -411,6 +436,44 @@ async def contract_check(request: Request, req: ContractCheckRequest, user: dict
     except Exception as e:
         logger.error(f"Contract check error: {e}")
         raise HTTPException(status_code=500, detail="Contract check failed")
+
+@router.post("/security-scan")
+@limiter.limit(_settings.AI_RATE_LIMIT)
+async def security_scan(request: Request, req: SecurityScanRequest, user: dict = Depends(verify_token)):
+    """AI-powered security vulnerability scanner for API request/response pairs."""
+    await _enforce_daily_limit("security-scan", user)
+    try:
+        result = await security_scanner.scan(
+            method=req.method,
+            url=req.url,
+            request_headers=req.request_headers,
+            request_body=req.request_body,
+            response_status=req.response_status,
+            response_body=req.response_body,
+            response_headers=req.response_headers,
+        )
+        usage_service.record(user.get("sub", "anonymous"), "security-scan")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Security scan error: {e}")
+        raise HTTPException(status_code=500, detail="Security scan failed")
+
+@router.post("/perf-analyze")
+@limiter.limit(_settings.AI_RATE_LIMIT)
+async def perf_analyze(request: Request, req: PerfAnalyzeRequest, user: dict = Depends(verify_token)):
+    """AI-powered performance analysis for collection run results."""
+    await _enforce_daily_limit("perf-analyze", user)
+    try:
+        result = await perf_analyzer.analyze(req.results)
+        usage_service.record(user.get("sub", "anonymous"), "perf-analyze")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Performance analysis error: {e}")
+        raise HTTPException(status_code=500, detail="Performance analysis failed")
 
 @router.post("/proxy")
 @limiter.limit(_settings.PROXY_RATE_LIMIT)
@@ -504,5 +567,6 @@ async def proxy_request(request: Request, req: ProxyRequest, user: dict = Depend
 @router.get("/usage/today")
 async def get_usage_today(request: Request, user: dict = Depends(verify_token)):
     """Get today's AI usage stats for the authenticated user."""
-    plan = "free"  # Full plan lookup from Supabase in S4.3
+    user_id = user.get("sub", "anonymous")
+    plan = await _get_user_plan(user_id) if user_id != "anonymous" else "free"
     return usage_service.get_today(user.get("sub", "anonymous"), plan)

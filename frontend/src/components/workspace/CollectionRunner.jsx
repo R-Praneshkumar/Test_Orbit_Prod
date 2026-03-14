@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Play, X, Activity, CheckCircle, XCircle, Clock, Zap, BarChart3, ArrowDown, ArrowUp, FileText, History, Sparkles, ToggleLeft, ToggleRight, Stethoscope, Lightbulb, AlertTriangle, Upload, Database, Square, Download } from 'lucide-react';
+import { Play, X, Activity, CheckCircle, XCircle, Clock, Zap, BarChart3, ArrowDown, ArrowUp, FileText, History, Sparkles, ToggleLeft, ToggleRight, Stethoscope, Lightbulb, AlertTriangle, Upload, Database, Square, Download, Gauge, ChevronDown, ChevronRight, Loader2, TrendingUp } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { runPreRequestScript, runPostResponseScript } from '../../utils/scriptEngine';
 import { toast } from '../../utils/toast';
@@ -62,6 +62,155 @@ function parseDataFile(text, filename) {
     return parseCSV(text);
 }
 
+const PERF_CATEGORY_ICONS = {
+    slow_endpoints: Clock,
+    large_responses: FileText,
+    caching: Database,
+    compression: ArrowDown,
+    n_plus_one: TrendingUp,
+};
+
+const PERF_SEVERITY_COLORS = {
+    high: 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20',
+    medium: 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20',
+    low: 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20',
+};
+
+const PERF_IMPACT_COLORS = {
+    High: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-900/20 dark:border-red-800',
+    Medium: 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-900/20 dark:border-amber-800',
+    Low: 'text-green-700 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-900/20 dark:border-green-800',
+};
+
+function PerfReportPanel({ report }) {
+    const [expandedFindings, setExpandedFindings] = useState({});
+    const score = report.performance_score;
+    const scoreColor = score >= 90 ? 'text-green-600 dark:text-green-400' : score >= 70 ? 'text-amber-600 dark:text-amber-400' : score >= 50 ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400';
+    const scoreBg = score >= 90 ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : score >= 70 ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800' : score >= 50 ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800';
+    const scoreLabel = score >= 90 ? 'Excellent' : score >= 70 ? 'Good' : score >= 50 ? 'Needs Work' : 'Poor';
+
+    return (
+        <div className="p-6 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-br from-purple-50/30 to-corporate-50/30 dark:from-purple-900/10 dark:to-corporate-900/10">
+            <h3 className="text-xs font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <Gauge size={12} /> AI Performance Report
+            </h3>
+
+            {/* Score + Summary Row */}
+            <div className="flex gap-4 mb-4">
+                {score != null && (
+                    <div className={`rounded-xl border p-4 text-center shrink-0 w-28 ${scoreBg}`}>
+                        <div className={`text-3xl font-bold ${scoreColor}`}>{score}</div>
+                        <div className={`text-[10px] font-semibold uppercase ${scoreColor}`}>{scoreLabel}</div>
+                        <div className="text-[9px] text-slate-400 dark:text-slate-500 mt-1">Perf Score</div>
+                    </div>
+                )}
+                {report.ai_summary && (
+                    <div className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+                        <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1.5">AI Summary</div>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{report.ai_summary}</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Stats Row */}
+            {report.stats && (
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-2.5 text-center">
+                        <div className="text-sm font-bold text-slate-700 dark:text-slate-300">{report.stats.avg_time_ms}ms</div>
+                        <div className="text-[9px] text-slate-400 uppercase">Avg Time</div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-2.5 text-center">
+                        <div className="text-sm font-bold text-slate-700 dark:text-slate-300">{report.stats.p95_time_ms}ms</div>
+                        <div className="text-[9px] text-slate-400 uppercase">P95 Time</div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-2.5 text-center">
+                        <div className="text-sm font-bold text-slate-700 dark:text-slate-300">{report.stats.slow_count}</div>
+                        <div className="text-[9px] text-slate-400 uppercase">Slow ({'>'}500ms)</div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-2.5 text-center">
+                        <div className="text-sm font-bold text-slate-700 dark:text-slate-300">{report.stats.large_count}</div>
+                        <div className="text-[9px] text-slate-400 uppercase">Large ({'>'}50KB)</div>
+                    </div>
+                </div>
+            )}
+
+            {/* Deterministic Findings */}
+            {report.findings?.length > 0 && (
+                <div className="space-y-2 mb-4">
+                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Detected Issues</div>
+                    {report.findings.map((finding, idx) => {
+                        const Icon = PERF_CATEGORY_ICONS[finding.category] || AlertTriangle;
+                        const isExpanded = expandedFindings[idx];
+                        return (
+                            <div key={idx} className={`rounded-lg border overflow-hidden ${PERF_SEVERITY_COLORS[finding.severity] || PERF_SEVERITY_COLORS.medium}`}>
+                                <button
+                                    onClick={() => setExpandedFindings(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:opacity-90 transition-opacity"
+                                >
+                                    <Icon size={13} className="text-slate-500 dark:text-slate-400 shrink-0" />
+                                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex-1">{finding.title}</span>
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase ${
+                                        finding.severity === 'high' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                        : finding.severity === 'medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                    }`}>{finding.severity}</span>
+                                    {isExpanded ? <ChevronDown size={12} className="text-slate-400 shrink-0" /> : <ChevronRight size={12} className="text-slate-400 shrink-0" />}
+                                </button>
+                                {isExpanded && (
+                                    <div className="px-3 py-2.5 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+                                        <p className="text-[11px] text-slate-600 dark:text-slate-300 mb-2">{finding.description}</p>
+                                        {finding.endpoints?.length > 0 && (
+                                            <div className="space-y-1">
+                                                {finding.endpoints.map((ep, eIdx) => (
+                                                    <div key={eIdx} className="flex items-center gap-2 text-[10px]">
+                                                        <span className={`font-bold px-1 py-0.5 rounded ${METHOD_COLORS[ep.method] || 'text-slate-500 bg-slate-50 dark:text-slate-400 dark:bg-slate-800'}`}>{ep.method}</span>
+                                                        <span className="text-slate-600 dark:text-slate-400 truncate flex-1">{ep.name || ep.pattern}</span>
+                                                        {ep.duration_ms != null && <span className="font-mono text-slate-500 dark:text-slate-400">{ep.duration_ms}ms</span>}
+                                                        {ep.size_bytes != null && <span className="font-mono text-slate-400 dark:text-slate-500">{ep.size_bytes > 1024 ? `${(ep.size_bytes / 1024).toFixed(1)}KB` : `${ep.size_bytes}B`}</span>}
+                                                        {ep.count != null && <span className="font-mono text-slate-400">{ep.count}x</span>}
+                                                        {ep.suggestion && <span className="text-slate-400 dark:text-slate-500 italic">{ep.suggestion}</span>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* AI Recommendations */}
+            {report.ai_recommendations?.length > 0 && (
+                <div className="space-y-2">
+                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">AI Recommendations</div>
+                    {report.ai_recommendations.map((rec, idx) => (
+                        <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+                            <div className="flex items-center gap-2 mb-1.5">
+                                <Sparkles size={11} className="text-corporate-500 shrink-0" />
+                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex-1">{rec.title}</span>
+                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${PERF_IMPACT_COLORS[rec.impact] || PERF_IMPACT_COLORS.Medium}`}>
+                                    {rec.impact || 'Medium'}
+                                </span>
+                            </div>
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">{rec.description}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* No issues state */}
+            {report.findings?.length === 0 && !report.ai_recommendations?.length && (
+                <div className="text-center py-4">
+                    <CheckCircle size={20} className="mx-auto mb-2 text-green-500" />
+                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">No performance issues detected</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export const CollectionRunner = () => {
     const runner = useWorkspaceStore(state => state.runner);
     const collections = useWorkspaceStore(state => state.collections);
@@ -85,6 +234,8 @@ export const CollectionRunner = () => {
     const [dataFile, setDataFile] = useState(null);
     const [activeIteration, setActiveIteration] = useState(0);
     const [iterationResults, setIterationResults] = useState([]);
+    const [perfReport, setPerfReport] = useState(null);
+    const [perfLoading, setPerfLoading] = useState(false);
     const dataFileRef = useRef(null);
     const abortRef = useRef(null);
 
@@ -101,6 +252,35 @@ export const CollectionRunner = () => {
         setIsRunning(false);
         setRunnerState({ running: false });
     }, [setRunnerState]);
+
+    const handlePerfAnalysis = async () => {
+        if (perfLoading || !runner?.results?.length) return;
+        setPerfLoading(true);
+        setPerfReport(null);
+        try {
+            const payload = runner.results.map(r => ({
+                name: r.name, method: r.method, url: r.url,
+                duration_ms: r.time || 0, size_bytes: r.size || 0,
+                status_code: r.status || 0,
+                response_headers: r.responseHeaders || {},
+            }));
+            const res = await authFetch(`${API_BASE}/perf-analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ results: payload }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || `HTTP ${res.status}`);
+            }
+            const data = await res.json();
+            setPerfReport(data);
+        } catch (err) {
+            toast.error(`Performance analysis failed: ${err.message}`);
+        } finally {
+            setPerfLoading(false);
+        }
+    };
 
     const handleDiagnose = async (result) => {
         if (diagnosing[result.id]) return;
@@ -892,7 +1072,7 @@ export const CollectionRunner = () => {
                             <div className="flex items-center gap-1 text-[10px] font-medium text-corporate-600 dark:text-corporate-400 px-2 py-1 rounded border border-corporate-200 dark:border-corporate-700 bg-corporate-50 dark:bg-corporate-900/20">
                                 <Database size={10} />
                                 <span>{dataFile.name} ({dataFile.rows.length} rows)</span>
-                                <button onClick={() => setDataFile(null)} className="ml-1 text-slate-400 hover:text-red-500">&times;</button>
+                                <button onClick={() => setDataFile(null)} className="ml-1 text-slate-400 hover:text-red-500" aria-label="Remove data file">&times;</button>
                             </div>
                         ) : (
                             <button
@@ -940,6 +1120,7 @@ export const CollectionRunner = () => {
                 <button
                     onClick={closeRunner}
                     className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400 dark:text-slate-500 transition-colors"
+                    aria-label="Close runner"
                 >
                     <X size={16} />
                 </button>
@@ -947,7 +1128,7 @@ export const CollectionRunner = () => {
 
             {/* Progress Bar */}
             {(isRunning || results.length > 0) && (
-                <div className="h-1.5 bg-slate-100 dark:bg-slate-800">
+                <div className="h-1.5 bg-slate-100 dark:bg-slate-800" role="progressbar" aria-valuenow={Math.round(progressPct)} aria-valuemin={0} aria-valuemax={100} aria-label="Test run progress">
                     <div
                         className={`h-full transition-all duration-300 ${isRunning ? 'bg-corporate-500' : summary?.failed > 0 ? 'bg-amber-500' : 'bg-green-500'}`}
                         style={{ width: `${progressPct}%` }}
@@ -982,11 +1163,19 @@ export const CollectionRunner = () => {
             <div className="flex-1 overflow-y-auto">
                 {/* Summary Cards */}
                 {summary && (
-                    <div className="p-6 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                    <div className="p-6 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" aria-live="polite">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Performance Summary</h3>
                             {!isRunning && results.length > 0 && (
                                 <div className="flex items-center gap-1.5">
+                                    <button
+                                        onClick={handlePerfAnalysis}
+                                        disabled={perfLoading}
+                                        className="flex items-center gap-1 text-[10px] font-medium text-corporate-600 dark:text-corporate-400 hover:text-corporate-700 dark:hover:text-corporate-300 transition-colors px-2 py-1 rounded border border-corporate-200 dark:border-corporate-700 bg-corporate-50 dark:bg-corporate-900/20 disabled:opacity-50"
+                                        title="Generate AI Performance Report"
+                                    >
+                                        {perfLoading ? <Loader2 size={10} className="animate-spin" /> : <Gauge size={10} />} Perf Report
+                                    </button>
                                     <button
                                         onClick={() => {
                                             const xml = generateJunitXml(results, summary, runner.collectionName || 'TestOrbit Run');
@@ -1127,6 +1316,11 @@ export const CollectionRunner = () => {
                             </div>
                         ))}
                     </div>
+                )}
+
+                {/* AI Performance Report */}
+                {perfReport && (
+                    <PerfReportPanel report={perfReport} />
                 )}
 
                 {/* Results Table */}

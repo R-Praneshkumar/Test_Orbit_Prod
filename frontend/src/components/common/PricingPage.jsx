@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Check, X, Sparkles, Zap, Users, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Check, X, Sparkles, Zap, Users, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { API_BASE, authFetch } from '../../config';
 import { toast } from '../../utils/toast';
@@ -7,15 +7,17 @@ import { toast } from '../../utils/toast';
 const FEATURES = [
     { name: 'Collections', free: 'Unlimited', pro: 'Unlimited', team: 'Unlimited' },
     { name: 'Requests & Environments', free: 'Unlimited', pro: 'Unlimited', team: 'Unlimited' },
+    { name: 'Team Members', free: 'Up to 3', pro: '1 user', team: 'Up to 25' },
     { name: 'WebSocket Tester', free: true, pro: true, team: true },
     { name: 'Body Types (JSON, Form, File)', free: true, pro: true, team: true },
+    { name: 'Import from Postman', free: true, pro: true, team: true },
     { name: 'Test Runner', free: 'Sequential', pro: 'Sequential + Parallel', team: 'Sequential + Parallel' },
-    { name: 'AI Chat / Diagnose / Suggest', free: '25/day', pro: 'Unlimited', team: 'Unlimited' },
-    { name: 'AI Test Generation', free: '5/day', pro: 'Unlimited', team: 'Unlimited' },
-    { name: 'AI Code Generation', free: '5/day', pro: 'Unlimited', team: 'Unlimited' },
+    { name: 'AI Chat / Diagnose / Suggest', free: '50/day', pro: 'Unlimited', team: 'Unlimited' },
+    { name: 'AI Test Generation', free: '10/day', pro: 'Unlimited', team: 'Unlimited' },
+    { name: 'AI Code Generation', free: '10/day', pro: 'Unlimited', team: 'Unlimited' },
     { name: 'Export (JUnit XML, HTML)', free: 'Last run', pro: 'Full history', team: 'Full history' },
     { name: 'Mock Server', free: '5 mocks', pro: 'Unlimited', team: 'Unlimited' },
-    { name: 'Collection Sharing', free: false, pro: 'Share links', team: 'Role-based' },
+    { name: 'Collection Sharing', free: 'Link sharing', pro: 'Share links', team: 'Role-based' },
     { name: 'Team Workspaces', free: false, pro: false, team: true },
     { name: 'Priority Support', free: false, pro: true, team: 'SLA included' },
 ];
@@ -29,8 +31,64 @@ function FeatureCell({ value }) {
 export default function PricingPage() {
     const [annual, setAnnual] = useState(false);
     const [loading, setLoading] = useState(null);
+    const [cancelling, setCancelling] = useState(false);
     const setCurrentView = useWorkspaceStore(s => s.setCurrentView);
     const subscription = useWorkspaceStore(s => s.subscription);
+    const user = useWorkspaceStore(s => s.user);
+
+    // Load Razorpay checkout script on demand (only on this page)
+    useEffect(() => {
+        if (!document.querySelector('script[src*="checkout.razorpay"]')) {
+            const script = document.createElement('script');
+            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            script.async = true;
+            document.body.appendChild(script);
+        }
+    }, []);
+
+    // Fetch subscription status on mount (for logged-in users)
+    const fetchSubStatus = useCallback(async () => {
+        if (!user) return;
+        try {
+            const res = await authFetch(`${API_BASE}/razorpay/subscription-status`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.plan && data.plan !== 'free') {
+                    useWorkspaceStore.getState().setSubscription({ plan: data.plan, status: data.status });
+                }
+            }
+        } catch {
+            // Silently fail — subscription status is optional
+        }
+    }, [user]);
+
+    useEffect(() => { fetchSubStatus(); }, [fetchSubStatus]);
+
+    const handleCancel = async () => {
+        if (!subscription?.subscription_id) {
+            toast.error('No active subscription to cancel');
+            return;
+        }
+        setCancelling(true);
+        try {
+            const res = await authFetch(`${API_BASE}/razorpay/cancel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subscription_id: subscription.subscription_id }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                toast.error(err.detail || 'Failed to cancel subscription');
+                return;
+            }
+            toast.success('Subscription cancelled successfully');
+            useWorkspaceStore.getState().setSubscription({ plan: 'free', status: 'cancelled' });
+        } catch {
+            toast.error('Failed to cancel subscription');
+        } finally {
+            setCancelling(false);
+        }
+    };
 
     const proPrice = annual ? 2500 : 250;
     const proPeriod = annual ? '/yr' : '/mo';
@@ -70,9 +128,20 @@ export default function PricingPage() {
                 const rzp = new window.Razorpay(options);
                 rzp.open();
             } else if (data.short_url) {
-                // Fallback: redirect to Razorpay hosted page
-                window.open(data.short_url, '_blank');
-                toast.info('Razorpay checkout opened in new tab');
+                // Fallback: redirect to Razorpay hosted page — validate domain first
+                try {
+                    const parsed = new URL(data.short_url);
+                    const allowed = ['rzp.io', 'razorpay.com', 'pages.razorpay.com'];
+                    const isRazorpay = allowed.some(d => parsed.hostname === d || parsed.hostname.endsWith('.' + d));
+                    if (parsed.protocol === 'https:' && isRazorpay) {
+                        window.open(data.short_url, '_blank');
+                        toast.info('Razorpay checkout opened in new tab');
+                    } else {
+                        toast.error('Invalid payment redirect URL');
+                    }
+                } catch {
+                    toast.error('Invalid payment URL');
+                }
             } else {
                 toast.error('Razorpay checkout not available. Check configuration.');
             }
@@ -102,6 +171,10 @@ export default function PricingPage() {
                     <p className="text-sm text-slate-500 dark:text-slate-400 max-w-lg mx-auto">
                         Unlimited API testing for free. Upgrade for unlimited AI-powered features.
                     </p>
+                    <div className="mt-3 inline-flex items-center gap-2 text-[11px] text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800/50 px-3 py-1.5 rounded-full">
+                        <Sparkles size={11} />
+                        <span>Switching from Postman? Our free tier gives <strong>30x more AI</strong> than Postman&apos;s free plan.</span>
+                    </div>
 
                     {/* Annual toggle */}
                     <div className="flex items-center justify-center gap-3 mt-6">
@@ -141,9 +214,10 @@ export default function PricingPage() {
                         </button>
                         <ul className="mt-6 space-y-2.5">
                             <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> Unlimited collections & requests</li>
-                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> 25 AI calls/day</li>
-                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> 5 test generations/day</li>
-                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> Sequential test runner</li>
+                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> Up to 3 team members</li>
+                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> 50 AI calls/day</li>
+                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> 10 test generations/day</li>
+                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> Import from Postman</li>
                             <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> 5 mock endpoints</li>
                         </ul>
                     </div>
@@ -172,6 +246,15 @@ export default function PricingPage() {
                         >
                             {loading === 'pro' ? 'Processing...' : currentPlan === 'pro' ? 'Current Plan' : 'Upgrade to Pro'}
                         </button>
+                        {currentPlan === 'pro' && subscription?.subscription_id && (
+                            <button
+                                onClick={handleCancel}
+                                disabled={cancelling}
+                                className="w-full mt-2 py-1.5 rounded-lg text-[11px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 border border-red-200 dark:border-red-800 transition-colors disabled:opacity-50"
+                            >
+                                {cancelling ? 'Cancelling...' : 'Cancel Subscription'}
+                            </button>
+                        )}
                         <ul className="mt-6 space-y-2.5">
                             <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-purple-500 shrink-0" /> Everything in Free</li>
                             <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Sparkles size={12} className="text-purple-500 shrink-0" /> <strong>Unlimited</strong> AI calls</li>

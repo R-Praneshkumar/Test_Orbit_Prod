@@ -5,6 +5,7 @@ Tests cover:
 - MockService: CRUD operations, persistence, clear
 - OAuth routes: token exchange, refresh, validation
 - Core config: settings loading
+- Structured logging: JSON formatter, request ID context
 """
 import json
 import os
@@ -172,3 +173,221 @@ class TestConfig:
         s = get_settings()
         assert isinstance(s.BACKEND_CORS_ORIGINS, list)
         assert len(s.BACKEND_CORS_ORIGINS) > 0
+
+
+# ------------------------------------------------------------------
+# Structured Logging Tests
+# ------------------------------------------------------------------
+class TestStructuredLogging:
+    """Test JSON formatter and request ID context vars."""
+
+    def test_json_formatter_output(self):
+        import logging
+        from io import StringIO
+        from app.core.logging import JSONFormatter
+
+        stream = StringIO()
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(JSONFormatter())
+        logger = logging.getLogger("test.json_formatter")
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG)
+
+        logger.info("hello world")
+
+        output = stream.getvalue().strip()
+        parsed = json.loads(output)
+        assert parsed["level"] == "INFO"
+        assert parsed["message"] == "hello world"
+        assert parsed["logger"] == "test.json_formatter"
+        assert "timestamp" in parsed
+        assert "request_id" in parsed
+
+        logger.removeHandler(handler)
+
+    def test_json_formatter_with_extra_fields(self):
+        import logging
+        from io import StringIO
+        from app.core.logging import JSONFormatter
+
+        stream = StringIO()
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(JSONFormatter())
+        logger = logging.getLogger("test.extra_fields")
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG)
+
+        logger.info(
+            "request done",
+            extra={"method": "POST", "url": "/api/v1/chat", "status": 200, "duration_ms": 42.5},
+        )
+
+        output = stream.getvalue().strip()
+        parsed = json.loads(output)
+        assert parsed["method"] == "POST"
+        assert parsed["url"] == "/api/v1/chat"
+        assert parsed["status"] == 200
+        assert parsed["duration_ms"] == 42.5
+
+        logger.removeHandler(handler)
+
+    def test_request_id_context_var(self):
+        from app.core.logging import request_id_var, user_id_var
+
+        # Default values
+        assert request_id_var.get("-") == "-"
+        assert user_id_var.get("-") == "-"
+
+        # Set and get
+        token1 = request_id_var.set("abc123")
+        token2 = user_id_var.set("user-42")
+        assert request_id_var.get() == "abc123"
+        assert user_id_var.get() == "user-42"
+
+        # Reset
+        request_id_var.reset(token1)
+        user_id_var.reset(token2)
+
+    def test_json_formatter_includes_request_id(self):
+        import logging
+        from io import StringIO
+        from app.core.logging import JSONFormatter, request_id_var
+
+        token = request_id_var.set("req-xyz")
+        try:
+            stream = StringIO()
+            handler = logging.StreamHandler(stream)
+            handler.setFormatter(JSONFormatter())
+            logger = logging.getLogger("test.request_id_in_log")
+            logger.addHandler(handler)
+            logger.setLevel(logging.DEBUG)
+
+            logger.info("test message")
+
+            parsed = json.loads(stream.getvalue().strip())
+            assert parsed["request_id"] == "req-xyz"
+
+            logger.removeHandler(handler)
+        finally:
+            request_id_var.reset(token)
+
+    def test_json_formatter_with_exception(self):
+        import logging
+        from io import StringIO
+        from app.core.logging import JSONFormatter
+
+        stream = StringIO()
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(JSONFormatter())
+        logger = logging.getLogger("test.exception")
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG)
+
+        try:
+            raise ValueError("test error")
+        except ValueError:
+            logger.exception("something failed")
+
+        parsed = json.loads(stream.getvalue().strip())
+        assert parsed["level"] == "ERROR"
+        assert "exception" in parsed
+        assert "ValueError: test error" in parsed["exception"]
+
+        logger.removeHandler(handler)
+
+    def test_extract_user_hint(self):
+        """Test _extract_user_hint with a real-ish JWT payload."""
+        import base64
+        from app.core.logging import _extract_user_hint
+        from unittest.mock import MagicMock
+
+        # Build a fake JWT with sub claim
+        header = base64.urlsafe_b64encode(json.dumps({"alg": "HS256"}).encode()).rstrip(b"=").decode()
+        payload = base64.urlsafe_b64encode(json.dumps({"sub": "user-123"}).encode()).rstrip(b"=").decode()
+        fake_jwt = f"{header}.{payload}.fakesig"
+
+        request = MagicMock()
+        request.headers = {"authorization": f"Bearer {fake_jwt}"}
+        assert _extract_user_hint(request) == "user-123"
+
+        # No auth header
+        request.headers = {}
+        assert _extract_user_hint(request) == "-"
+
+        # Invalid token
+        request.headers = {"authorization": "Bearer not-a-jwt"}
+        assert _extract_user_hint(request) == "-"
+
+    def test_get_client_ip(self):
+        from app.core.logging import _get_client_ip
+        from unittest.mock import MagicMock
+
+        request = MagicMock()
+
+        # With X-Forwarded-For
+        request.headers = {"x-forwarded-for": "1.2.3.4, 10.0.0.1"}
+        assert _get_client_ip(request) == "1.2.3.4"
+
+        # Without proxy header, use client.host
+        request.headers = {}
+        request.client.host = "5.6.7.8"
+        assert _get_client_ip(request) == "5.6.7.8"
+
+
+# ------------------------------------------------------------------
+# Digest Service Tests
+# ------------------------------------------------------------------
+class TestDigestService:
+    """Test weekly digest email builder and sender."""
+
+    def test_build_digest_html_returns_expected_keys(self):
+        from app.services.digest_service import build_digest_html
+
+        result = build_digest_html()
+        assert "subject" in result
+        assert "html" in result
+        assert "stats" in result
+        assert "period" in result
+
+    def test_build_digest_html_subject_format(self):
+        from app.services.digest_service import build_digest_html
+
+        result = build_digest_html()
+        assert result["subject"].startswith("TestOrbit Weekly Digest")
+
+    def test_build_digest_html_stats_keys(self):
+        from app.services.digest_service import build_digest_html
+
+        stats = build_digest_html()["stats"]
+        expected_keys = {"active_users", "ai_calls", "test_gen", "code_gen", "security_scan", "total_actions"}
+        assert set(stats.keys()) == expected_keys
+
+    def test_build_digest_html_contains_testorbit(self):
+        from app.services.digest_service import build_digest_html
+
+        html = build_digest_html()["html"]
+        assert "TestOrbit" in html
+        assert "Activity Summary" in html
+
+    def test_build_digest_custom_period_label(self):
+        from app.services.digest_service import build_digest_html
+
+        result = build_digest_html(period_label="Last 7 Days")
+        assert "Last 7 Days" in result["html"]
+
+    @pytest.mark.asyncio
+    async def test_send_digest_no_api_key(self):
+        """Without RESEND_API_KEY configured, send should return gracefully."""
+        from app.services.digest_service import send_digest_email
+
+        result = await send_digest_email(["test@example.com"])
+        assert result["sent"] is False
+        assert "RESEND_API_KEY" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_send_digest_no_recipients(self):
+        from app.services.digest_service import send_digest_email
+
+        result = await send_digest_email([])
+        assert result["sent"] is False
+        assert "No recipients" in result["error"]

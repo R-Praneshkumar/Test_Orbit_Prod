@@ -14,7 +14,7 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
  *   3. Redirect URI: https://<project-ref>.supabase.co/auth/v1/callback
  */
 const AuthPage = () => {
-    const [mode, setMode] = useState('login'); // 'login' | 'signup'
+    const [mode, setMode] = useState('login'); // 'login' | 'signup' | 'reset'
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -39,6 +39,15 @@ const AuthPage = () => {
         }
 
         try {
+            if (mode === 'reset') {
+                const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}`,
+                });
+                if (resetError) throw resetError;
+                setSuccess('Password reset email sent. Check your inbox.');
+                setLoading(false);
+                return;
+            }
             if (mode === 'signup') {
                 const { error: authError } = await supabase.auth.signUp({
                     email,
@@ -165,10 +174,12 @@ const AuthPage = () => {
 
                     {/* Heading */}
                     <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">
-                        {mode === 'login' ? 'Welcome back' : 'Create your account'}
+                        {mode === 'reset' ? 'Reset your password' : mode === 'login' ? 'Welcome back' : 'Create your account'}
                     </h2>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-7">
-                        {mode === 'login'
+                        {mode === 'reset'
+                            ? 'Enter your email and we\'ll send a reset link.'
+                            : mode === 'login'
                             ? 'Sign in to sync your workspaces across devices.'
                             : 'Start testing APIs with the power of AI.'}
                     </p>
@@ -185,8 +196,8 @@ const AuthPage = () => {
                         </div>
                     )}
 
-                    {/* Social SSO Buttons */}
-                    <div className="space-y-2.5 mb-5">
+                    {/* Social SSO Buttons (hidden during password reset) */}
+                    {mode !== 'reset' && <div className="space-y-2.5 mb-5">
                         <button
                             onClick={handleGoogleLogin}
                             disabled={!supabase}
@@ -210,10 +221,10 @@ const AuthPage = () => {
                             <Github size={18} />
                             Continue with GitHub
                         </button>
-                    </div>
+                    </div>}
 
                     {/* Divider */}
-                    <div className="relative my-5">
+                    {mode !== 'reset' && <div className="relative my-5">
                         <div className="absolute inset-0 flex items-center">
                             <div className="w-full border-t border-slate-200 dark:border-slate-700" />
                         </div>
@@ -222,7 +233,7 @@ const AuthPage = () => {
                                 or continue with email
                             </span>
                         </div>
-                    </div>
+                    </div>}
 
                     {/* Email/Password Form */}
                     <form onSubmit={handleSubmit} className="space-y-3.5">
@@ -257,21 +268,34 @@ const AuthPage = () => {
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Password</label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-2.5 text-slate-400" size={16} />
-                                <input
-                                    type="password"
-                                    required
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500 dark:focus:border-purple-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
-                                    placeholder="Min. 6 characters"
-                                    minLength={6}
-                                />
+                        {mode !== 'reset' && (
+                            <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Password</label>
+                                    {mode === 'login' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setMode('reset'); setError(null); setSuccess(null); }}
+                                            className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline"
+                                        >
+                                            Forgot password?
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                                    <input
+                                        type="password"
+                                        required
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500 dark:focus:border-purple-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                                        placeholder="Min. 6 characters"
+                                        minLength={6}
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         <button
                             type="submit"
@@ -282,7 +306,7 @@ const AuthPage = () => {
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
                                 <>
-                                    {mode === 'login' ? 'Sign In' : 'Create Account'}
+                                    {mode === 'reset' ? 'Send Reset Link' : mode === 'login' ? 'Sign In' : 'Create Account'}
                                     <ArrowRight size={16} />
                                 </>
                             )}
@@ -291,7 +315,17 @@ const AuthPage = () => {
 
                     {/* Toggle login/signup */}
                     <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-5">
-                        {mode === 'login' ? (
+                        {mode === 'reset' ? (
+                            <>
+                                Remember your password?{' '}
+                                <button
+                                    onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
+                                    className="text-purple-600 dark:text-purple-400 font-medium hover:underline"
+                                >
+                                    Sign in
+                                </button>
+                            </>
+                        ) : mode === 'login' ? (
                             <>
                                 Don&apos;t have an account?{' '}
                                 <button

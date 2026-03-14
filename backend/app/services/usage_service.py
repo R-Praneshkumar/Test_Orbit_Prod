@@ -7,10 +7,12 @@ When Supabase is configured (S4.3+), this can also persist to a usage_logs table
 from datetime import datetime, timezone, timedelta
 
 # Free tier limits (Pro/Team = unlimited, enforced via plan check)
+# Postman gives 50 AI credits/MONTH — we give 50/DAY (30x more generous)
 FREE_LIMITS = {
-    "ai_calls": 25,
-    "test_gen": 5,
-    "code_gen": 5,
+    "ai_calls": 50,
+    "test_gen": 10,
+    "code_gen": 10,
+    "security_scan": 3,
 }
 
 # Map endpoint names to the usage categories they increment
@@ -23,6 +25,8 @@ ENDPOINT_CATEGORIES = {
     "diagnose": ["ai_calls"],
     "contract-check": ["ai_calls"],
     "run": ["ai_calls"],
+    "security-scan": ["ai_calls", "security_scan"],
+    "perf-analyze": ["ai_calls"],
 }
 
 
@@ -41,8 +45,10 @@ class UsageService:
         today = self._today()
         entry = self._data.get(user_id)
         if not entry or entry.get("date") != today:
-            entry = {"date": today, "ai_calls": 0, "test_gen": 0, "code_gen": 0}
+            entry = {"date": today, "ai_calls": 0, "test_gen": 0, "code_gen": 0, "security_scan": 0}
             self._data[user_id] = entry
+        # Ensure security_scan key exists for entries created before this field was added
+        entry.setdefault("security_scan", 0)
         return entry
 
     def record(self, user_id: str, endpoint: str):
@@ -81,10 +87,12 @@ class UsageService:
             "ai_calls": entry["ai_calls"],
             "test_gen": entry["test_gen"],
             "code_gen": entry["code_gen"],
+            "security_scan": entry.get("security_scan", 0),
             "limits": {
                 "ai_calls": -1 if is_pro else FREE_LIMITS["ai_calls"],
                 "test_gen": -1 if is_pro else FREE_LIMITS["test_gen"],
                 "code_gen": -1 if is_pro else FREE_LIMITS["code_gen"],
+                "security_scan": -1 if is_pro else FREE_LIMITS["security_scan"],
             },
             "plan": plan,
             "resets_at": tomorrow.isoformat(),

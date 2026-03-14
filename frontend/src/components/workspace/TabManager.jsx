@@ -30,7 +30,7 @@ export const TabManager = () => {
     const activeCol = collections.find(c => c.id === activeCollectionId);
 
     return (
-        <div className="h-9 bg-slate-100 dark:bg-slate-800 flex items-end overflow-x-auto no-scrollbar border-b border-slate-200 dark:border-slate-700">
+        <div className="h-9 bg-slate-100 dark:bg-slate-800 flex items-end overflow-x-auto no-scrollbar border-b border-slate-200 dark:border-slate-700" role="tablist" aria-label="Open requests">
             {/* Collection indicator */}
             {activeCol && (
                 <div className="flex items-center gap-1.5 px-3 py-2 text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider shrink-0 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
@@ -49,6 +49,8 @@ export const TabManager = () => {
                         }
           `}
                     onClick={() => setActiveTab(tab.id)}
+                    role="tab"
+                    aria-selected={activeTabId === tab.id}
                 >
                     {tab.type === 'collection-settings' ? (
                         <Settings size={12} className="text-slate-500 dark:text-slate-400 shrink-0" />
@@ -64,7 +66,8 @@ export const TabManager = () => {
 
                     <button
                         onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-slate-500 dark:text-slate-400"
+                        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-slate-500 dark:text-slate-400"
+                        aria-label={`Close ${tab.name}`}
                     >
                         <X size={12} />
                     </button>

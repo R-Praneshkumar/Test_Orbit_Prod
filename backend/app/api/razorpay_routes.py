@@ -3,7 +3,7 @@ Razorpay subscription billing routes.
 
 Endpoints:
   POST /razorpay/create-subscription  — Create a new subscription for the authenticated user
-  GET  /razorpay/subscription-status  — Get current subscription info
+  GET  /razorpay/subscription-status  — Get current subscription info from Supabase
   POST /razorpay/cancel               — Cancel active subscription
   POST /razorpay/webhook              — Razorpay webhook handler (no auth, uses signature verification)
 """
@@ -13,11 +13,13 @@ import json
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Request, HTTPException, Header
+import aiohttp
+from fastapi import APIRouter, Request, HTTPException, Header, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
+from app.core.security import verify_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/razorpay", tags=["Razorpay Billing"])
@@ -30,6 +32,76 @@ def _get_razorpay_client():
         return None
     import razorpay
     return razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+
+# ── Supabase REST helper ──────────────────────────────────────
+
+async def _supabase_query(method: str, table: str, params: dict = None, body: dict = None, prefer: str = None) -> dict | list | None:
+    """Call Supabase REST API with service_role key. Returns parsed JSON or None on failure."""
+    if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_ROLE_KEY:
+        return None
+    url = f"{settings.SUPABASE_URL}/rest/v1/{table}"
+    headers = {
+        "apikey": settings.SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json",
+    }
+    if prefer:
+        headers["Prefer"] = prefer
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.request(method, url, params=params, json=body, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status >= 400:
+                    text = await resp.text()
+                    logger.warning("Supabase %s %s → %s: %s", method, table, resp.status, text[:200])
+                    return None
+                if resp.content_length == 0 or resp.status == 204:
+                    return {}
+                return await resp.json()
+    except Exception as e:
+        logger.error("Supabase REST error: %s", e)
+        return None
+
+
+async def _get_user_plan(user_id: str) -> dict:
+    """Look up user's subscription from Supabase. Returns dict with plan and status."""
+    result = await _supabase_query("GET", "subscriptions", params={
+        "user_id": f"eq.{user_id}",
+        "select": "plan,status,razorpay_subscription_id,current_period_end",
+        "limit": "1",
+    })
+    if result and len(result) > 0:
+        row = result[0]
+        return {
+            "plan": row.get("plan", "free"),
+            "status": row.get("status", "active"),
+            "subscription_id": row.get("razorpay_subscription_id"),
+            "expires_at": row.get("current_period_end"),
+        }
+    return {"plan": "free", "status": "active", "subscription_id": None, "expires_at": None}
+
+
+async def _upsert_subscription(user_id: str, plan: str, status: str, razorpay_sub_id: str = None, razorpay_plan_id: str = None, period_start: str = None, period_end: str = None):
+    """Insert or update user's subscription in Supabase."""
+    body = {
+        "user_id": user_id,
+        "plan": plan,
+        "status": status,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if razorpay_sub_id:
+        body["razorpay_subscription_id"] = razorpay_sub_id
+    if razorpay_plan_id:
+        body["razorpay_plan_id"] = razorpay_plan_id
+    if period_start:
+        body["current_period_start"] = period_start
+    if period_end:
+        body["current_period_end"] = period_end
+
+    return await _supabase_query(
+        "POST", "subscriptions", body=body,
+        prefer="resolution=merge-duplicates,return=minimal",
+    )
 
 
 # ── Models ──────────────────────────────────────────────────────
@@ -65,10 +137,16 @@ def _verify_webhook_signature(body: bytes, signature: str, secret: str) -> bool:
     return hmac.compare_digest(expected, signature)
 
 
+def _extract_user_from_notes(entity: dict) -> str | None:
+    """Try to extract user_id from Razorpay subscription notes."""
+    notes = entity.get("notes", {})
+    return notes.get("user_id")
+
+
 # ── Routes ──────────────────────────────────────────────────────
 
 @router.post("/create-subscription")
-async def create_subscription(req: CreateSubscriptionRequest, request: Request):
+async def create_subscription(req: CreateSubscriptionRequest, request: Request, user: dict = Depends(verify_token)):
     """Create a Razorpay subscription. Returns subscription_id + short_url for checkout."""
     client = _get_razorpay_client()
     if not client:
@@ -79,6 +157,7 @@ async def create_subscription(req: CreateSubscriptionRequest, request: Request):
         raise HTTPException(400, detail=f"Plan ID not configured for '{req.plan}'. Set RAZORPAY_PLAN_PRO_ID in env.")
 
     plan_info = PLAN_DETAILS.get(req.plan, {})
+    user_id = user.get("sub", "")
 
     try:
         subscription = client.subscription.create({
@@ -87,9 +166,20 @@ async def create_subscription(req: CreateSubscriptionRequest, request: Request):
             "quantity": 1,
             "notes": {
                 "plan_name": plan_info.get("name", req.plan),
+                "user_id": user_id,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             },
         })
+
+        # Pre-create a pending subscription record so webhook can find it
+        if user_id:
+            await _upsert_subscription(
+                user_id=user_id,
+                plan="pro",
+                status="pending",
+                razorpay_sub_id=subscription["id"],
+                razorpay_plan_id=plan_id,
+            )
 
         return {
             "subscription_id": subscription["id"],
@@ -105,23 +195,18 @@ async def create_subscription(req: CreateSubscriptionRequest, request: Request):
 
 
 @router.get("/subscription-status")
-async def subscription_status(request: Request):
-    """Get subscription status. For now returns plan from query/header.
-    Full implementation needs Supabase subscriptions table (Sprint 4.2+)."""
-    # Placeholder: return free plan. Real implementation will query Supabase.
-    return {
-        "plan": "free",
-        "status": "active",
-        "expires_at": None,
-        "ai_calls_today": 0,
-        "ai_calls_limit": 25,
-        "test_gen_today": 0,
-        "test_gen_limit": 5,
-    }
+async def subscription_status(request: Request, user: dict = Depends(verify_token)):
+    """Get current subscription info from Supabase subscriptions table."""
+    user_id = user.get("sub", "")
+    if not user_id:
+        return {"plan": "free", "status": "active", "subscription_id": None, "expires_at": None}
+
+    sub = await _get_user_plan(user_id)
+    return sub
 
 
 @router.post("/cancel")
-async def cancel_subscription(req: CancelSubscriptionRequest, request: Request):
+async def cancel_subscription(req: CancelSubscriptionRequest, request: Request, user: dict = Depends(verify_token)):
     """Cancel a Razorpay subscription."""
     client = _get_razorpay_client()
     if not client:
@@ -129,6 +214,12 @@ async def cancel_subscription(req: CancelSubscriptionRequest, request: Request):
 
     try:
         result = client.subscription.cancel(req.subscription_id)
+
+        # Update DB status
+        user_id = user.get("sub", "")
+        if user_id:
+            await _upsert_subscription(user_id=user_id, plan="free", status="cancelled", razorpay_sub_id=req.subscription_id)
+
         return {"status": "cancelled", "subscription_id": req.subscription_id, "detail": result}
     except Exception as e:
         logger.error(f"Razorpay cancel failed: {e}")
@@ -152,20 +243,38 @@ async def razorpay_webhook(request: Request):
         raise HTTPException(400, detail="Invalid JSON payload")
 
     event = payload.get("event", "")
-    logger.info(f"Razorpay webhook: {event}")
+    entity = payload.get("payload", {}).get("subscription", {}).get("entity", {})
+    razorpay_sub_id = entity.get("id", "")
+    user_id = _extract_user_from_notes(entity)
 
-    # Handle subscription events
-    # Full Supabase integration happens in S4.2 (usage tracking).
-    # For now, log the events for verification.
-    if event == "subscription.activated":
-        logger.info("Subscription activated: %s", payload.get("payload", {}).get("subscription", {}).get("entity", {}).get("id"))
-    elif event == "subscription.charged":
-        logger.info("Subscription charged successfully")
-    elif event == "subscription.cancelled":
-        logger.info("Subscription cancelled")
-    elif event == "subscription.paused":
-        logger.info("Subscription paused")
+    logger.info("Razorpay webhook: %s (sub=%s, user=%s)", event, razorpay_sub_id, user_id or "unknown")
+
+    # Update subscription state in Supabase
+    if user_id:
+        if event == "subscription.activated":
+            await _upsert_subscription(
+                user_id=user_id, plan="pro", status="active",
+                razorpay_sub_id=razorpay_sub_id,
+                period_start=entity.get("current_start") and datetime.fromtimestamp(entity["current_start"], tz=timezone.utc).isoformat(),
+                period_end=entity.get("current_end") and datetime.fromtimestamp(entity["current_end"], tz=timezone.utc).isoformat(),
+            )
+            logger.info("Subscription activated for user %s", user_id)
+        elif event == "subscription.charged":
+            await _upsert_subscription(
+                user_id=user_id, plan="pro", status="active",
+                razorpay_sub_id=razorpay_sub_id,
+                period_start=entity.get("current_start") and datetime.fromtimestamp(entity["current_start"], tz=timezone.utc).isoformat(),
+                period_end=entity.get("current_end") and datetime.fromtimestamp(entity["current_end"], tz=timezone.utc).isoformat(),
+            )
+            logger.info("Subscription charged for user %s", user_id)
+        elif event == "subscription.cancelled":
+            await _upsert_subscription(user_id=user_id, plan="free", status="cancelled", razorpay_sub_id=razorpay_sub_id)
+            logger.info("Subscription cancelled for user %s", user_id)
+        elif event == "subscription.paused":
+            await _upsert_subscription(user_id=user_id, plan="pro", status="paused", razorpay_sub_id=razorpay_sub_id)
+            logger.info("Subscription paused for user %s", user_id)
     elif event == "payment.failed":
-        logger.warning("Payment failed: %s", payload.get("payload", {}).get("payment", {}).get("entity", {}).get("id"))
+        payment_entity = payload.get("payload", {}).get("payment", {}).get("entity", {})
+        logger.warning("Payment failed: %s", payment_entity.get("id"))
 
     return JSONResponse({"status": "ok"})

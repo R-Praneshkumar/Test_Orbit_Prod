@@ -3,82 +3,150 @@
 
   # TestOrbit
 
-  ### AI-Native API Testing Platform Powered by Google Gemini
+  ### The fast, affordable, AI-powered Postman alternative
+
+  **Unlimited AI. Free for teams. No bloat.**
 
   [![CI](https://github.com/R-Praneshkumar/Test_Orbit_Prod/actions/workflows/ci.yml/badge.svg)](https://github.com/R-Praneshkumar/Test_Orbit_Prod/actions/workflows/ci.yml)
-  [![Google Gemini](https://img.shields.io/badge/Powered%20by-Google%20Gemini%203-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
-  [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
-  [![FastAPI](https://img.shields.io/badge/FastAPI-0.128-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-  [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+  [![Google Gemini](https://img.shields.io/badge/AI-Gemini%202.0%20Flash-4285F4?style=flat-square&logo=google&logoColor=white)](https://ai.google.dev/)
+  [![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)](https://react.dev/)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-0.128-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+  [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](CONTRIBUTING.md)
 
-  [Quick Start](#-quick-start) · [Features](#-key-features) · [Deploy](#-deployment) · [Developer Guide](DEVELOPER.md)
+  [Get Started](#-quick-start) · [Why TestOrbit?](#-why-testorbit) · [Features](#-features) · [Migrate from Postman](#-migrate-from-postman) · [Deploy](#-deployment)
 
 </div>
 
 ---
 
-## What is TestOrbit?
+## Why TestOrbit?
 
-**TestOrbit** is an AI-native API testing platform that leverages **Google Gemini** to revolutionize how developers design, test, and mock APIs. Describe what you want in natural language — Gemini generates tests, mocks, code, and diagnoses failures automatically.
+Postman v12 (March 2026) gutted the free plan — **1 user only, 50 AI credits/month, $19/user/month for teams**. TestOrbit is what we built instead.
 
-| Traditional Approach | TestOrbit Approach |
-|---------------------|--------------------|
-| Write tests manually | Describe in English, AI generates tests |
-| Mock servers need setup | AI invents realistic responses instantly |
-| Debug failures yourself | AI diagnoses root cause + suggests fixes |
-| Single-tool usage | Agents (Claude, Cursor) can run tests via MCP |
+<table>
+<tr>
+<td width="50%">
+
+### TestOrbit gives you
+- **50 AI calls/day free** (30x more than Postman)
+- **Free for teams of 3** (Postman: 1 user)
+- **Unlimited AI on paid plans** (no credits, no meters)
+- **AI security scanning** (OWASP Top 10 — Postman doesn't have this)
+- **$3/month Pro** (Postman: $19/month)
+- **Web-first** — loads in 2 seconds, no Electron
+
+</td>
+<td width="50%">
+
+### Honest trade-offs
+- No GraphQL/gRPC/MQTT (yet)
+- No Postman Monitors (scheduled runs)
+- No enterprise SSO/governance
+- Smaller ecosystem and community
+- No 70-tool AI agent mode
+
+**Use Postman if you need enterprise features. Use TestOrbit if you want fast, affordable AI testing.**
+
+</td>
+</tr>
+</table>
 
 ---
 
-## Key Features
+## TestOrbit vs Postman
 
-### AI-Powered Intelligence (Gemini 3 Flash)
+| Feature | TestOrbit | Postman |
+|---------|:---------:|:-------:|
+| **Free plan team size** | **3 users** | 1 user |
+| **AI calls (free)** | **50/day** | 50/month |
+| **AI calls (paid)** | **Unlimited** | Metered credits |
+| **Pro price (solo)** | **$3/mo** | $19/mo |
+| **5-person team/year** | **$252** | $1,140 |
+| **AI security scanning** | **Yes** | No |
+| **AI test generation** | Yes | Yes |
+| **AI code generation** | Yes | Yes |
+| **WebSocket testing** | Yes | Yes |
+| **Collection runner** | Yes | Yes |
+| **Mock server** | Yes | Yes |
+| **Import from Postman** | Yes | Native |
+| **Install required** | **No** (web) | Electron app |
+| **GraphQL/gRPC** | No (planned) | Yes |
+| **Enterprise SSO** | No (planned) | Yes |
 
-| Feature | Description |
-|---------|-------------|
-| **Natural Language Chat** | "Test the login endpoint with email and password" — Gemini builds the full request |
-| **Auto Test Generation** | Upload OpenAPI spec — get 20+ test cases (happy path, edge cases, security) |
-| **Failure Diagnosis** | One-click root cause analysis on failed tests with actionable fixes |
-| **Code Generation** | Export requests as Python, JavaScript, Go, Java, cURL, and more |
+---
 
-### AI Mock Server
+## Features
 
-Send any request to `/mock-server/*` and Gemini invents a realistic JSON response on the fly:
+### AI-Powered Testing (Gemini 2.0 Flash)
 
-```bash
-curl -X POST http://localhost:8000/mock-server/api/v1/users \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Alice", "email": "alice@example.com"}'
-```
+| Feature | What it does |
+|---------|--------------|
+| **AI Test Generation** | Generate boundary, negative, contract, and performance tests from any endpoint |
+| **AI Security Scanning** | OWASP Top 10 detection — SQL injection, XSS, SSRF, auth bypass, IDOR |
+| **AI Code Generation** | Export requests as Python, JavaScript, cURL, and more |
+| **AI Diagnostics** | One-click root cause analysis on failed tests with suggested fixes |
+| **AI Chat** | Describe what you want in plain English — AI builds the request |
+| **AI Voice Input** | Speak your request, AI converts to API call |
 
-### Full Testing Suite
+### Complete Testing Suite
 
-- **Collection Runner** — Sequential/parallel batch execution with AI optimization analysis
-- **Pre/Post Scripts** — Postman-compatible `pm.*` API in a sandboxed JS environment
-- **Assertions Builder** — Visual builder for status, time, JSONPath, header, regex checks
-- **WebSocket Testing** — Connect, send messages, monitor real-time communication
-- **Response Assertions** — Auto-evaluated with pass/fail indicators
+- **Collection Runner** — Sequential + parallel execution with AI optimization
+- **Assertions Builder** — Visual builder for status, JSONPath, header, regex checks
+- **Pre/Post Scripts** — Postman-compatible `pm.*` API in sandboxed JS
+- **WebSocket Tester** — Connect, send messages, binary data support
+- **Environment Variables** — Per-user key-value variables synced to cloud
+- **Request History** — Searchable log with method/status/URL filters
 
 ### Import Everything
 
 | Format | Supported |
-|--------|-----------|
-| Postman Collections | Yes |
+|--------|:---------:|
+| Postman Collections (v2.1) | Yes |
 | Insomnia | Yes |
 | OpenAPI / Swagger | Yes |
 | Thunder Client | Yes |
 | cURL Commands | Yes |
 
-### Auth & Cloud Sync
+### Team & Collaboration
 
-- **Google, GitHub, and Email** sign-in via Supabase Auth
-- **Cloud sync** — Collections and environments synced across devices
-- **Collection sharing** — Invite collaborators with viewer/editor roles
-- **Environment manager** — Per-user key-value variables, synced to cloud
+- **Google, GitHub, Email** sign-in via Supabase Auth
+- **Cloud sync** — Collections synced across devices
+- **Collection sharing** — Invite collaborators with viewer/editor/admin roles
+- **Team workspaces** — Role-based access control
+- **Weekly digest emails** — Automated usage summaries
 
-### Agent Integration (MCP)
+### Developer Experience
 
-TestOrbit exposes testing capabilities through the **Model Context Protocol**, allowing AI agents like Claude, Cursor, and Windsurf to run tests, generate tests, and diagnose failures programmatically.
+- **Command Palette** — `Ctrl+K` to search requests, collections, and actions
+- **Dark mode** — Full dark theme with purple accents
+- **Keyboard shortcuts** — `Ctrl+Enter` to send, `Ctrl+N` for new request
+- **Local mode** — Work fully offline without any cloud dependency
+- **Export** — JUnit XML, HTML reports, Postman, OpenAPI formats
+
+---
+
+## Migrate from Postman
+
+Migration takes under 5 minutes:
+
+1. **Export from Postman** — Right-click collection → Export → Collection v2.1 JSON
+2. **Import into TestOrbit** — Click "Import" in the sidebar → Drop your JSON file
+3. **Done** — All requests, folders, scripts, environments, and auth configs transfer automatically
+
+### What transfers
+
+| Feature | Status |
+|---------|:------:|
+| Collections & folders | Fully supported |
+| Request methods & headers | Fully supported |
+| Request body (JSON, form, raw, binary) | Fully supported |
+| Pre-request scripts | Fully supported |
+| Test scripts & assertions | Fully supported |
+| Environment variables | Fully supported |
+| Collection auth (Bearer, Basic, API Key) | Fully supported |
+| Insomnia exports | Fully supported |
+| GraphQL queries | Planned |
 
 ---
 
@@ -164,6 +232,20 @@ Open **http://localhost:5173** in your browser.
 
 ---
 
+## Pricing
+
+| | Free | Pro | Team |
+|-|:----:|:---:|:----:|
+| **Price** | $0 | $3/mo (₹250) | $6/mo + $3/seat (₹500 + ₹250) |
+| **Users** | 3 | 1 | Up to 25 |
+| **AI calls** | 50/day | Unlimited | Unlimited |
+| **AI security scans** | 3/day | Unlimited | Unlimited |
+| **Collections** | Unlimited | Unlimited | Unlimited |
+| **Team workspaces** | - | - | Yes |
+| **Role-based access** | - | - | Yes |
+
+---
+
 ## Deployment
 
 **Recommended free stack: Cloudflare Pages (frontend) + Render (backend) = $0/month**
@@ -192,7 +274,7 @@ docker compose up --build -d
 # Frontend: http://localhost  |  Backend: http://localhost:8000
 ```
 
-See [DEVELOPER.md](DEVELOPER.md) for the full deployment guide, Supabase setup, Google OAuth setup, and troubleshooting.
+See [DEVELOPER.md](DEVELOPER.md) for the full deployment guide, Supabase setup, and troubleshooting.
 
 ---
 
@@ -208,7 +290,7 @@ See [DEVELOPER.md](DEVELOPER.md) for the full deployment guide, Supabase setup, 
         v                                      v                               v
 +-------------------+                                                 +-------------------+
 |   Supabase        |                                                 |   Google Gemini    |
-|   (Auth + DB)     |                                                 |   3 Flash          |
+|   (Auth + DB)     |                                                 |   2.0 Flash        |
 +-------------------+                                                 +-------------------+
 ```
 
@@ -217,11 +299,24 @@ See [DEVELOPER.md](DEVELOPER.md) for the full deployment guide, Supabase setup, 
 | Layer | Technology | Version |
 |-------|------------|---------|
 | **Frontend** | React, Vite, Tailwind CSS | 19, 7, 4 |
-| **State** | Zustand (persisted) | 5.x |
+| **State** | Zustand (persisted to localStorage) | 5.x |
 | **Backend** | FastAPI, Python | 0.128+, 3.11+ |
-| **AI** | Google Gemini 3 Flash | via google-genai |
-| **Auth & DB** | Supabase | 2.x |
-| **Protocol** | Model Context Protocol (MCP) | Agent interop |
+| **AI** | Google Gemini 2.0 Flash | via google-genai |
+| **Auth & DB** | Supabase (RLS + JWT) | 2.x |
+| **Payments** | Razorpay | INR billing |
+
+---
+
+## Security
+
+- **JWT Authentication** — Supabase JWT validation on all API routes
+- **SSRF Protection** — Blocks private IPs, cloud metadata, localhost
+- **Rate Limiting** — Per-IP via slowapi (configurable per endpoint)
+- **Input Validation** — Pydantic field limits (URLs: 2KB, specs: 100KB, bodies: 1MB)
+- **Security Headers** — CSP, X-Frame-Options, HSTS, Permissions-Policy
+- **Secret Masking** — API keys, JWTs, tokens masked in all log output
+- **HTTPS Enforcement** — Auto-redirect in production
+- **Structured Logging** — JSON logs with request IDs for observability
 
 ---
 
@@ -232,38 +327,17 @@ All endpoints require JWT auth when `REQUIRE_AUTH=True`. Rate limited per IP.
 | Method | Endpoint | Description | Rate Limit |
 |--------|----------|-------------|------------|
 | `POST` | `/api/v1/generate` | AI test case generation | 10/min |
+| `POST` | `/api/v1/suggest` | AI test suggestions | 10/min |
 | `POST` | `/api/v1/run` | Batch test execution | — |
 | `POST` | `/api/v1/voice` | Natural language to API request | 10/min |
 | `POST` | `/api/v1/codegen` | Code snippet generation | 10/min |
 | `POST` | `/api/v1/diagnose` | AI failure diagnosis | 10/min |
+| `POST` | `/api/v1/security-scan` | AI security vulnerability scan | 10/min |
 | `POST` | `/api/v1/proxy` | CORS proxy for external APIs | 60/min |
 | `ANY` | `/mock-server/*` | AI mock response generation | 30/min |
-| `POST` | `/api/v1/oauth/token` | OAuth token exchange | 10/min |
-| `POST` | `/api/v1/oauth/refresh` | OAuth token refresh | 10/min |
-| `GET` | `/` | Health check (uptime, services) | — |
-
----
-
-## Security
-
-- **JWT Authentication** — Supabase JWT validation on all API routes
-- **SSRF Protection** — Blocks private IPs, cloud metadata, localhost
-- **Rate Limiting** — Per-IP via slowapi (configurable)
-- **Input Validation** — Pydantic field limits (URLs: 2KB, specs: 100KB, bodies: 1MB)
-- **Security Headers** — CSP, X-Frame-Options, HSTS, Permissions-Policy
-- **Secret Masking** — API keys, JWTs, tokens masked in all log output
-- **HTTPS Enforcement** — Auto-redirect in production
-
----
-
-## Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl + N` | New Request |
-| `Ctrl + Enter` | Send Request |
-| `Ctrl + S` | Save |
-| `Esc` | Close Modal / Runner |
+| `GET` | `/api/v1/admin/stats` | Admin dashboard metrics | — |
+| `GET` | `/api/v1/digest/preview` | Preview weekly digest email | — |
+| `GET` | `/` | Health check | — |
 
 ---
 
@@ -274,9 +348,11 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 ```bash
 git clone https://github.com/R-Praneshkumar/TestOrbit.git
 git checkout -b feature/amazing-feature
-# Make changes...
-cd frontend && npm run lint   # 0 errors, 0 warnings
-cd ../backend && python -c "from app.main import app; print('OK')"
+# Make changes, then validate:
+cd frontend && npm run lint   # Must be 0 errors, 0 warnings
+cd frontend && npm run build  # Must succeed
+cd backend && python -c "from app.main import app; print('OK')"
+cd backend && python -m pytest tests/ -v  # All tests must pass
 ```
 
 ---
@@ -289,7 +365,9 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-  **[Developer Guide](DEVELOPER.md)** · **[Roadmap](todo.md)** · **[Contributing](CONTRIBUTING.md)**
+  **[Developer Guide](DEVELOPER.md)** · **[Roadmap](todo.md)** · **[Contributing](CONTRIBUTING.md)** · **[Pricing](https://testorbit.dev)**
+
+  Built with Gemini 2.0 Flash, React 19, and FastAPI
 
   [Back to Top](#testorbit)
 

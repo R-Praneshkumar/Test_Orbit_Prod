@@ -6,6 +6,8 @@ import { CustomMethodSelect } from './CustomMethodSelect';
 import { KeyValueEditor } from './KeyValueEditor';
 import { JsonViewer, TableViewer } from './JsonViewer';
 import { CodeGenModal } from './CodeGenModal';
+import { SecurityScanPanel } from './SecurityScanPanel';
+import { AutocompleteInput, AutocompleteTextarea } from './VariableAutocomplete';
 import { runPreRequestScript, runPostResponseScript } from '../../utils/scriptEngine';
 import { evaluateAssertions, createAssertion } from '../../utils/assertionEngine';
 
@@ -18,7 +20,7 @@ const AutoAuthPanel = ({ request, handleChange }) => {
     const localMode = useWorkspaceStore(state => state.localMode);
     const [tokenStatus, setTokenStatus] = React.useState(null); // 'idle' | 'loading' | 'success' | 'error'
     const [tokenError, setTokenError] = React.useState(null);
-    const [lastTokenTime, setLastTokenTime] = React.useState(request.autoAuthToken ? 'cached' : null);
+    const [lastTokenTime, setLastTokenTime] = React.useState(request?.autoAuthToken ? 'cached' : null);
 
     const handleTestLogin = async () => {
         setTokenStatus('loading');
@@ -148,6 +150,7 @@ const AutoAuthPanel = ({ request, handleChange }) => {
                             <button
                                 onClick={() => handleChange('autoAuthLoginHeaders', (request.autoAuthLoginHeaders || []).filter((_, i) => i !== idx))}
                                 className="text-slate-400 hover:text-red-500 transition-colors shrink-0 text-xs px-1"
+                                aria-label="Delete header"
                             >✕</button>
                         </div>
                     ))}
@@ -313,13 +316,16 @@ export const RequestEditor = ({ tabId }) => {
     const [extractName, setExtractName] = useState('');
     const [extractFeedback, setExtractFeedback] = useState(null);
     const [showCodeGen, setShowCodeGen] = useState(false);
+    const [securityScan, setSecurityScan] = useState(null); // security scan results
+    const [securityScanning, setSecurityScanning] = useState(false);
+    const [securityScanError, setSecurityScanError] = useState(null);
     const [scriptResults, setScriptResults] = useState(null); // { pre, post } script execution results
     const [assertionResults, setAssertionResults] = useState(null); // evaluated assertion results
     const [responseViewMode, setResponseViewMode] = useState('json'); // 'json' | 'table'
     const [debugEntries, setDebugEntries] = useState([]); // debug console entries
     const [selectedFile, setSelectedFile] = useState(null); // for file body type
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { setLocalUrl(request?.url || ''); }, [request?.id]);
 
     // Extract a value from response data using dot-notation path (e.g., "data.token")
@@ -648,7 +654,8 @@ export const RequestEditor = ({ tabId }) => {
                     setResponseData(tabId, responseData, elapsed);
                     addRequestHistory({
                         name: request.name, method: request.method, url: resolvedUrl,
-                        status: directRes.status, time: elapsed, success
+                        status: directRes.status, statusText: directRes.statusText, time: elapsed, success,
+                        responseBody: typeof resData === 'string' ? resData.slice(0, 2048) : JSON.stringify(resData).slice(0, 2048),
                     });
                 } catch (fetchErr) {
                     elapsed = Date.now() - startTime;
@@ -664,7 +671,7 @@ export const RequestEditor = ({ tabId }) => {
                     setResponseData(tabId, responseData, elapsed);
                     addRequestHistory({
                         name: request.name, method: request.method, url: resolvedUrl,
-                        status: 0, time: elapsed, success: false
+                        status: 0, statusText: 'Network Error', time: elapsed, success: false,
                     });
                 }
             } else {
@@ -701,7 +708,8 @@ export const RequestEditor = ({ tabId }) => {
                     setResponseData(tabId, responseData, elapsed);
                     addRequestHistory({
                         name: request.name, method: request.method, url: resolvedUrl,
-                        status: result.status, time: elapsed, success
+                        status: result.status, statusText: result.statusText, time: elapsed, success,
+                        responseBody: typeof result.data === 'string' ? result.data.slice(0, 2048) : JSON.stringify(result.data).slice(0, 2048),
                     });
                 } else {
                     responseData = {
@@ -713,7 +721,7 @@ export const RequestEditor = ({ tabId }) => {
                     setResponseData(tabId, responseData, elapsed);
                     addRequestHistory({
                         name: request.name, method: request.method, url: resolvedUrl,
-                        status: proxyRes.status, time: elapsed, success: false
+                        status: proxyRes.status, statusText: 'Proxy Error', time: elapsed, success: false,
                     });
                 }
             }
@@ -783,7 +791,7 @@ export const RequestEditor = ({ tabId }) => {
             }, elapsed);
             addRequestHistory({
                 name: request.name, method: request.method, url: resolvedUrl,
-                status: 0, time: elapsed, success: false, error: err.message
+                status: 0, statusText: 'Connection Error', time: elapsed, success: false,
             });
             setScriptResults({ pre: preResult, post: null });
         }
@@ -856,6 +864,39 @@ export const RequestEditor = ({ tabId }) => {
         toast.success('cURL copied to clipboard');
     };
 
+    const handleSecurityScan = async () => {
+        if (!response || securityScanning) return;
+        setSecurityScanning(true);
+        setSecurityScanError(null);
+        setSecurityScan(null);
+        setResponseTab('security');
+        try {
+            const res = await authFetch(`${API_BASE}/security-scan`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    method: request.method,
+                    url: request.url,
+                    request_headers: Object.fromEntries((request.headers || []).filter(h => h.enabled !== false && h.key).map(h => [h.key, h.value])),
+                    request_body: request.body?.content || null,
+                    response_status: response.status,
+                    response_body: typeof response.data === 'string' ? response.data : JSON.stringify(response.data),
+                    response_headers: response.headers || {},
+                }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail?.message || err.detail || `Security scan failed (${res.status})`);
+            }
+            const result = await res.json();
+            setSecurityScan(result);
+        } catch (err) {
+            setSecurityScanError(err.message);
+        } finally {
+            setSecurityScanning(false);
+        }
+    };
+
     const getStatusColor = (status) => {
         if (status >= 200 && status < 300) return 'text-green-600';
         if (status >= 400 && status < 500) return 'text-amber-600';
@@ -892,10 +933,9 @@ export const RequestEditor = ({ tabId }) => {
                         onChange={(val) => handleChange('method', val)}
                     />
 
-                    <input
-                        type="text"
+                    <AutocompleteInput
                         value={localUrl}
-                        onChange={(e) => handleUrlInputChange(e.target.value)}
+                        onChange={(val) => handleUrlInputChange(val)}
                         className="flex-1 bg-transparent px-3 py-2 text-sm text-slate-700 dark:text-slate-300 outline-none placeholder-slate-400 dark:placeholder-slate-500 font-mono h-full"
                         placeholder="https://api.example.com/v1/resource"
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleRun(); } }}
@@ -906,6 +946,7 @@ export const RequestEditor = ({ tabId }) => {
                     onClick={() => setShowCodeGen(true)}
                     className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400 dark:text-slate-500 hover:text-corporate-600 transition-colors"
                     title="Generate Code"
+                    aria-label="Generate Code"
                 >
                     <Code2 size={16} />
                 </button>
@@ -914,6 +955,7 @@ export const RequestEditor = ({ tabId }) => {
                     onClick={handleCopyCurl}
                     className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
                     title="Copy as cURL"
+                    aria-label="Copy as cURL"
                 >
                     <Copy size={16} />
                 </button>
@@ -1033,11 +1075,11 @@ export const RequestEditor = ({ tabId }) => {
                                 </div>
 
                                 {currentBodyType === 'json' && (
-                                    <textarea
+                                    <AutocompleteTextarea
                                         className="flex-1 w-full p-4 font-mono text-xs text-slate-700 dark:text-slate-300 resize-none outline-none focus:bg-slate-50/30 bg-white dark:bg-slate-900"
                                         placeholder="{}"
                                         value={request.body?.content || ''}
-                                        onChange={(e) => handleChange('body', { ...request.body, content: e.target.value })}
+                                        onChange={(val) => handleChange('body', { ...request.body, content: val })}
                                         onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleRun(); } }}
                                     />
                                 )}
@@ -1058,11 +1100,11 @@ export const RequestEditor = ({ tabId }) => {
                                 )}
 
                                 {currentBodyType === 'raw' && (
-                                    <textarea
+                                    <AutocompleteTextarea
                                         className="flex-1 w-full p-4 font-mono text-xs text-slate-700 dark:text-slate-300 resize-none outline-none focus:bg-slate-50/30 bg-white dark:bg-slate-900"
                                         placeholder="Raw request body (text/plain)"
                                         value={request.body?.content || ''}
-                                        onChange={(e) => handleChange('body', { ...request.body, content: e.target.value })}
+                                        onChange={(val) => handleChange('body', { ...request.body, content: val })}
                                         onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleRun(); } }}
                                     />
                                 )}
@@ -1385,6 +1427,7 @@ export const RequestEditor = ({ tabId }) => {
                                                             handleChange('assertions', (request.assertions || []).filter((_, i) => i !== idx));
                                                         }}
                                                         className="text-slate-400 hover:text-red-500 transition-colors p-0.5"
+                                                        aria-label="Delete assertion"
                                                     >
                                                         <AlertCircle size={12} />
                                                     </button>
@@ -1512,7 +1555,7 @@ export const RequestEditor = ({ tabId }) => {
                 <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-800 min-w-0">
                     <div className="h-10 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center px-1 text-xs font-semibold text-slate-500 dark:text-slate-400 justify-between">
                         <div className="flex items-center gap-1 h-full overflow-x-auto scrollbar-hide shrink min-w-0">
-                            {['body', 'headers', ...(scriptResults ? ['tests'] : []), ...(assertionResults?.total > 0 ? ['assertions'] : []), ...(debugEntries.length > 0 ? ['console'] : [])].map(tab => (
+                            {['body', 'headers', ...(scriptResults ? ['tests'] : []), ...(assertionResults?.total > 0 ? ['assertions'] : []), ...(debugEntries.length > 0 ? ['console'] : []), ...((securityScan || securityScanning) ? ['security'] : [])].map(tab => (
                                 <button
                                     key={tab}
                                     onClick={() => setResponseTab(tab)}
@@ -1542,6 +1585,15 @@ export const RequestEditor = ({ tabId }) => {
                                         {formatBytes(response.data)}
                                     </span>
                                 )}
+                                <button
+                                    onClick={handleSecurityScan}
+                                    disabled={securityScanning}
+                                    className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-md bg-corporate-50 dark:bg-corporate-900/20 text-corporate-600 dark:text-corporate-400 hover:bg-corporate-100 dark:hover:bg-corporate-900/40 border border-corporate-200 dark:border-corporate-700 transition-colors disabled:opacity-50"
+                                    title="AI Security Scan"
+                                >
+                                    <Shield size={10} />
+                                    {securityScanning ? 'Scanning...' : 'Security Scan'}
+                                </button>
                             </div>
                         )}
                     </div>
@@ -1689,6 +1741,13 @@ export const RequestEditor = ({ tabId }) => {
                                         ))}
                                     </div>
                                 </div>
+                            ) : responseTab === 'security' ? (
+                                <SecurityScanPanel
+                                    result={securityScan}
+                                    loading={securityScanning}
+                                    error={securityScanError}
+                                    onClose={() => { setResponseTab('body'); setSecurityScan(null); setSecurityScanError(null); }}
+                                />
                             ) : (
                                 /* Response Body View */
                                 <div>

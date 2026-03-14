@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://testorbit.dev/sitemap.xml

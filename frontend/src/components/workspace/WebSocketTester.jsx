@@ -95,21 +95,58 @@ export const WebSocketTester = ({ tabId }) => {
             };
 
             ws.onmessage = (event) => {
-                const data = event.data;
-                let parsed = data;
+                const raw = event.data;
+
+                // Handle binary messages (Blob or ArrayBuffer)
+                if (raw instanceof Blob) {
+                    raw.arrayBuffer().then(buf => {
+                        const bytes = new Uint8Array(buf);
+                        const hex = Array.from(bytes.slice(0, 512), b => b.toString(16).padStart(2, '0')).join(' ');
+                        const label = bytes.length > 512 ? `${hex} … (${bytes.length} bytes total)` : hex;
+                        appendMessage({
+                            id: Date.now() + Math.random(),
+                            type: 'received',
+                            data: `[Binary ${bytes.length}B] ${label}`,
+                            isJson: false,
+                            isBinary: true,
+                            timestamp: Date.now(),
+                            size: bytes.length,
+                        });
+                    });
+                    return;
+                }
+
+                if (raw instanceof ArrayBuffer) {
+                    const bytes = new Uint8Array(raw);
+                    const hex = Array.from(bytes.slice(0, 512), b => b.toString(16).padStart(2, '0')).join(' ');
+                    const label = bytes.length > 512 ? `${hex} … (${bytes.length} bytes total)` : hex;
+                    appendMessage({
+                        id: Date.now() + Math.random(),
+                        type: 'received',
+                        data: `[Binary ${bytes.length}B] ${label}`,
+                        isJson: false,
+                        isBinary: true,
+                        timestamp: Date.now(),
+                        size: bytes.length,
+                    });
+                    return;
+                }
+
+                // Text message
+                let parsed = raw;
                 let isJson = false;
                 try {
-                    parsed = JSON.parse(data);
+                    parsed = JSON.parse(raw);
                     isJson = true;
                 } catch { /* not JSON */ }
 
                 appendMessage({
                     id: Date.now() + Math.random(),
                     type: 'received',
-                    data: isJson ? JSON.stringify(parsed, null, 2) : data,
+                    data: isJson ? JSON.stringify(parsed, null, 2) : raw,
                     isJson,
                     timestamp: Date.now(),
-                    size: new Blob([data]).size,
+                    size: new Blob([raw]).size,
                 });
             };
 

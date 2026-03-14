@@ -7,12 +7,17 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from app.core.config import get_settings
 from app.core.security import SecurityHeadersMiddleware, HTTPSRedirectMiddleware, install_secret_masking
+from app.core.logging import setup_structured_logging, RequestLoggingMiddleware
 
 settings = get_settings()
 _start_time = time.time()
 
 # Install secret masking on all loggers before anything else logs
 install_secret_masking()
+
+# Structured JSON logging (after secret masking so secrets are still masked)
+log_level = "INFO" if settings.ENV == "production" else "DEBUG"
+setup_structured_logging(level=log_level)
 
 # Initialize Sentry error tracking (only when DSN is configured)
 if settings.SENTRY_DSN:
@@ -31,6 +36,9 @@ app = FastAPI(
     docs_url="/docs" if settings.ENV != "production" else None,
     redoc_url="/redoc" if settings.ENV != "production" else None,
 )
+
+# Request logging middleware (outermost — wraps everything)
+app.add_middleware(RequestLoggingMiddleware)
 
 # Security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
@@ -66,8 +74,12 @@ from app.api.routes import router as api_router
 from app.api.mock_routes import router as mock_router
 from app.api.oauth_routes import router as oauth_router
 from app.api.razorpay_routes import router as razorpay_router
+from app.api.admin_routes import router as admin_router
+from app.api.digest_routes import router as digest_router
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(admin_router, prefix=settings.API_V1_STR)
+app.include_router(digest_router, prefix=settings.API_V1_STR)
 app.include_router(mock_router, prefix="/mock-server", tags=["Mock Server"])
 app.include_router(oauth_router, prefix=settings.API_V1_STR, tags=["OAuth 2.0"])
 app.include_router(razorpay_router, prefix=settings.API_V1_STR, tags=["Razorpay Billing"])

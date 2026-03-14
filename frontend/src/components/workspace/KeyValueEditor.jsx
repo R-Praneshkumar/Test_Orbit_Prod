@@ -1,5 +1,6 @@
 import React from 'react';
 import { Trash2, Plus } from 'lucide-react';
+import { AutocompleteInput } from './VariableAutocomplete';
 
 export const KeyValueEditor = ({ items = [], onChange, placeholderKey = "Key", placeholderValue = "Value" }) => {
 
@@ -58,10 +59,9 @@ export const KeyValueEditor = ({ items = [], onChange, placeholderKey = "Key", p
 
                         {/* Value Input */}
                         <div className="flex-1 border-r border-slate-100 dark:border-slate-800 relative">
-                            <input
-                                type="text"
+                            <AutocompleteInput
                                 value={row.value}
-                                onChange={(e) => updateRow(index, 'value', e.target.value)}
+                                onChange={(val) => updateRow(index, 'value', val)}
                                 placeholder={placeholderValue}
                                 className="w-full h-full px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 font-mono outline-none bg-transparent placeholder-slate-300 dark:placeholder-slate-600"
                             />
@@ -71,7 +71,8 @@ export const KeyValueEditor = ({ items = [], onChange, placeholderKey = "Key", p
                         <div className="w-10 flex items-center justify-center">
                             <button
                                 onClick={() => deleteRow(index)}
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 text-slate-300 dark:text-slate-600 transition-all active:scale-95"
+                                className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-1 hover:text-red-500 text-slate-300 dark:text-slate-600 transition-all active:scale-95"
+                                aria-label="Delete row"
                             >
                                 <Trash2 size={12} />
                             </button>

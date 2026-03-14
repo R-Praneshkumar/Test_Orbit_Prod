@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     # Supabase JWT verification
     SUPABASE_URL: str = ""          # e.g. https://yourproject.supabase.co — used to fetch JWKS for ES256/RS256 tokens
     SUPABASE_JWT_SECRET: str = ""  # Required for HS256 tokens; from Supabase Dashboard → Settings → API → JWT Secret
+    SUPABASE_SERVICE_ROLE_KEY: str = ""  # For backend writes (webhook → subscriptions). From Supabase Dashboard → Settings → API.
     REQUIRE_AUTH: bool = True       # JWT auth enforced by default. Set False only for local development without Supabase.
 
     # CORS — comma-separated in env, or use defaults for dev
@@ -39,6 +40,13 @@ class Settings(BaseSettings):
     RAZORPAY_WEBHOOK_SECRET: str = ""
     RAZORPAY_PLAN_PRO_ID: str = ""       # monthly ₹250 plan ID from Razorpay dashboard
     RAZORPAY_PLAN_PRO_ANNUAL_ID: str = ""  # annual ₹2500 plan ID
+
+    # Admin (comma-separated list of admin email addresses)
+    ADMIN_EMAILS: str = ""
+
+    # Email (Resend API for digest emails)
+    RESEND_API_KEY: str = ""
+    DIGEST_FROM_EMAIL: str = "TestOrbit <digest@testorbit.dev>"
 
     # Sentry error tracking (optional — set DSN to enable)
     SENTRY_DSN: str = ""

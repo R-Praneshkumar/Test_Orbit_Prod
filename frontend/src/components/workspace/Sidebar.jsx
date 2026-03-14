@@ -5,6 +5,7 @@ import { EnvironmentManager } from './EnvironmentManager';
 import { CurlImportModal } from './CurlImportModal';
 import { ImportCollectionModal } from './ImportCollectionModal';
 import ShareModal from './ShareModal';
+import { exportAsPostman, exportAsOpenAPI } from '../../utils/exportCollection';
 import { Users } from 'lucide-react';
 
 const SidebarItem = ({ item, level = 0 }) => {
@@ -129,37 +130,10 @@ const SidebarItem = ({ item, level = 0 }) => {
                 }
                 break;
             case 'export':
-                if (item.type === 'collection') {
-                    // Export as Postman v2.1 collection
-                    const postmanCol = {
-                        info: {
-                            name: item.name,
-                            schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json'
-                        },
-                        item: flattenItems(item.items, 'request').map(req => ({
-                            name: req.name,
-                            request: {
-                                method: req.method,
-                                header: (req.headers || []).filter(h => h.enabled !== false && h.key).map(h => ({
-                                    key: h.key, value: h.value, type: 'text'
-                                })),
-                                url: { raw: req.url },
-                                body: req.body?.content ? {
-                                    mode: 'raw',
-                                    raw: req.body.content,
-                                    options: { raw: { language: 'json' } }
-                                } : undefined
-                            }
-                        }))
-                    };
-                    const blob = new Blob([JSON.stringify(postmanCol, null, 2)], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${item.name.replace(/\s+/g, '_')}_postman.json`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                }
+                if (item.type === 'collection') exportAsPostman(item);
+                break;
+            case 'exportOpenAPI':
+                if (item.type === 'collection') exportAsOpenAPI(item);
                 break;
         }
     };
@@ -254,6 +228,7 @@ const SidebarItem = ({ item, level = 0 }) => {
                         onClick={(e) => { e.stopPropagation(); openCollectionSettings(item.id); }}
                         className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-slate-400 dark:text-slate-500"
                         title="Collection Settings"
+                        aria-label="Collection settings"
                     >
                         <Settings size={11} />
                     </button>
@@ -264,6 +239,7 @@ const SidebarItem = ({ item, level = 0 }) => {
                     <button
                         onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
                         className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-slate-400 dark:text-slate-500"
+                        aria-label="More options"
                     >
                         <MoreHorizontal size={12} />
                     </button>
@@ -401,12 +377,20 @@ const SidebarItem = ({ item, level = 0 }) => {
                                 </div>
                             )}
                             {item.type === 'collection' && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleMenuAction('export'); }}
-                                    className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
-                                >
-                                    <Download size={11} /> Export (Postman)
-                                </button>
+                                <>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleMenuAction('export'); }}
+                                        className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                    >
+                                        <Download size={11} /> Export (Postman v2.1)
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleMenuAction('exportOpenAPI'); }}
+                                        className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                    >
+                                        <Download size={11} /> Export (OpenAPI 3.x)
+                                    </button>
+                                </>
                             )}
                             {(item.type === 'collection' ? role === 'owner' : !isViewer) && (
                                 <button
@@ -437,7 +421,13 @@ const SidebarItem = ({ item, level = 0 }) => {
                 />
             )}
             {showDeleteConfirm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onClick={() => setShowDeleteConfirm(false)}>
+                <div
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setShowDeleteConfirm(false); }}
+                    role="dialog"
+                    aria-label="Confirm delete"
+                >
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl p-5 max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
                         <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">Delete Collection</h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">
@@ -450,6 +440,7 @@ const SidebarItem = ({ item, level = 0 }) => {
                             <button
                                 onClick={() => setShowDeleteConfirm(false)}
                                 className="px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                                autoFocus
                             >
                                 Cancel
                             </button>
@@ -477,6 +468,7 @@ export const Sidebar = ({ onCollapse }) => {
     const canEditCollection = useWorkspaceStore(state => state.canEditCollection);
     const activeEnv = useWorkspaceStore(state => state.activeEnv);
     const requestHistory = useWorkspaceStore(state => state.requestHistory);
+    const setCurrentView = useWorkspaceStore(state => state.setCurrentView);
     const [searchQuery, setSearchQuery] = useState('');
     const [showSearch, setShowSearch] = useState(false);
     const [showAddMenu, setShowAddMenu] = useState(false);
@@ -501,12 +493,12 @@ export const Sidebar = ({ onCollapse }) => {
         }
     }, [showAddMenu]);
 
-    // Flatten all requests for search (recursive to include requests inside folders)
-    const flattenRequests = (collections) => {
+    // Flatten all requests + websockets for search (recursive to include items inside folders)
+    const flattenSearchItems = (collections) => {
         const results = [];
         const traverse = (items) => {
             for (const item of (items || [])) {
-                if (item.type === 'request') {
+                if (item.type === 'request' || item.type === 'websocket') {
                     results.push(item);
                 } else if (item.type === 'folder' && item.items) {
                     traverse(item.items);
@@ -520,15 +512,15 @@ export const Sidebar = ({ onCollapse }) => {
     };
 
     const filteredRequests = searchQuery.trim()
-        ? flattenRequests(collections).filter(r =>
+        ? flattenSearchItems(collections).filter(r =>
             r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            r.url.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            r.method.toLowerCase().includes(searchQuery.toLowerCase())
+            (r.url || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (r.method || (r.type === 'websocket' ? 'WS' : '')).toLowerCase().includes(searchQuery.toLowerCase())
         )
         : null;
 
     return (
-        <div className="w-full bg-slate-50 dark:bg-slate-800 h-full flex flex-col font-sans">
+        <nav className="w-full bg-slate-50 dark:bg-slate-800 h-full flex flex-col font-sans" aria-label="Explorer">
             {/* Header */}
             <div className="h-12 border-b border-slate-200 dark:border-slate-700 flex items-center px-3 justify-between bg-white dark:bg-slate-900">
                 <div className="flex items-center gap-1.5">
@@ -537,6 +529,7 @@ export const Sidebar = ({ onCollapse }) => {
                             onClick={onCollapse}
                             className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 transition-colors"
                             title="Collapse Explorer (Ctrl+B)"
+                            aria-label="Collapse Explorer"
                         >
                             <PanelLeftClose size={14} />
                         </button>
@@ -547,6 +540,7 @@ export const Sidebar = ({ onCollapse }) => {
                     <button
                         onClick={() => { setShowSearch(!showSearch); setSearchQuery(''); }}
                         className={`p-1.5 rounded transition-colors ${showSearch ? 'bg-corporate-100 dark:bg-corporate-900/30 text-corporate-600 dark:text-corporate-400' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400'}`}
+                        aria-label="Toggle search"
                     >
                         <Search size={14} />
                     </button>
@@ -555,6 +549,7 @@ export const Sidebar = ({ onCollapse }) => {
                             onClick={() => setShowAddMenu(!showAddMenu)}
                             className="hover:bg-slate-100 dark:hover:bg-slate-700 p-1.5 rounded text-slate-500 dark:text-slate-400 transition-colors"
                             title="Add New"
+                            aria-label="Add new request"
                         >
                             <Plus size={14} />
                         </button>
@@ -687,11 +682,35 @@ export const Sidebar = ({ onCollapse }) => {
                             No matching requests
                         </div>
                     )
-                ) : (
-                    collections.map(col => (
-                        <SidebarItem key={col.id} item={col} />
-                    ))
-                )}
+                ) : (() => {
+                    const personalCols = collections.filter(c => !c.team_id);
+                    const teamCols = collections.filter(c => c.team_id);
+                    // Group team collections by team_name
+                    const teamGroups = {};
+                    teamCols.forEach(c => {
+                        const key = c.team_name || c.team_id || 'Team';
+                        if (!teamGroups[key]) teamGroups[key] = [];
+                        teamGroups[key].push(c);
+                    });
+                    return (
+                        <>
+                            {personalCols.map(col => (
+                                <SidebarItem key={col.id} item={col} />
+                            ))}
+                            {Object.entries(teamGroups).map(([teamName, cols]) => (
+                                <div key={teamName}>
+                                    <div className="flex items-center gap-1.5 px-3 pt-3 pb-1">
+                                        <Users size={11} className="text-corporate-500" />
+                                        <span className="text-[10px] font-bold text-corporate-600 dark:text-corporate-400 uppercase tracking-wider">{teamName}</span>
+                                    </div>
+                                    {cols.map(col => (
+                                        <SidebarItem key={col.id} item={col} />
+                                    ))}
+                                </div>
+                            ))}
+                        </>
+                    );
+                })()}
                 </div>
 
             {/* Request History (Individual requests) */}
@@ -710,6 +729,12 @@ export const Sidebar = ({ onCollapse }) => {
                     </button>
                     {showRequestHistory && (
                         <div className="max-h-48 overflow-y-auto">
+                            <button
+                                onClick={() => setCurrentView('history')}
+                                className="w-full text-left px-4 py-1.5 text-[10px] font-semibold text-corporate-600 dark:text-corporate-400 hover:bg-corporate-50 dark:hover:bg-corporate-900/20 transition-colors"
+                            >
+                                View All History →
+                            </button>
                             {requestHistory.slice(0, 20).map(entry => {
                                 const METHOD_COLORS = {
                                     GET: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30',
@@ -764,6 +789,6 @@ export const Sidebar = ({ onCollapse }) => {
 
             {/* Collection Import Modal */}
             {showCollectionImport && <ImportCollectionModal onClose={() => setShowCollectionImport(false)} />}
-        </div>
+        </nav>
     );
 };

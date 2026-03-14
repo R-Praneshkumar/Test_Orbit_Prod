@@ -66,7 +66,7 @@ export const EnvironmentManager = ({ onClose }) => {
                 <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 overflow-x-auto">
                     {environments.map(env => (
                         <button
-                            key={env.name}
+                            key={`${env.team_id || 'personal'}-${env.name}`}
                             onClick={() => setSelectedEnv(env.name)}
                             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
                                 selectedEnv === env.name
@@ -75,6 +75,7 @@ export const EnvironmentManager = ({ onClose }) => {
                             }`}
                         >
                             {env.name === activeEnv && <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />}
+                            {env.team_id && <span className="text-[9px] font-bold text-corporate-500">T</span>}
                             {env.name}
                         </button>
                     ))}

@@ -410,14 +410,45 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             const shareRoleMap = {};
             (shares || []).forEach(s => { shareRoleMap[s.collection_id] = s.role; });
 
-            // Merge DB columns with JSON blob + annotate share role
-            const loaded = data.map(row => ({
-                ...row.data,
-                id: row.id,
-                name: row.name,
-                owner_id: row.owner_id,
-                _shareRole: row.owner_id === user.id ? undefined : (shareRoleMap[row.id] || 'viewer'),
-            }));
+            // Fetch user's team memberships + team names for team collections
+            const { data: memberRows } = await supabase
+                .from('team_members')
+                .select('team_id, role')
+                .eq('user_email', user.email);
+            const teamRoleMap = {};
+            (memberRows || []).forEach(m => { teamRoleMap[m.team_id] = m.role; });
+
+            const teamIds = Object.keys(teamRoleMap);
+            let teamNameMap = {};
+            if (teamIds.length > 0) {
+                const { data: teamRows } = await supabase
+                    .from('teams')
+                    .select('id, name')
+                    .in('id', teamIds);
+                (teamRows || []).forEach(t => { teamNameMap[t.id] = t.name; });
+            }
+
+            // Merge DB columns with JSON blob + annotate share/team role
+            const loaded = data.map(row => {
+                const isOwner = row.owner_id === user.id;
+                const isTeamCol = !!row.team_id;
+                const teamRole = isTeamCol ? teamRoleMap[row.team_id] : undefined;
+                // Determine _shareRole: owner > team role > individual share > viewer
+                let shareRole;
+                if (isOwner) shareRole = undefined; // owner
+                else if (isTeamCol && teamRole) shareRole = teamRole === 'owner' || teamRole === 'admin' ? 'editor' : teamRole;
+                else shareRole = shareRoleMap[row.id] || 'viewer';
+
+                return {
+                    ...row.data,
+                    id: row.id,
+                    name: row.name,
+                    owner_id: row.owner_id,
+                    team_id: row.team_id || null,
+                    team_name: isTeamCol ? (teamNameMap[row.team_id] || '') : null,
+                    _shareRole: shareRole,
+                };
+            });
 
             if (loaded.length > 0) {
                 // Smart merge: preserve local state for collections with unsaved edits
@@ -468,15 +499,18 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         if (!col) return;
 
         _dirtyColIds.add(colId);
-        const { id, name, owner_id, _shareRole, ...rest } = col;
+        const { id, name, owner_id, _shareRole, team_id, team_name: _tn, ...rest } = col;
 
-        await supabase.from('collections').upsert({
+        const row = {
             id,
             name,
             owner_id: owner_id || user.id,
             data: rest,
             updated_at: new Date().toISOString()
-        });
+        };
+        if (team_id) row.team_id = team_id;
+
+        await supabase.from('collections').upsert(row);
         _dirtyColIds.delete(colId);
     },
 
@@ -498,6 +532,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         const { user } = get();
         if (!user || !supabase) return;
 
+        // Fetch personal environments (RLS returns personal + team envs)
         const { data, error } = await supabase
             .from('environments')
             .select('*')
@@ -506,11 +541,12 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         if (!error && data && data.length > 0) {
             const loaded = data.map(row => ({
                 name: row.name,
-                vars: row.vars || []
+                vars: row.vars || [],
+                team_id: row.team_id || null,
             }));
             // Ensure Global always exists
-            if (!loaded.find(e => e.name === 'Global')) {
-                loaded.unshift({ name: 'Global', vars: [] });
+            if (!loaded.find(e => e.name === 'Global' && !e.team_id)) {
+                loaded.unshift({ name: 'Global', vars: [], team_id: null });
             }
             set({ environments: loaded });
         }
@@ -523,12 +559,15 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         const env = environments.find(e => e.name === envName);
         if (!env) return;
 
-        await supabase.from('environments').upsert({
+        const row = {
             owner_id: user.id,
             name: env.name,
             vars: env.vars,
             updated_at: new Date().toISOString()
-        }, { onConflict: 'owner_id,name' });
+        };
+        if (env.team_id) row.team_id = env.team_id;
+
+        await supabase.from('environments').upsert(row, { onConflict: 'owner_id,name' });
     },
 
     deleteEnvironmentFromSupabase: async (envName) => {
@@ -585,6 +624,8 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         const col = collections.find(c => c.id === colId);
         if (!col) return null;
         if (!col.owner_id || col.owner_id === user.id) return 'owner';
+        // Team collections: team owner/admin/editor → 'editor', viewer → 'viewer'
+        if (col.team_id && col._shareRole) return col._shareRole;
         return col._shareRole || 'viewer';
     },
 
@@ -1051,7 +1092,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     },
 
     // Collections
-    addCollection: (name) => {
+    addCollection: (name, teamId = null, teamName = null) => {
         const newId = uuidv4();
         set((state) => ({
             collections: [...state.collections, {
@@ -1064,6 +1105,9 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 baseUrl: '',
                 runHistory: [],
                 testSuites: [],
+                // Team ownership (null = personal collection)
+                team_id: teamId,
+                team_name: teamName,
                 // Collection-level auth (inherited by all requests unless overridden)
                 authType: 'none',
                 authToken: '',
@@ -1470,7 +1514,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         requestHistory: [
             { id: uuidv4(), timestamp: Date.now(), ...entry },
             ...state.requestHistory
-        ].slice(0, 50) // Keep last 50
+        ].slice(0, 200) // Keep last 200
     })),
     clearRequestHistory: () => set({ requestHistory: [] }),
 
@@ -1817,7 +1861,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
 }), {
     name: 'gemini-workspace-storage',
-    version: 15,
+    version: 16,
     partialize: (state) => {
         // Exclude transient runtime data from persistence
         // _realtimeChannel contains circular refs (RealtimeChannel → socket → channels → channel)
@@ -2044,6 +2088,19 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         if (version < 15) {
             // v14 → v15: Add dismissedOnboarding for persistent hero banner
             persisted.dismissedOnboarding = persisted.dismissedOnboarding ?? false;
+        }
+        if (version < 16) {
+            // v15 → v16: Add team_id + team_name to collections for team workspace
+            persisted.collections = (persisted.collections || []).map(col => ({
+                ...col,
+                team_id: col.team_id || null,
+                team_name: col.team_name || null,
+            }));
+            // Add team_id to environments
+            persisted.environments = (persisted.environments || []).map(env => ({
+                ...env,
+                team_id: env.team_id || null,
+            }));
         }
         return persisted;
     },

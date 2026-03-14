@@ -22,8 +22,15 @@ const MockServerPanel = lazy(() => import('./components/workspace/MockServerPane
 const DocsPanel = lazy(() => import('./components/workspace/DocsPanel').then(m => ({ default: m.DocsPanel })));
 const ProfilePage = lazy(() => import('./components/common/ProfilePage'));
 const PricingPage = lazy(() => import('./components/common/PricingPage'));
+const TeamPage = lazy(() => import('./components/workspace/TeamPage'));
 const TermsOfService = lazy(() => import('./components/common/LegalPages').then(m => ({ default: m.TermsOfService })));
 const PrivacyPolicy = lazy(() => import('./components/common/LegalPages').then(m => ({ default: m.PrivacyPolicy })));
+const CommandPalette = lazy(() => import('./components/workspace/CommandPalette'));
+const AdminPage = lazy(() => import('./components/workspace/AdminPage'));
+const HistoryPage = lazy(() => import('./components/workspace/HistoryPage'));
+const PostmanAlternativePage = lazy(() => import('./components/common/SEOPages').then(m => ({ default: m.PostmanAlternativePage })));
+const PostmanVsTestOrbitPage = lazy(() => import('./components/common/SEOPages').then(m => ({ default: m.PostmanVsTestOrbitPage })));
+const MigrateFromPostmanPage = lazy(() => import('./components/common/SEOPages').then(m => ({ default: m.MigrateFromPostmanPage })));
 
 function App() {
   const activeTabId = useWorkspaceStore(state => state.activeTabId);
@@ -221,6 +228,7 @@ function App() {
             onClick={toggleDarkMode}
             className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
             title="Toggle dark mode"
+            aria-label="Toggle dark mode"
           >
             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
@@ -235,12 +243,24 @@ function App() {
       <Suspense fallback={<div className="flex-1 flex items-center justify-center"><div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" /></div>}>
       {currentView === 'profile' ? (
         <ProfilePage />
+      ) : currentView === 'team' ? (
+        <TeamPage />
       ) : currentView === 'pricing' ? (
         <PricingPage />
       ) : currentView === 'terms' ? (
         <TermsOfService />
       ) : currentView === 'privacy' ? (
         <PrivacyPolicy />
+      ) : currentView === 'history' ? (
+        <HistoryPage />
+      ) : currentView === 'admin' ? (
+        <AdminPage />
+      ) : currentView === 'postman-alternative' ? (
+        <PostmanAlternativePage />
+      ) : currentView === 'postman-vs-testorbit' ? (
+        <PostmanVsTestOrbitPage />
+      ) : currentView === 'migrate-from-postman' ? (
+        <MigrateFromPostmanPage />
       ) : currentView === 'dashboard' ? (
         <Dashboard />
       ) : currentView === 'mock-server' ? (
@@ -256,6 +276,7 @@ function App() {
                 onClick={toggleSidebar}
                 className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
                 title="Expand Explorer"
+                aria-label="Expand Explorer"
               >
                 <PanelLeftOpen size={16} />
               </button>
@@ -264,6 +285,7 @@ function App() {
                 onClick={() => { toggleSidebar(); }}
                 className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 transition-colors"
                 title="Explorer"
+                aria-label="Explorer"
               >
                 <FolderTree size={14} />
               </button>
@@ -271,6 +293,7 @@ function App() {
                 onClick={() => { toggleSidebar(); }}
                 className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 transition-colors"
                 title="Search"
+                aria-label="Search"
               >
                 <Search size={14} />
               </button>
@@ -318,6 +341,7 @@ function App() {
                 onClick={toggleIntelligence}
                 className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
                 title="Expand Intelligence Panel"
+                aria-label="Expand Intelligence Panel"
               >
                 <PanelRightOpen size={16} />
               </button>
@@ -326,6 +350,7 @@ function App() {
                 onClick={toggleIntelligence}
                 className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-corporate-500 dark:text-corporate-400 transition-colors"
                 title="AI Chat"
+                aria-label="AI Chat"
               >
                 <MessageSquare size={14} />
               </button>
@@ -333,6 +358,7 @@ function App() {
                 onClick={toggleIntelligence}
                 className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 transition-colors"
                 title="Tests"
+                aria-label="Tests"
               >
                 <FlaskConical size={14} />
               </button>
@@ -340,6 +366,7 @@ function App() {
                 onClick={toggleIntelligence}
                 className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 transition-colors"
                 title="AI Intelligence"
+                aria-label="AI Intelligence"
               >
                 <Sparkles size={14} />
               </button>
@@ -354,6 +381,7 @@ function App() {
           )}
         </div>
       )}
+      <CommandPalette />
       </Suspense>
       <ToastContainer />
       <UpgradeModal />
