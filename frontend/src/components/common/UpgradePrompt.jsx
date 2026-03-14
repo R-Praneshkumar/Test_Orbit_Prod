@@ -120,7 +120,7 @@ export function UpgradeModal() {
                         </div>
                         <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
                             <Sparkles size={12} className="text-purple-500 shrink-0" />
-                            Only <strong>&#8377;250/mo</strong> — cancel anytime
+                            Only <strong>&#8377;399/mo</strong> — cancel anytime
                         </div>
                     </div>
 

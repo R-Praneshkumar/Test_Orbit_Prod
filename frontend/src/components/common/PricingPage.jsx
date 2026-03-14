@@ -90,14 +90,14 @@ export default function PricingPage() {
         }
     };
 
-    const proPrice = annual ? 2500 : 250;
+    const proPrice = annual ? 3999 : 399;
     const proPeriod = annual ? '/yr' : '/mo';
     const proSavings = annual ? '(save 17%)' : '';
 
     const handleUpgrade = async (plan) => {
         setLoading(plan);
         try {
-            const planKey = plan === 'pro' ? (annual ? 'pro_annual' : 'pro_monthly') : 'team_monthly';
+            const planKey = annual ? 'pro_annual' : 'pro_monthly';
             const res = await authFetch(`${API_BASE}/razorpay/create-subscription`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -273,8 +273,8 @@ export default function PricingPage() {
                             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Team</h2>
                         </div>
                         <div className="mb-4">
-                            <span className="text-3xl font-bold text-slate-800 dark:text-slate-100">₹500</span>
-                            <span className="text-xs text-slate-400 ml-1">/mo + ₹250/seat</span>
+                            <span className="text-3xl font-bold text-slate-800 dark:text-slate-100">₹799</span>
+                            <span className="text-xs text-slate-400 ml-1">/mo + ₹399/seat</span>
                         </div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
                             Shared workspaces, roles, team analytics.

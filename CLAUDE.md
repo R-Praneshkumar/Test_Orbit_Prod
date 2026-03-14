@@ -68,7 +68,7 @@ All 4 must pass. If any fails, fix before moving on.
 - **Body types:** Request body has `{ type, content }` shape — type is 'json'|'form'|'raw'|'urlencoded'|'file'
 - **Test files:** Frontend tests go in `frontend/src/__tests__/`. Backend tests in `backend/tests/`.
 - **Toast notifications:** Use `import { toast } from '../../utils/toast'` — never `alert()`.
-- **Payment gateway:** Razorpay (NOT Stripe). INR pricing: Free / Pro ₹250/mo / Team ₹500/mo + ₹250/seat.
+- **Payment gateway:** Razorpay (NOT Stripe). INR pricing: Free / Pro ₹399/mo / Team ₹799/mo + ₹399/seat.
 
 ## Architecture Quick Reference
 

@@ -33,7 +33,7 @@ Postman v12 (March 2026) gutted the free plan — **1 user only, 50 AI credits/m
 - **Free for teams of 3** (Postman: 1 user)
 - **Unlimited AI on paid plans** (no credits, no meters)
 - **AI security scanning** (OWASP Top 10 — Postman doesn't have this)
-- **$3/month Pro** (Postman: $19/month)
+- **$5/month Pro** (Postman: $19/month)
 - **Web-first** — loads in 2 seconds, no Electron
 
 </td>
@@ -61,7 +61,7 @@ Postman v12 (March 2026) gutted the free plan — **1 user only, 50 AI credits/m
 | **Free plan team size** | **3 users** | 1 user |
 | **AI calls (free)** | **50/day** | 50/month |
 | **AI calls (paid)** | **Unlimited** | Metered credits |
-| **Pro price (solo)** | **$3/mo** | $19/mo |
+| **Pro price (solo)** | **$5/mo** | $19/mo |
 | **5-person team/year** | **$252** | $1,140 |
 | **AI security scanning** | **Yes** | No |
 | **AI test generation** | Yes | Yes |
@@ -236,7 +236,7 @@ Open **http://localhost:5173** in your browser.
 
 | | Free | Pro | Team |
 |-|:----:|:---:|:----:|
-| **Price** | $0 | $3/mo (₹250) | $6/mo + $3/seat (₹500 + ₹250) |
+| **Price** | $0 | $5/mo (₹399) | $10/mo + $5/seat (₹799 + ₹399) |
 | **Users** | 3 | 1 | Up to 25 |
 | **AI calls** | 50/day | Unlimited | Unlimited |
 | **AI security scans** | 3/day | Unlimited | Unlimited |

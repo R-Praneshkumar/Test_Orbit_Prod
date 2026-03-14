@@ -117,8 +117,8 @@ class CancelSubscriptionRequest(BaseModel):
 # ── Helpers ─────────────────────────────────────────────────────
 
 PLAN_DETAILS = {
-    "pro_monthly": {"price": 250, "period": "monthly", "name": "Pro Monthly (₹250/mo)"},
-    "pro_annual": {"price": 2500, "period": "yearly", "name": "Pro Annual (₹2,500/yr)"},
+    "pro_monthly": {"price": 399, "period": "monthly", "name": "Pro Monthly (₹399/mo)"},
+    "pro_annual": {"price": 3999, "period": "yearly", "name": "Pro Annual (₹3,999/yr)"},
 }
 
 def _get_plan_id(plan_key: str) -> str:

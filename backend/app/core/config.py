@@ -38,8 +38,8 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
     RAZORPAY_WEBHOOK_SECRET: str = ""
-    RAZORPAY_PLAN_PRO_ID: str = ""       # monthly ₹250 plan ID from Razorpay dashboard
-    RAZORPAY_PLAN_PRO_ANNUAL_ID: str = ""  # annual ₹2500 plan ID
+    RAZORPAY_PLAN_PRO_ID: str = ""       # monthly ₹399 plan ID from Razorpay dashboard
+    RAZORPAY_PLAN_PRO_ANNUAL_ID: str = ""  # annual ₹3999 plan ID
 
     # Admin (comma-separated list of admin email addresses)
     ADMIN_EMAILS: str = ""
