@@ -76,9 +76,9 @@ function ComparisonRow({ feature, testorbit, postman, highlight }) {
 const ALTERNATIVE_FEATURES = [
     { icon: Zap, title: 'Unlimited AI', desc: 'No credit limits on paid plans. Gemini Flash AI costs us ~$0.001/call — we pass the savings to you.' },
     { icon: Users, title: 'Free for teams of 3', desc: 'Postman locked free teams to 1 user. TestOrbit keeps teams of up to 3 free forever.' },
-    { icon: DollarSign, title: '3x cheaper', desc: 'Pro at ₹399/mo (~$4). Team at ₹799/mo + ₹399/seat. A 5-person team pays ~$362/yr vs Postman\'s $1,140/yr.' },
-    { icon: Clock, title: 'Loads in 2 seconds', desc: 'Web-first, zero install. No Electron bloat. Opens instantly in any browser.' },
-    { icon: Shield, title: 'AI security scanning', desc: 'OWASP Top 10 vulnerability detection, auth bypass testing, injection fuzzing. Postman only does static rules.' },
+    { icon: DollarSign, title: '3.7x cheaper', desc: 'Pro at ₹399/mo (~$4). Team at ₹799/mo + ₹399/seat. A 5-person team pays ~$310/yr vs Postman\'s $1,140/yr.' },
+    { icon: Clock, title: 'Opens instantly', desc: 'Web-first, zero install. Opens in any browser — no desktop app required.' },
+    { icon: Shield, title: 'AI security scanning', desc: 'OWASP Top 10 vulnerability detection, auth bypass testing, injection fuzzing. Postman does not offer AI security scanning.' },
     { icon: FlaskConical, title: 'AI test generation', desc: 'Generate boundary, negative, and contract tests from a single request. 50 free per day.' },
 ];
 
@@ -135,9 +135,9 @@ export function PostmanAlternativePage() {
                             <ComparisonRow feature="Free plan team size" testorbit="3 users" postman="1 user" highlight />
                             <ComparisonRow feature="AI calls (free)" testorbit="50/day" postman="50/month" highlight />
                             <ComparisonRow feature="AI calls (paid)" testorbit="Unlimited" postman="Metered credits" highlight />
-                            <ComparisonRow feature="Price (solo)" testorbit="₹399/mo (~$4)" postman="$19/mo" />
-                            <ComparisonRow feature="Price (5-person team/yr)" testorbit="~$362/yr" postman="$1,140/yr" highlight />
-                            <ComparisonRow feature="Install required" testorbit="No (web app)" postman="Electron app" />
+                            <ComparisonRow feature="Price (solo)" testorbit="₹399/mo (~$4)" postman="$9/mo (Solo)" />
+                            <ComparisonRow feature="Price (5-person team/yr)" testorbit="~$310/yr" postman="$1,140/yr" highlight />
+                            <ComparisonRow feature="AI security scanning" testorbit="Yes (OWASP Top 10)" postman="No" />
                             <ComparisonRow feature="AI test generation" testorbit={true} postman={true} />
                             <ComparisonRow feature="AI security scanning" testorbit={true} postman={false} highlight />
                             <ComparisonRow feature="AI code generation" testorbit={true} postman={true} />
@@ -199,13 +199,13 @@ const VS_SECTIONS = [
         title: 'Performance & UX',
         icon: Zap,
         testorbit: [
-            'Web-first — opens in any browser instantly',
+            'Web-first — opens in any browser, no install required',
             'Loads in under 2 seconds',
             'Minimal UI — no learning curve',
             'Keyboard shortcuts + command palette',
         ],
         postman: [
-            'Electron desktop app required for full features',
+            'Desktop app recommended for full features (web app available)',
             'Heavy resource usage (~500MB RAM)',
             'Complex UI with 70+ tool panels',
             'Steep learning curve for new features',
@@ -461,7 +461,7 @@ export function MigrateFromPostmanPage() {
                 </div>
                 <div className="p-5 border border-slate-200 dark:border-slate-800 rounded-xl text-center">
                     <div className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 mb-1">2 sec</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">Load time<br />(no Electron app)</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">Load time<br />(web-first)</div>
                 </div>
             </div>
 

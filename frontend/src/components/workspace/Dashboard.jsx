@@ -100,7 +100,7 @@ function HeroBanner({ onSignUp, onLoadDemo, onImport, onCompare, onMigrate, onAl
                         </div>
                         <div className="flex items-center gap-2.5 text-sm text-slate-300">
                             <span className="text-green-400 text-base leading-none">✓</span>
-                            <span><span className="text-white font-semibold">3x cheaper</span> &mdash; 5-person team: ~$362/yr vs $1,140/yr</span>
+                            <span><span className="text-white font-semibold">3.7x cheaper</span> &mdash; 5-person team: ~$310/yr vs $1,140/yr</span>
                         </div>
                         <div className="flex items-center gap-2.5 text-sm text-slate-300">
                             <span className="text-green-400 text-base leading-none">✓</span>
@@ -108,7 +108,7 @@ function HeroBanner({ onSignUp, onLoadDemo, onImport, onCompare, onMigrate, onAl
                         </div>
                         <div className="flex items-center gap-2.5 text-sm text-slate-300">
                             <span className="text-green-400 text-base leading-none">✓</span>
-                            <span><span className="text-white font-semibold">Web-first, no bloat</span> &mdash; no Electron, loads in 2 seconds</span>
+                            <span><span className="text-white font-semibold">Web-first</span> &mdash; opens instantly in any browser, no install required</span>
                         </div>
                     </div>
 
@@ -240,13 +240,12 @@ function PostmanComparisonTable() {
         { feature: 'Free team members', postman: '1 (solo only)', testorbit: 'Up to 3', winner: 'testorbit' },
         { feature: 'AI test generation', postman: 'Credit-gated', testorbit: '10/day free', winner: 'testorbit' },
         { feature: 'Collections & requests', postman: 'Unlimited', testorbit: 'Unlimited', winner: 'tie' },
-        { feature: '5-person team cost', postman: '$1,140/yr', testorbit: '~$362/yr', winner: 'testorbit' },
-        { feature: 'Pro plan (individual)', postman: '$9/mo', testorbit: '~$4/mo', winner: 'testorbit' },
+        { feature: '5-person team cost', postman: '$1,140/yr', testorbit: '~$310/yr', winner: 'testorbit' },
+        { feature: 'Pro plan (individual)', postman: '$9/mo (Solo)', testorbit: '~$4/mo', winner: 'testorbit' },
         { feature: 'All body types', postman: true, testorbit: true, winner: 'tie' },
         { feature: 'WebSocket testing', postman: true, testorbit: true, winner: 'tie' },
         { feature: 'Import/Export', postman: true, testorbit: true, winner: 'tie' },
-        { feature: 'Web-based (no install)', postman: false, testorbit: true, winner: 'testorbit' },
-        { feature: 'INR pricing + UPI', postman: false, testorbit: true, winner: 'testorbit' },
+        { feature: 'AI security scanning', postman: false, testorbit: true, winner: 'testorbit' },
     ];
 
     const renderVal = (val) => {

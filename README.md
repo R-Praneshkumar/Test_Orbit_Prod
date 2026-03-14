@@ -34,7 +34,7 @@ Postman v12 (March 2026) gutted the free plan — **1 user only, 50 AI credits/m
 - **Unlimited AI on paid plans** (no credits, no meters)
 - **AI security scanning** (OWASP Top 10 — Postman doesn't have this)
 - **~$4/month Pro** (Postman: $19/month)
-- **Web-first** — loads in 2 seconds, no Electron
+- **Web-first** — opens instantly in any browser, no install required
 
 </td>
 <td width="50%">
@@ -62,7 +62,7 @@ Postman v12 (March 2026) gutted the free plan — **1 user only, 50 AI credits/m
 | **AI calls (free)** | **50/day** | 50/month |
 | **AI calls (paid)** | **Unlimited** | Metered credits |
 | **Pro price (solo)** | **~$4/mo** | $19/mo |
-| **5-person team/year** | **$252** | $1,140 |
+| **5-person team/year** | **~$310** | $1,140 |
 | **AI security scanning** | **Yes** | No |
 | **AI test generation** | Yes | Yes |
 | **AI code generation** | Yes | Yes |
@@ -70,7 +70,7 @@ Postman v12 (March 2026) gutted the free plan — **1 user only, 50 AI credits/m
 | **Collection runner** | Yes | Yes |
 | **Mock server** | Yes | Yes |
 | **Import from Postman** | Yes | Native |
-| **Install required** | **No** (web) | Electron app |
+| **AI security scanning** | **Yes** (OWASP Top 10) | No |
 | **GraphQL/gRPC** | No (planned) | Yes |
 | **Enterprise SSO** | No (planned) | Yes |
 
