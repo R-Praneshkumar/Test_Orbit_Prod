@@ -6,9 +6,9 @@ import { CurlImportModal } from './CurlImportModal';
 import { ImportCollectionModal } from './ImportCollectionModal';
 
 const USAGE_COLORS = {
-    purple: { bar: 'bg-purple-500', track: 'bg-purple-100 dark:bg-purple-900/30', warn: 'text-amber-600 dark:text-amber-400', full: 'text-red-600 dark:text-red-400' },
-    blue: { bar: 'bg-blue-500', track: 'bg-blue-100 dark:bg-blue-900/30', warn: 'text-amber-600 dark:text-amber-400', full: 'text-red-600 dark:text-red-400' },
-    emerald: { bar: 'bg-emerald-500', track: 'bg-emerald-100 dark:bg-emerald-900/30', warn: 'text-amber-600 dark:text-amber-400', full: 'text-red-600 dark:text-red-400' },
+    purple: { bar: 'bg-purple-500', track: 'bg-purple-900/30 dark:bg-purple-900/40', warn: 'text-amber-400', full: 'text-red-400' },
+    blue: { bar: 'bg-blue-500', track: 'bg-blue-900/30 dark:bg-blue-900/40', warn: 'text-amber-400', full: 'text-red-400' },
+    emerald: { bar: 'bg-emerald-500', track: 'bg-emerald-900/30 dark:bg-emerald-900/40', warn: 'text-amber-400', full: 'text-red-400' },
 };
 
 function UsageBar({ icon, label, used, limit, color }) {
@@ -20,10 +20,10 @@ function UsageBar({ icon, label, used, limit, color }) {
     return (
         <div>
             <div className="flex items-center justify-between mb-1.5">
-                <span className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-slate-300 dark:text-slate-300">
                     {icon} {label}
                 </span>
-                <span className={`text-xs font-semibold ${isFull ? c.full : isWarn ? c.warn : 'text-slate-500 dark:text-slate-400'}`}>
+                <span className={`text-xs font-semibold ${isFull ? c.full : isWarn ? c.warn : 'text-slate-400 dark:text-slate-400'}`}>
                     {used}/{limit}
                 </span>
             </div>
@@ -42,40 +42,37 @@ const CAPABILITIES = [
         icon: MessageSquare,
         title: 'AI Chat',
         desc: 'Ask AI anything about your API \u2014 debug errors, explain responses, suggest improvements.',
-        color: 'text-purple-500',
-        bg: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',
+        color: 'text-purple-400',
+        bg: 'bg-purple-900/20 dark:bg-purple-900/30 border-purple-800/50 dark:border-purple-800',
     },
     {
         icon: FlaskConical,
         title: 'Test Generation',
         desc: 'Generate 20+ test assertions in seconds from any endpoint. Covers edge cases automatically.',
-        color: 'text-blue-500',
-        bg: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+        color: 'text-blue-400',
+        bg: 'bg-blue-900/20 dark:bg-blue-900/30 border-blue-800/50 dark:border-blue-800',
     },
     {
         icon: Code,
         title: 'Code Generation',
         desc: 'Export production-ready code in 11 languages \u2014 Python, JavaScript, Go, Rust, and more.',
-        color: 'text-emerald-500',
-        bg: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
+        color: 'text-emerald-400',
+        bg: 'bg-emerald-900/20 dark:bg-emerald-900/30 border-emerald-800/50 dark:border-emerald-800',
     },
     {
         icon: Server,
         title: 'Mock Server',
         desc: 'Spin up realistic fake APIs instantly. AI generates responses matching your schema.',
-        color: 'text-amber-500',
-        bg: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
+        color: 'text-amber-400',
+        bg: 'bg-amber-900/20 dark:bg-amber-900/30 border-amber-800/50 dark:border-amber-800',
     },
 ];
 
 function HeroBanner({ onSignUp, onLoadDemo, onImport, onCompare, onMigrate, onAlternative }) {
     return (
-        <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-950 dark:via-purple-950/20 dark:to-slate-950">
+        <div className="relative bg-gradient-to-b from-slate-800 via-slate-850 to-slate-900 dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
             {/* Subtle radial purple glow */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(124,58,237,0.13),transparent_60%)] pointer-events-none" />
-
-            {/* Gradient fade into page background */}
-            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-b from-transparent to-slate-50 dark:to-slate-950 pointer-events-none z-[1]" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(124,58,237,0.10),transparent_60%)] pointer-events-none" />
 
             <div className="relative z-10 max-w-5xl mx-auto px-8 py-14 sm:py-16 flex flex-col lg:flex-row items-center gap-12">
 
@@ -189,7 +186,7 @@ function HeroBanner({ onSignUp, onLoadDemo, onImport, onCompare, onMigrate, onAl
 function CapabilityCards() {
     return (
         <div className="mb-8">
-            <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">What you can do</h2>
+            <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4">What you can do</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {CAPABILITIES.map(cap => (
                     <div
@@ -197,8 +194,8 @@ function CapabilityCards() {
                         className={`rounded-xl border p-4 shadow-sm ${cap.bg} transition-all hover:shadow-md hover:-translate-y-0.5 duration-200`}
                     >
                         <cap.icon size={20} className={`${cap.color} mb-2.5`} />
-                        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1">{cap.title}</h3>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">{cap.desc}</p>
+                        <h3 className="text-sm font-semibold text-slate-100 mb-1">{cap.title}</h3>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">{cap.desc}</p>
                     </div>
                 ))}
             </div>
@@ -208,8 +205,8 @@ function CapabilityCards() {
 
 function FreePlanSummary({ onViewPricing }) {
     return (
-        <div className="mb-8 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-            <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Free plan includes</h2>
+        <div className="mb-8 bg-slate-800 dark:bg-slate-900 rounded-xl border border-slate-700 dark:border-slate-800 p-5">
+            <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">Free plan includes</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
                 {[
                     'Unlimited collections & requests',
@@ -221,15 +218,15 @@ function FreePlanSummary({ onViewPricing }) {
                     'WebSocket testing',
                     'Up to 3 team members',
                 ].map(item => (
-                    <div key={item} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                        <Check size={12} className="text-emerald-500 shrink-0" />
+                    <div key={item} className="flex items-center gap-2 text-xs text-slate-300">
+                        <Check size={12} className="text-emerald-400 shrink-0" />
                         {item}
                     </div>
                 ))}
             </div>
             <button
                 onClick={onViewPricing}
-                className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
             >
                 Need more? See pricing <ArrowRight size={12} />
             </button>
@@ -253,33 +250,33 @@ function PostmanComparisonTable() {
     ];
 
     const renderVal = (val) => {
-        if (val === true) return <Check size={13} className="text-emerald-500 mx-auto" />;
-        if (val === false) return <X size={13} className="text-slate-300 dark:text-slate-600 mx-auto" />;
+        if (val === true) return <Check size={13} className="text-emerald-400 mx-auto" />;
+        if (val === false) return <X size={13} className="text-slate-600 mx-auto" />;
         return <span className="text-xs">{val}</span>;
     };
 
     return (
-        <div className="mb-8 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800">
-                <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">TestOrbit vs Postman (March 2026)</h2>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Postman killed free teams and metered AI behind credits. Here&apos;s how we compare.</p>
+        <div className="mb-8 bg-slate-800 dark:bg-slate-900 rounded-xl border border-slate-700 dark:border-slate-800 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-700 dark:border-slate-800">
+                <h2 className="text-sm font-bold text-slate-100">TestOrbit vs Postman (March 2026)</h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">Postman killed free teams and metered AI behind credits. Here&apos;s how we compare.</p>
             </div>
             <table className="w-full text-xs">
                 <thead>
-                    <tr className="border-b border-slate-100 dark:border-slate-800">
-                        <th className="text-left px-5 py-2.5 font-medium text-slate-500 dark:text-slate-400">Feature</th>
-                        <th className="text-center px-4 py-2.5 font-medium text-slate-400 dark:text-slate-500 w-32">Postman</th>
-                        <th className="text-center px-4 py-2.5 font-semibold text-slate-800 dark:text-slate-100 w-32">TestOrbit</th>
+                    <tr className="border-b border-slate-700 dark:border-slate-800">
+                        <th className="text-left px-5 py-2.5 font-medium text-slate-400">Feature</th>
+                        <th className="text-center px-4 py-2.5 font-medium text-slate-500 w-32">Postman</th>
+                        <th className="text-center px-4 py-2.5 font-semibold text-slate-100 w-32">TestOrbit</th>
                     </tr>
                 </thead>
                 <tbody>
                     {rows.map((row, i) => (
-                        <tr key={i} className="border-b border-slate-50 dark:border-slate-800/50 last:border-0">
-                            <td className="px-5 py-2 text-slate-700 dark:text-slate-300">{row.feature}</td>
-                            <td className={`text-center px-4 py-2 ${row.winner === 'testorbit' ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 dark:text-slate-300'}`}>
+                        <tr key={i} className="border-b border-slate-700/50 dark:border-slate-800/50 last:border-0">
+                            <td className="px-5 py-2 text-slate-300">{row.feature}</td>
+                            <td className={`text-center px-4 py-2 ${row.winner === 'testorbit' ? 'text-slate-500' : 'text-slate-300'}`}>
                                 {renderVal(row.postman)}
                             </td>
-                            <td className={`text-center px-4 py-2 ${row.winner === 'testorbit' ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : 'text-slate-600 dark:text-slate-300'}`}>
+                            <td className={`text-center px-4 py-2 ${row.winner === 'testorbit' ? 'text-emerald-400 font-semibold' : 'text-slate-300'}`}>
                                 {renderVal(row.testorbit)}
                             </td>
                         </tr>
@@ -299,21 +296,21 @@ function MigrationSteps({ onImport }) {
 
     return (
         <div className="mb-8">
-            <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Migrate from Postman in 3 steps</h2>
+            <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4">Migrate from Postman in 3 steps</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {steps.map(step => (
-                    <div key={step.num} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
-                        <div className="w-7 h-7 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full flex items-center justify-center text-xs font-bold mb-3">
+                    <div key={step.num} className="bg-slate-800 dark:bg-slate-900 rounded-xl border border-slate-700 dark:border-slate-800 p-4">
+                        <div className="w-7 h-7 bg-slate-700 dark:bg-slate-800 text-slate-300 rounded-full flex items-center justify-center text-xs font-bold mb-3">
                             {step.num}
                         </div>
-                        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1">{step.title}</h3>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">{step.desc}</p>
+                        <h3 className="text-sm font-semibold text-slate-100 mb-1">{step.title}</h3>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">{step.desc}</p>
                     </div>
                 ))}
             </div>
             <button
                 onClick={onImport}
-                className="mt-4 flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-lg transition-all active:scale-95"
+                className="mt-4 flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-lg border border-white/20 transition-all active:scale-95"
             >
                 <Upload size={15} />
                 Import Your Postman Collection Now
@@ -324,49 +321,49 @@ function MigrationSteps({ onImport }) {
 
 function SocialProof() {
     return (
-        <div className="mb-8 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border border-purple-200 dark:border-purple-800/30 rounded-xl p-6 text-center">
-            <p className="text-sm text-slate-700 dark:text-slate-300 italic leading-relaxed max-w-lg mx-auto mb-3">
+        <div className="mb-8 bg-slate-800/50 dark:bg-slate-900/50 border border-slate-700 dark:border-slate-800 rounded-xl p-6 text-center">
+            <p className="text-sm text-slate-300 italic leading-relaxed max-w-lg mx-auto mb-3">
                 &ldquo;Postman just priced us out at $19/user/mo. TestOrbit gave us AI-powered testing with our whole 3-person team for free. The import took 30 seconds.&rdquo;
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">&mdash; Early adopter, indie dev team</p>
+            <p className="text-xs text-slate-500 font-medium">&mdash; Early adopter, indie dev team</p>
         </div>
     );
 }
 
 function PostmanMigrationBanner({ onImport, onDismiss }) {
     return (
-        <div className="mb-6 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 dark:from-orange-950/30 dark:via-amber-950/20 dark:to-orange-950/30 border border-orange-200 dark:border-orange-800/50 rounded-xl p-5 relative">
+        <div className="mb-6 bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-5 relative">
             <button
                 onClick={onDismiss}
-                className="absolute top-3 right-3 p-1 text-orange-300 dark:text-orange-700 hover:text-orange-500 dark:hover:text-orange-400 transition-colors"
+                className="absolute top-3 right-3 p-1 text-slate-600 hover:text-slate-400 transition-colors"
                 aria-label="Dismiss banner"
             >
                 <X size={14} />
             </button>
             <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/40 rounded-lg flex items-center justify-center shrink-0">
-                    <ArrowDownToLine size={20} className="text-orange-600 dark:text-orange-400" />
+                <div className="w-10 h-10 bg-slate-700 dark:bg-slate-800 rounded-lg flex items-center justify-center shrink-0">
+                    <ArrowDownToLine size={20} className="text-slate-300" />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
+                    <h3 className="text-sm font-bold text-slate-100 mb-1">
                         Switching from Postman?
                     </h3>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-3 leading-relaxed">
+                    <p className="text-xs text-slate-400 mb-3 leading-relaxed">
                         Import your Postman collections and environments in seconds. All requests, folders, auth, scripts, and variables are preserved.
                     </p>
                     <div className="flex flex-wrap items-center gap-3">
                         <button
                             onClick={onImport}
-                            className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-lg transition-colors active:scale-95"
+                            className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-lg border border-white/20 transition-colors active:scale-95"
                         >
                             <Upload size={13} />
                             Import Postman Collection
                         </button>
-                        <div className="flex items-center gap-3 text-[10px] text-slate-500 dark:text-slate-400">
-                            <span className="flex items-center gap-1"><Check size={10} className="text-green-500" /> Auth &amp; scripts</span>
-                            <span className="flex items-center gap-1"><Check size={10} className="text-green-500" /> Folders</span>
-                            <span className="flex items-center gap-1"><Check size={10} className="text-green-500" /> Environments</span>
-                            <span className="flex items-center gap-1"><Check size={10} className="text-green-500" /> All body types</span>
+                        <div className="flex items-center gap-3 text-[10px] text-slate-400">
+                            <span className="flex items-center gap-1"><Check size={10} className="text-emerald-400" /> Auth &amp; scripts</span>
+                            <span className="flex items-center gap-1"><Check size={10} className="text-emerald-400" /> Folders</span>
+                            <span className="flex items-center gap-1"><Check size={10} className="text-emerald-400" /> Environments</span>
+                            <span className="flex items-center gap-1"><Check size={10} className="text-emerald-400" /> All body types</span>
                         </div>
                     </div>
                 </div>
@@ -468,7 +465,7 @@ export const Dashboard = () => {
     const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
 
     return (
-        <div className="flex-1 overflow-auto bg-slate-50 dark:bg-slate-950">
+        <div className="flex-1 overflow-auto bg-slate-900 dark:bg-slate-950">
 
             {/* ===== HERO BANNER — full-bleed, outside p-8 container ===== */}
             {showHero && (
@@ -496,14 +493,14 @@ export const Dashboard = () => {
                             <div className="flex flex-wrap gap-3 mb-8">
                                 <button
                                     onClick={() => setShowCollectionImport(true)}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-lg transition-all active:scale-95"
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-lg border border-white/20 transition-all active:scale-95"
                                 >
                                     <Upload size={16} />
                                     Import from Postman
                                 </button>
                                 <button
                                     onClick={() => setShowCurlImport(true)}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 dark:bg-slate-800 hover:bg-slate-700 dark:hover:bg-slate-700 border border-slate-700 dark:border-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
                                 >
                                     <Terminal size={16} />
                                     Import cURL
@@ -518,10 +515,10 @@ export const Dashboard = () => {
 
                         {/* Greeting */}
                         <div className="mb-8">
-                            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+                            <h1 className="text-2xl font-bold text-slate-100 tracking-tight">
                                 {displayName ? `Welcome back, ${displayName}.` : 'Welcome to TestOrbit'}
                             </h1>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                            <p className="text-sm text-slate-400 mt-1">
                                 {collections.length} collection{collections.length !== 1 ? 's' : ''}
                                 {user && collections.filter(c => c.owner_id && c.owner_id !== user.id).length > 0 && (
                                     <span className="text-blue-500 dark:text-blue-400"> ({collections.filter(c => c.owner_id && c.owner_id !== user.id).length} shared)</span>
@@ -535,9 +532,9 @@ export const Dashboard = () => {
 
                         {/* Usage Stats */}
                         {usage && usage.limits.ai_calls > 0 && (
-                            <div className="mb-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
+                            <div className="mb-8 bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-5">
                                 <div className="flex items-center justify-between mb-3">
-                                    <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Today&apos;s Usage</h2>
+                                    <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Today&apos;s Usage</h2>
                                     {subscription?.plan === 'free' && (
                                         <button
                                             onClick={() => setCurrentView('pricing')}
@@ -584,7 +581,7 @@ export const Dashboard = () => {
                                             if (e.key === 'Escape') { setShowNewCollInput(false); setNewCollName(''); }
                                         }}
                                         placeholder="Collection name..."
-                                        className="px-3 py-2 text-sm border border-corporate-400 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500/30 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 w-48"
+                                        className="px-3 py-2 text-sm border border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500/30 bg-slate-800 dark:bg-slate-800 text-slate-100 w-48"
                                     />
                                     <button
                                         onClick={handleNewCollSubmit}
@@ -595,7 +592,7 @@ export const Dashboard = () => {
                                     </button>
                                     <button
                                         onClick={() => { setShowNewCollInput(false); setNewCollName(''); }}
-                                        className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                                        className="px-3 py-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
                                     >
                                         Cancel
                                     </button>
@@ -603,7 +600,7 @@ export const Dashboard = () => {
                             ) : (
                                 <button
                                     onClick={handleNewCollection}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-corporate-600 hover:bg-corporate-700 text-white text-sm font-semibold rounded-lg shadow-md shadow-corporate-200 dark:shadow-none transition-all active:scale-95"
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-corporate-600 hover:bg-corporate-700 text-white text-sm font-semibold rounded-lg shadow-md shadow-black/20 transition-all active:scale-95"
                                 >
                                     <Plus size={16} />
                                     New Collection
@@ -611,14 +608,14 @@ export const Dashboard = () => {
                             )}
                             <button
                                 onClick={() => setShowCurlImport(true)}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
+                                className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 dark:bg-slate-800 hover:bg-slate-700 dark:hover:bg-slate-700 border border-slate-700 dark:border-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
                             >
                                 <Terminal size={16} />
                                 Import cURL
                             </button>
                             <button
                                 onClick={() => setShowCollectionImport(true)}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
+                                className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 dark:bg-slate-800 hover:bg-slate-700 dark:hover:bg-slate-700 border border-slate-700 dark:border-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
                             >
                                 <Upload size={16} />
                                 Import Collection
@@ -627,7 +624,7 @@ export const Dashboard = () => {
 
                         {/* Collections Grid */}
                         <div className="mb-8">
-                            <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">
+                            <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4">
                                 {collections.some(c => c.team_id) ? 'My Collections' : 'Collections'}
                             </h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -640,7 +637,7 @@ export const Dashboard = () => {
                                         <div
                                             key={col.id}
                                             onClick={() => handleOpenCollection(col.id)}
-                                            className="group bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 cursor-pointer hover:shadow-lg hover:border-corporate-300 dark:hover:border-corporate-600 hover:-translate-y-0.5 transition-all duration-200"
+                                            className="group bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:shadow-lg hover:border-corporate-600 hover:-translate-y-0.5 transition-all duration-200"
                                         >
                                             <div className="flex items-start justify-between mb-3">
                                                 <div className="flex items-center gap-2.5">
@@ -648,7 +645,7 @@ export const Dashboard = () => {
                                                         <Folder size={18} className="text-corporate-600 dark:text-corporate-400" />
                                                     </div>
                                                     <div>
-                                                        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-corporate-600 dark:group-hover:text-corporate-400 transition-colors">
+                                                        <h3 className="text-sm font-semibold text-slate-100 group-hover:text-corporate-400 transition-colors">
                                                             {col.name}
                                                         </h3>
                                                         {(() => {
@@ -661,7 +658,7 @@ export const Dashboard = () => {
                                                                     </span>
                                                                     <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${colRole === 'editor'
                                                                         ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
-                                                                        : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600'
+                                                                        : 'bg-slate-700 text-slate-400 border border-slate-600'
                                                                     }`}>
                                                                         {colRole === 'editor' ? <Pencil size={9} /> : <Shield size={9} />}
                                                                         {colRole === 'editor' ? 'Editor' : 'Viewer'}
@@ -688,7 +685,7 @@ export const Dashboard = () => {
                                             </div>
 
                                             {lastRun && (
-                                                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                                                <div className="mt-3 pt-3 border-t border-slate-700 dark:border-slate-800">
                                                     <div className="flex items-center justify-between text-[10px]">
                                                         <span className="text-slate-400 dark:text-slate-500">Last run</span>
                                                         <div className="flex items-center gap-2">
@@ -716,7 +713,7 @@ export const Dashboard = () => {
                                 {/* Add Collection Card */}
                                 <div
                                     onClick={handleNewCollection}
-                                    className="bg-slate-50 dark:bg-slate-800/50 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-5 cursor-pointer hover:border-corporate-400 dark:hover:border-corporate-600 hover:bg-corporate-50/30 dark:hover:bg-corporate-900/10 transition-all flex flex-col items-center justify-center min-h-[140px]"
+                                    className="bg-slate-800/30 dark:bg-slate-900/30 border-2 border-dashed border-slate-700 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:border-corporate-600 hover:bg-corporate-900/10 transition-all flex flex-col items-center justify-center min-h-[140px]"
                                 >
                                     <Plus size={24} className="text-slate-300 dark:text-slate-600 mb-2" />
                                     <span className="text-xs font-medium text-slate-400 dark:text-slate-500">New Collection</span>
@@ -751,7 +748,7 @@ export const Dashboard = () => {
                                                 <div
                                                     key={col.id}
                                                     onClick={() => handleOpenCollection(col.id)}
-                                                    className="group bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 cursor-pointer hover:shadow-lg hover:border-corporate-300 dark:hover:border-corporate-600 hover:-translate-y-0.5 transition-all duration-200"
+                                                    className="group bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:shadow-lg hover:border-corporate-600 hover:-translate-y-0.5 transition-all duration-200"
                                                 >
                                                     <div className="flex items-start justify-between mb-3">
                                                         <div className="flex items-center gap-2.5">
@@ -759,13 +756,13 @@ export const Dashboard = () => {
                                                                 <Users size={18} className="text-corporate-600 dark:text-corporate-400" />
                                                             </div>
                                                             <div>
-                                                                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-corporate-600 dark:group-hover:text-corporate-400 transition-colors">
+                                                                <h3 className="text-sm font-semibold text-slate-100 group-hover:text-corporate-400 transition-colors">
                                                                     {col.name}
                                                                 </h3>
                                                                 {colRole && colRole !== 'owner' && (
                                                                     <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full mt-0.5 ${colRole === 'editor'
                                                                         ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
-                                                                        : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600'
+                                                                        : 'bg-slate-700 text-slate-400 border border-slate-600'
                                                                     }`}>
                                                                         {colRole === 'editor' ? <Pencil size={9} /> : <Shield size={9} />}
                                                                         {colRole === 'editor' ? 'Editor' : 'Viewer'}
@@ -786,7 +783,7 @@ export const Dashboard = () => {
                                                         )}
                                                     </div>
                                                     {lastRun && (
-                                                        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                                                        <div className="mt-3 pt-3 border-t border-slate-700 dark:border-slate-800">
                                                             <div className="flex items-center justify-between text-[10px]">
                                                                 <span className="text-slate-400 dark:text-slate-500">Last run</span>
                                                                 <div className="flex items-center gap-2">
@@ -817,18 +814,18 @@ export const Dashboard = () => {
                         {recentRuns.length > 0 && (
                             <div>
                                 <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Recent Activity</h2>
-                                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                                <div className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl overflow-hidden">
                                     {recentRuns.map((run, idx) => (
                                         <div
                                             key={run.id || idx}
                                             onClick={() => handleOpenCollection(run.collectionId)}
-                                            className={`flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${idx < recentRuns.length - 1 ? 'border-b border-slate-100 dark:border-slate-700' : ''
+                                            className={`flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-700/50 transition-colors ${idx < recentRuns.length - 1 ? 'border-b border-slate-700 dark:border-slate-800' : ''
                                                 }`}
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-2 h-2 rounded-full ${(run.summary?.failed || 0) > 0 ? 'bg-amber-400' : 'bg-green-400'
                                                     }`} />
-                                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{run.collectionName}</span>
+                                                <span className="text-sm font-medium text-slate-200">{run.collectionName}</span>
                                             </div>
                                             <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                                                 {run.summary?.passed !== undefined && (
