@@ -30,6 +30,13 @@ def _require_admin(user: dict):
         raise HTTPException(status_code=403, detail="Admin access required")
 
 
+@router.get("/check")
+async def admin_check(request: Request, user: dict = Depends(verify_token)):
+    """Lightweight admin check — returns 200 if admin, 403 if not."""
+    _require_admin(user)
+    return {"is_admin": True}
+
+
 @router.get("/stats")
 async def admin_stats(request: Request, user: dict = Depends(verify_token)):
     """

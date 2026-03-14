@@ -248,6 +248,9 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     // Subscription state (persisted)
     subscription: { plan: 'free', status: 'active', expiresAt: null },
 
+    // Admin status (not persisted — checked on each login)
+    isAdmin: false,
+
     // Onboarding banner — shown until user explicitly dismisses it (persisted)
     dismissedOnboarding: false,
     dismissOnboarding: () => set({ dismissedOnboarding: true }),
@@ -268,6 +271,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 set({ currentView: 'dashboard' });
             }
             await get().fetchProfile();
+            get().checkAdminStatus();
             get().fetchRemoteCollections();
             get().fetchRemoteEnvironments();
             get().subscribeToCollectionChanges();
@@ -287,6 +291,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                         set({ currentView: 'dashboard' });
                     }
                     await get().fetchProfile();
+                    get().checkAdminStatus();
                     get().fetchRemoteCollections();
                     get().fetchRemoteEnvironments();
                     get().subscribeToCollectionChanges();
@@ -317,6 +322,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                         tourStep: 0,
                         activeTutorial: null,
                         profile: null,
+                        isAdmin: false,
                     });
                 }
             }
@@ -1066,6 +1072,18 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
     // Subscription
     setSubscription: (sub) => set({ subscription: { ...sub } }),
+
+    // Admin check
+    checkAdminStatus: async () => {
+        try {
+            const { authFetch } = await import('../config');
+            const { API_BASE } = await import('../config');
+            const res = await authFetch(`${API_BASE}/admin/check`);
+            set({ isAdmin: res.ok });
+        } catch {
+            set({ isAdmin: false });
+        }
+    },
 
     // Tour Actions
     startTour: (tourName) => set(() => {
