@@ -75,7 +75,7 @@ function HeroBanner({ onSignUp, onLoadDemo, onImport, onCompare, onMigrate, onAl
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(124,58,237,0.13),transparent_60%)] pointer-events-none" />
 
             {/* Gradient fade into page background */}
-            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-b from-transparent to-white dark:to-slate-950 pointer-events-none z-[1]" />
+            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-b from-transparent to-slate-50 dark:to-slate-950 pointer-events-none z-[1]" />
 
             <div className="relative z-10 max-w-5xl mx-auto px-8 py-14 sm:py-16 flex flex-col lg:flex-row items-center gap-12">
 
