@@ -936,7 +936,7 @@ export const RequestEditor = ({ tabId }) => {
                     <AutocompleteInput
                         value={localUrl}
                         onChange={(val) => handleUrlInputChange(val)}
-                        className="flex-1 bg-transparent px-3 py-2 text-sm text-slate-700 dark:text-slate-300 outline-none placeholder-slate-400 dark:placeholder-slate-500 font-mono h-full"
+                        className="bg-transparent px-3 py-2 text-sm text-slate-700 dark:text-slate-300 outline-none placeholder-slate-400 dark:placeholder-slate-500 font-mono h-full"
                         placeholder="https://api.example.com/v1/resource"
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleRun(); } }}
                     />

@@ -237,7 +237,7 @@ export function AutocompleteInput({ value, onChange, className, placeholder, onK
     });
 
     return (
-        <div className="relative w-full h-full min-w-0">
+        <div className="relative flex-1 h-full min-w-0">
             <input
                 ref={ref}
                 type="text"
@@ -248,7 +248,7 @@ export function AutocompleteInput({ value, onChange, className, placeholder, onK
                     if (!e.defaultPrevented && externalKeyDown) externalKeyDown(e);
                 }}
                 onBlur={handleBlur}
-                className={className}
+                className={`${className} w-full`}
                 placeholder={placeholder}
                 {...rest}
             />
