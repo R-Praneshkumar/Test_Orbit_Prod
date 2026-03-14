@@ -156,7 +156,7 @@ ALTER TABLE environments ADD COLUMN IF NOT EXISTS team_id uuid references teams(
 -- Without SECURITY DEFINER, Postgres detects infinite recursion and errors.
 -- These functions bypass RLS when called from policies.
 
-drop function if exists is_team_member(uuid, text);
+-- No DROP — policies depend on these functions. CREATE OR REPLACE updates them in-place.
 create or replace function is_team_member(p_team_id uuid, p_email text)
 returns boolean as $$
   select exists (
@@ -165,7 +165,7 @@ returns boolean as $$
   );
 $$ language sql security definer;
 
-drop function if exists is_team_member_with_role(uuid, text, text[]);
+-- No DROP — policies depend on this function. CREATE OR REPLACE updates it in-place.
 create or replace function is_team_member_with_role(p_team_id uuid, p_email text, p_roles text[])
 returns boolean as $$
   select exists (
