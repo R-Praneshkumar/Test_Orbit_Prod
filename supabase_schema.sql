@@ -156,6 +156,32 @@ ALTER TABLE environments ADD COLUMN IF NOT EXISTS team_id uuid references teams(
 -- Without SECURITY DEFINER, Postgres detects infinite recursion and errors.
 -- These functions bypass RLS when called from policies.
 
+-- Helper to check collection ownership (avoids cross-table RLS recursion between collections ↔ collection_shares)
+create or replace function is_collection_owner(p_collection_id uuid, p_user_id uuid)
+returns boolean as $$
+  select exists (
+    select 1 from collections
+    where id = p_collection_id and owner_id = p_user_id
+  );
+$$ language sql security definer;
+
+-- Helper to check if user has a share on a collection (avoids recursion from collections SELECT policy)
+create or replace function has_collection_share(p_collection_id uuid, p_email text)
+returns boolean as $$
+  select exists (
+    select 1 from collection_shares
+    where collection_id = p_collection_id and user_email = p_email
+  );
+$$ language sql security definer;
+
+create or replace function has_collection_share_role(p_collection_id uuid, p_email text, p_role text)
+returns boolean as $$
+  select exists (
+    select 1 from collection_shares
+    where collection_id = p_collection_id and user_email = p_email and role = p_role
+  );
+$$ language sql security definer;
+
 -- No DROP — policies depend on these functions. CREATE OR REPLACE updates them in-place.
 create or replace function is_team_member(p_team_id uuid, p_email text)
 returns boolean as $$
@@ -306,14 +332,11 @@ create policy "Users can insert their own profile." on profiles for insert with 
 drop policy if exists "Users can update own profile." on profiles;
 create policy "Users can update own profile." on profiles for update using (auth.uid() = id);
 
--- ── Collections policies (references: collection_shares, team_members via helper) ──
+-- ── Collections policies (all cross-table refs use SECURITY DEFINER helpers) ──
 drop policy if exists "Users can view their own collections." on collections;
 create policy "Users can view their own collections." on collections for select using (
   auth.uid() = owner_id
-  or exists (
-    select 1 from collection_shares cs
-    where cs.collection_id = id and cs.user_email = auth.email()
-  )
+  or has_collection_share(id, auth.email())
   or is_team_member(team_id, auth.email())
 );
 
@@ -326,10 +349,7 @@ create policy "Users can insert their own collections." on collections for inser
 drop policy if exists "Users can update their own collections." on collections;
 create policy "Users can update their own collections." on collections for update using (
   auth.uid() = owner_id
-  or exists (
-    select 1 from collection_shares cs
-    where cs.collection_id = id and cs.user_email = auth.email() and cs.role = 'editor'
-  )
+  or has_collection_share_role(id, auth.email(), 'editor')
   or is_team_member_with_role(team_id, auth.email(), ARRAY['owner', 'admin', 'editor'])
 );
 
@@ -339,29 +359,29 @@ create policy "Users can delete their own collections." on collections for delet
   or is_team_member_with_role(team_id, auth.email(), ARRAY['owner', 'admin'])
 );
 
--- ── Collection shares policies (references: collections) ──
+-- ── Collection shares policies (use SECURITY DEFINER helper to avoid recursion with collections) ──
 drop policy if exists "Users can view shares for their collections." on collection_shares;
 create policy "Users can view shares for their collections." on collection_shares for select using (
-  exists ( select 1 from collections where id = collection_shares.collection_id and owner_id = auth.uid() )
+  is_collection_owner(collection_id, auth.uid())
   or user_email = auth.email()
 );
 
 drop policy if exists "Owners can insert shares." on collection_shares;
 create policy "Owners can insert shares." on collection_shares for insert with check (
-  exists ( select 1 from collections where id = collection_shares.collection_id and owner_id = auth.uid() )
+  is_collection_owner(collection_id, auth.uid())
 );
 
 drop policy if exists "Owners can update shares." on collection_shares;
 create policy "Owners can update shares." on collection_shares for update using (
-  exists ( select 1 from collections where id = collection_shares.collection_id and owner_id = auth.uid() )
+  is_collection_owner(collection_id, auth.uid())
 ) with check (
   role in ('viewer', 'editor')
-  and exists ( select 1 from collections where id = collection_shares.collection_id and owner_id = auth.uid() )
+  and is_collection_owner(collection_id, auth.uid())
 );
 
 drop policy if exists "Owners can delete shares." on collection_shares;
 create policy "Owners can delete shares." on collection_shares for delete using (
-  exists ( select 1 from collections where id = collection_shares.collection_id and owner_id = auth.uid() )
+  is_collection_owner(collection_id, auth.uid())
 );
 
 -- ── Teams policies (references: team_members via helper) ──
