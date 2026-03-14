@@ -10,27 +10,30 @@ import GuestBanner from './components/common/GuestBanner';
 import { ToastContainer } from './components/common/Toast';
 import { UsageBanner, UpgradeModal } from './components/common/UpgradePrompt';
 
-// Lazy-loaded panels — each gets its own chunk
-const RequestEditor = lazy(() => import('./components/workspace/RequestEditor').then(m => ({ default: m.RequestEditor })));
-const IntelligencePanel = lazy(() => import('./components/workspace/IntelligencePanel').then(m => ({ default: m.IntelligencePanel })));
-const CollectionRunner = lazy(() => import('./components/workspace/CollectionRunner').then(m => ({ default: m.CollectionRunner })));
-const WebSocketTester = lazy(() => import('./components/workspace/WebSocketTester').then(m => ({ default: m.WebSocketTester })));
-const Dashboard = lazy(() => import('./components/workspace/Dashboard').then(m => ({ default: m.Dashboard })));
-const CollectionSettings = lazy(() => import('./components/workspace/CollectionSettings').then(m => ({ default: m.CollectionSettings })));
-const TestDashboard = lazy(() => import('./components/workspace/TestDashboard').then(m => ({ default: m.TestDashboard })));
-const MockServerPanel = lazy(() => import('./components/workspace/MockServerPanel').then(m => ({ default: m.MockServerPanel })));
-const DocsPanel = lazy(() => import('./components/workspace/DocsPanel').then(m => ({ default: m.DocsPanel })));
-const ProfilePage = lazy(() => import('./components/common/ProfilePage'));
-const PricingPage = lazy(() => import('./components/common/PricingPage'));
-const TeamPage = lazy(() => import('./components/workspace/TeamPage'));
-const TermsOfService = lazy(() => import('./components/common/LegalPages').then(m => ({ default: m.TermsOfService })));
-const PrivacyPolicy = lazy(() => import('./components/common/LegalPages').then(m => ({ default: m.PrivacyPolicy })));
-const CommandPalette = lazy(() => import('./components/workspace/CommandPalette'));
-const AdminPage = lazy(() => import('./components/workspace/AdminPage'));
-const HistoryPage = lazy(() => import('./components/workspace/HistoryPage'));
-const PostmanAlternativePage = lazy(() => import('./components/common/SEOPages').then(m => ({ default: m.PostmanAlternativePage })));
-const PostmanVsTestOrbitPage = lazy(() => import('./components/common/SEOPages').then(m => ({ default: m.PostmanVsTestOrbitPage })));
-const MigrateFromPostmanPage = lazy(() => import('./components/common/SEOPages').then(m => ({ default: m.MigrateFromPostmanPage })));
+// Lazy-loaded panels — each gets its own chunk.
+// On chunk load failure (stale deploy), reload the page to get fresh assets.
+const lazyLoad = (fn) => lazy(() => fn().catch(() => { window.location.reload(); return new Promise(() => {}); }));
+
+const RequestEditor = lazyLoad(() => import('./components/workspace/RequestEditor').then(m => ({ default: m.RequestEditor })));
+const IntelligencePanel = lazyLoad(() => import('./components/workspace/IntelligencePanel').then(m => ({ default: m.IntelligencePanel })));
+const CollectionRunner = lazyLoad(() => import('./components/workspace/CollectionRunner').then(m => ({ default: m.CollectionRunner })));
+const WebSocketTester = lazyLoad(() => import('./components/workspace/WebSocketTester').then(m => ({ default: m.WebSocketTester })));
+const Dashboard = lazyLoad(() => import('./components/workspace/Dashboard').then(m => ({ default: m.Dashboard })));
+const CollectionSettings = lazyLoad(() => import('./components/workspace/CollectionSettings').then(m => ({ default: m.CollectionSettings })));
+const TestDashboard = lazyLoad(() => import('./components/workspace/TestDashboard').then(m => ({ default: m.TestDashboard })));
+const MockServerPanel = lazyLoad(() => import('./components/workspace/MockServerPanel').then(m => ({ default: m.MockServerPanel })));
+const DocsPanel = lazyLoad(() => import('./components/workspace/DocsPanel').then(m => ({ default: m.DocsPanel })));
+const ProfilePage = lazyLoad(() => import('./components/common/ProfilePage'));
+const PricingPage = lazyLoad(() => import('./components/common/PricingPage'));
+const TeamPage = lazyLoad(() => import('./components/workspace/TeamPage'));
+const TermsOfService = lazyLoad(() => import('./components/common/LegalPages').then(m => ({ default: m.TermsOfService })));
+const PrivacyPolicy = lazyLoad(() => import('./components/common/LegalPages').then(m => ({ default: m.PrivacyPolicy })));
+const CommandPalette = lazyLoad(() => import('./components/workspace/CommandPalette'));
+const AdminPage = lazyLoad(() => import('./components/workspace/AdminPage'));
+const HistoryPage = lazyLoad(() => import('./components/workspace/HistoryPage'));
+const PostmanAlternativePage = lazyLoad(() => import('./components/common/SEOPages').then(m => ({ default: m.PostmanAlternativePage })));
+const PostmanVsTestOrbitPage = lazyLoad(() => import('./components/common/SEOPages').then(m => ({ default: m.PostmanVsTestOrbitPage })));
+const MigrateFromPostmanPage = lazyLoad(() => import('./components/common/SEOPages').then(m => ({ default: m.MigrateFromPostmanPage })));
 
 function App() {
   const activeTabId = useWorkspaceStore(state => state.activeTabId);

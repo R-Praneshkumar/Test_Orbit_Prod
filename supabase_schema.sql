@@ -151,6 +151,29 @@ ALTER TABLE environments ADD COLUMN IF NOT EXISTS team_id uuid references teams(
 -- PHASE 3: FUNCTIONS & TRIGGERS
 -- ─────────────────────────────────────────────────────────────
 
+-- 3-pre. SECURITY DEFINER helpers to avoid infinite recursion in RLS policies.
+-- team_members policies need to query team_members itself (self-reference).
+-- Without SECURITY DEFINER, Postgres detects infinite recursion and errors.
+-- These functions bypass RLS when called from policies.
+
+drop function if exists is_team_member(uuid, text);
+create or replace function is_team_member(p_team_id uuid, p_email text)
+returns boolean as $$
+  select exists (
+    select 1 from team_members
+    where team_id = p_team_id and user_email = p_email
+  );
+$$ language sql security definer;
+
+drop function if exists is_team_member_with_role(uuid, text, text[]);
+create or replace function is_team_member_with_role(p_team_id uuid, p_email text, p_roles text[])
+returns boolean as $$
+  select exists (
+    select 1 from team_members
+    where team_id = p_team_id and user_email = p_email and role = ANY(p_roles)
+  );
+$$ language sql security definer;
+
 -- 3a. Prevent editors from stealing collection ownership
 drop trigger if exists guard_owner_id on collections;
 drop function if exists prevent_owner_id_hijack;
@@ -283,7 +306,7 @@ create policy "Users can insert their own profile." on profiles for insert with 
 drop policy if exists "Users can update own profile." on profiles;
 create policy "Users can update own profile." on profiles for update using (auth.uid() = id);
 
--- ── Collections policies (references: collection_shares, team_members) ──
+-- ── Collections policies (references: collection_shares, team_members via helper) ──
 drop policy if exists "Users can view their own collections." on collections;
 create policy "Users can view their own collections." on collections for select using (
   auth.uid() = owner_id
@@ -291,21 +314,13 @@ create policy "Users can view their own collections." on collections for select 
     select 1 from collection_shares cs
     where cs.collection_id = id and cs.user_email = auth.email()
   )
-  or exists (
-    select 1 from team_members tm
-    where tm.team_id = collections.team_id and tm.user_email = auth.email()
-  )
+  or is_team_member(team_id, auth.email())
 );
 
 drop policy if exists "Users can insert their own collections." on collections;
 create policy "Users can insert their own collections." on collections for insert with check (
   auth.uid() = owner_id
-  or exists (
-    select 1 from team_members tm
-    where tm.team_id = team_id
-      and tm.user_email = auth.email()
-      and tm.role in ('owner', 'admin', 'editor')
-  )
+  or is_team_member_with_role(team_id, auth.email(), ARRAY['owner', 'admin', 'editor'])
 );
 
 drop policy if exists "Users can update their own collections." on collections;
@@ -315,23 +330,13 @@ create policy "Users can update their own collections." on collections for updat
     select 1 from collection_shares cs
     where cs.collection_id = id and cs.user_email = auth.email() and cs.role = 'editor'
   )
-  or exists (
-    select 1 from team_members tm
-    where tm.team_id = collections.team_id
-      and tm.user_email = auth.email()
-      and tm.role in ('owner', 'admin', 'editor')
-  )
+  or is_team_member_with_role(team_id, auth.email(), ARRAY['owner', 'admin', 'editor'])
 );
 
 drop policy if exists "Users can delete their own collections." on collections;
 create policy "Users can delete their own collections." on collections for delete using (
   auth.uid() = owner_id
-  or exists (
-    select 1 from team_members tm
-    where tm.team_id = collections.team_id
-      and tm.user_email = auth.email()
-      and tm.role in ('owner', 'admin')
-  )
+  or is_team_member_with_role(team_id, auth.email(), ARRAY['owner', 'admin'])
 );
 
 -- ── Collection shares policies (references: collections) ──
@@ -359,13 +364,11 @@ create policy "Owners can delete shares." on collection_shares for delete using 
   exists ( select 1 from collections where id = collection_shares.collection_id and owner_id = auth.uid() )
 );
 
--- ── Teams policies (references: team_members) ──
+-- ── Teams policies (references: team_members via helper) ──
 drop policy if exists "Team members can view their teams." on teams;
 create policy "Team members can view their teams." on teams for select using (
   auth.uid() = owner_id
-  or exists (
-    select 1 from team_members tm where tm.team_id = id and tm.user_email = auth.email()
-  )
+  or is_team_member(id, auth.email())
 );
 
 drop policy if exists "Authenticated users can create teams." on teams;
@@ -377,87 +380,51 @@ create policy "Team owner can update team." on teams for update using (auth.uid(
 drop policy if exists "Team owner can delete team." on teams;
 create policy "Team owner can delete team." on teams for delete using (auth.uid() = owner_id);
 
--- ── Team members policies (self-references only) ──
+-- ── Team members policies (use SECURITY DEFINER helpers to avoid recursion) ──
 drop policy if exists "Team members can view co-members." on team_members;
 create policy "Team members can view co-members." on team_members for select using (
-  exists (
-    select 1 from team_members my
-    where my.team_id = team_members.team_id and my.user_email = auth.email()
-  )
+  is_team_member(team_id, auth.email())
 );
 
 drop policy if exists "Team owner or admin can invite members." on team_members;
 create policy "Team owner or admin can invite members." on team_members for insert with check (
-  exists (
-    select 1 from team_members existing
-    where existing.team_id = team_members.team_id
-      and existing.user_email = auth.email()
-      and existing.role in ('owner', 'admin')
-  )
+  is_team_member_with_role(team_id, auth.email(), ARRAY['owner', 'admin'])
 );
 
 drop policy if exists "Team owner or admin can update roles." on team_members;
 create policy "Team owner or admin can update roles." on team_members for update using (
-  exists (
-    select 1 from team_members admin_check
-    where admin_check.team_id = team_members.team_id
-      and admin_check.user_email = auth.email()
-      and admin_check.role in ('owner', 'admin')
-  )
+  is_team_member_with_role(team_id, auth.email(), ARRAY['owner', 'admin'])
 );
 
 drop policy if exists "Team owner/admin or self can remove members." on team_members;
 create policy "Team owner/admin or self can remove members." on team_members for delete using (
   user_email = auth.email()
-  or exists (
-    select 1 from team_members admin_check
-    where admin_check.team_id = team_members.team_id
-      and admin_check.user_email = auth.email()
-      and admin_check.role in ('owner', 'admin')
-  )
+  or is_team_member_with_role(team_id, auth.email(), ARRAY['owner', 'admin'])
 );
 
--- ── Environments policies (references: team_members) ──
+-- ── Environments policies (references: team_members via helper) ──
 drop policy if exists "Users can view own environments." on environments;
 create policy "Users can view own environments." on environments for select using (
   auth.uid() = owner_id
-  or exists (
-    select 1 from team_members tm
-    where tm.team_id = environments.team_id and tm.user_email = auth.email()
-  )
+  or is_team_member(team_id, auth.email())
 );
 
 drop policy if exists "Users can insert own environments." on environments;
 create policy "Users can insert own environments." on environments for insert with check (
   auth.uid() = owner_id
-  or exists (
-    select 1 from team_members tm
-    where tm.team_id = team_id
-      and tm.user_email = auth.email()
-      and tm.role in ('owner', 'admin', 'editor')
-  )
+  or is_team_member_with_role(team_id, auth.email(), ARRAY['owner', 'admin', 'editor'])
 );
 
 drop policy if exists "Users can update own environments." on environments;
 create policy "Users can update own environments." on environments for update using (
   auth.uid() = owner_id
-  or exists (
-    select 1 from team_members tm
-    where tm.team_id = environments.team_id
-      and tm.user_email = auth.email()
-      and tm.role in ('owner', 'admin', 'editor')
-  )
+  or is_team_member_with_role(team_id, auth.email(), ARRAY['owner', 'admin', 'editor'])
 );
 
 drop policy if exists "Users can delete own environments." on environments;
 create policy "Users can delete own environments." on environments for delete using (
   auth.uid() = owner_id
-  or exists (
-    select 1 from team_members tm
-    where tm.team_id = environments.team_id
-      and tm.user_email = auth.email()
-      and tm.role in ('owner', 'admin')
-  )
+  or is_team_member_with_role(team_id, auth.email(), ARRAY['owner', 'admin'])
 );
 
 -- ── Usage logs policies (no cross-references) ──
