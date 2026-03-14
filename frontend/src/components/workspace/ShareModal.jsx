@@ -50,6 +50,14 @@ const ShareModal = ({ isOpen, onClose, collectionId, collectionName }) => {
             return;
         }
 
+        // Validate collection ID is a proper UUID (local demo collections use non-UUID IDs)
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!UUID_RE.test(collectionId)) {
+            setMessage({ type: 'error', text: 'Create a new collection to share it. The demo collection is local-only.' });
+            setLoading(false);
+            return;
+        }
+
         if (email === user?.email) {
             setMessage({ type: 'error', text: "You can't share with yourself." });
             setLoading(false);

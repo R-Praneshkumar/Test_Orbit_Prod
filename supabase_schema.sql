@@ -388,7 +388,10 @@ create policy "Team members can view co-members." on team_members for select usi
 
 drop policy if exists "Team owner or admin can invite members." on team_members;
 create policy "Team owner or admin can invite members." on team_members for insert with check (
-  is_team_member_with_role(team_id, auth.email(), ARRAY['owner', 'admin'])
+  -- Team table owner can always add members (needed for first member / team creator)
+  exists (select 1 from teams where id = team_id and owner_id = auth.uid())
+  -- Existing owner/admin members can invite others
+  or is_team_member_with_role(team_id, auth.email(), ARRAY['owner', 'admin'])
 );
 
 drop policy if exists "Team owner or admin can update roles." on team_members;
