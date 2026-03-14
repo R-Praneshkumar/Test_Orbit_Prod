@@ -93,6 +93,16 @@ function TeamPage() {
                 .single();
             if (error) throw error;
 
+            // Sync team plan with owner's subscription
+            const subscription = useWorkspaceStore.getState().subscription;
+            if (subscription?.plan === 'pro' || subscription?.plan === 'team') {
+                const maxMembers = subscription.plan === 'team' ? 999 : 5;
+                await supabase.from('teams').update({
+                    plan: subscription.plan,
+                    max_members: maxMembers,
+                }).eq('id', team.id);
+            }
+
             // Add creator as owner member
             const { error: memberErr } = await supabase
                 .from('team_members')

@@ -76,7 +76,7 @@ function ComparisonRow({ feature, testorbit, postman, highlight }) {
 const ALTERNATIVE_FEATURES = [
     { icon: Zap, title: 'Unlimited AI', desc: 'No credit limits on paid plans. Gemini Flash AI costs us ~$0.001/call — we pass the savings to you.' },
     { icon: Users, title: 'Free for teams of 3', desc: 'Postman locked free teams to 1 user. TestOrbit keeps teams of up to 3 free forever.' },
-    { icon: DollarSign, title: '2x cheaper', desc: 'Pro at ₹399/mo ($5). Team at ₹799/mo + ₹399/seat. A 5-person team pays $600/yr vs Postman\'s $1,140/yr.' },
+    { icon: DollarSign, title: '3x cheaper', desc: 'Pro at ₹399/mo (~$4). Team at ₹799/mo + ₹399/seat. A 5-person team pays ~$362/yr vs Postman\'s $1,140/yr.' },
     { icon: Clock, title: 'Loads in 2 seconds', desc: 'Web-first, zero install. No Electron bloat. Opens instantly in any browser.' },
     { icon: Shield, title: 'AI security scanning', desc: 'OWASP Top 10 vulnerability detection, auth bypass testing, injection fuzzing. Postman only does static rules.' },
     { icon: FlaskConical, title: 'AI test generation', desc: 'Generate boundary, negative, and contract tests from a single request. 50 free per day.' },
@@ -135,8 +135,8 @@ export function PostmanAlternativePage() {
                             <ComparisonRow feature="Free plan team size" testorbit="3 users" postman="1 user" highlight />
                             <ComparisonRow feature="AI calls (free)" testorbit="50/day" postman="50/month" highlight />
                             <ComparisonRow feature="AI calls (paid)" testorbit="Unlimited" postman="Metered credits" highlight />
-                            <ComparisonRow feature="Price (solo)" testorbit="₹399/mo ($5)" postman="$19/mo" />
-                            <ComparisonRow feature="Price (5-person team/yr)" testorbit="$600/yr" postman="$1,140/yr" highlight />
+                            <ComparisonRow feature="Price (solo)" testorbit="₹399/mo (~$4)" postman="$19/mo" />
+                            <ComparisonRow feature="Price (5-person team/yr)" testorbit="~$362/yr" postman="$1,140/yr" highlight />
                             <ComparisonRow feature="Install required" testorbit="No (web app)" postman="Electron app" />
                             <ComparisonRow feature="AI test generation" testorbit={true} postman={true} />
                             <ComparisonRow feature="AI security scanning" testorbit={true} postman={false} highlight />
@@ -166,8 +166,8 @@ const VS_SECTIONS = [
         icon: DollarSign,
         testorbit: [
             'Free for teams of up to 3 — forever',
-            'Pro: ₹399/mo ($5/mo) — unlimited AI',
-            'Team: ₹799/mo + ₹399/seat — role-based access',
+            'Pro: ₹399/mo (~$4/mo) — unlimited AI',
+            'Team: ₹799/mo + ₹399/seat (~$9 + $4/seat) — role-based access',
             'No hidden credit charges',
         ],
         postman: [

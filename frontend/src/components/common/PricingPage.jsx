@@ -5,21 +5,21 @@ import { API_BASE, authFetch } from '../../config';
 import { toast } from '../../utils/toast';
 
 const FEATURES = [
-    { name: 'Collections', free: 'Unlimited', pro: 'Unlimited', team: 'Unlimited' },
-    { name: 'Requests & Environments', free: 'Unlimited', pro: 'Unlimited', team: 'Unlimited' },
-    { name: 'Team Members', free: 'Up to 3', pro: '1 user', team: 'Up to 25' },
-    { name: 'WebSocket Tester', free: true, pro: true, team: true },
-    { name: 'Body Types (JSON, Form, File)', free: true, pro: true, team: true },
-    { name: 'Import from Postman', free: true, pro: true, team: true },
-    { name: 'Test Runner', free: 'Sequential', pro: 'Sequential + Parallel', team: 'Sequential + Parallel' },
+    { name: 'Collections & Requests', free: 'Unlimited', pro: 'Unlimited', team: 'Unlimited' },
+    { name: 'Environments', free: 'Unlimited', pro: 'Unlimited', team: 'Unlimited' },
+    { name: 'Team Members', free: 'Up to 3', pro: 'Up to 5', team: 'Unlimited' },
     { name: 'AI Chat / Diagnose / Suggest', free: '50/day', pro: 'Unlimited', team: 'Unlimited' },
     { name: 'AI Test Generation', free: '10/day', pro: 'Unlimited', team: 'Unlimited' },
     { name: 'AI Code Generation', free: '10/day', pro: 'Unlimited', team: 'Unlimited' },
-    { name: 'Export (JUnit XML, HTML)', free: 'Last run', pro: 'Full history', team: 'Full history' },
-    { name: 'Mock Server', free: '5 mocks', pro: 'Unlimited', team: 'Unlimited' },
-    { name: 'Collection Sharing', free: 'Link sharing', pro: 'Share links', team: 'Role-based' },
-    { name: 'Team Workspaces', free: false, pro: false, team: true },
-    { name: 'Priority Support', free: false, pro: true, team: 'SLA included' },
+    { name: 'AI Security Scanning', free: '3/day', pro: 'Unlimited', team: 'Unlimited' },
+    { name: 'Collection Sharing', free: '2 collaborators', pro: 'Unlimited', team: 'Unlimited' },
+    { name: 'WebSocket Tester', free: true, pro: true, team: true },
+    { name: 'Body Types (JSON, Form, File)', free: true, pro: true, team: true },
+    { name: 'Import from Postman', free: true, pro: true, team: true },
+    { name: 'Test Runner', free: true, pro: true, team: true },
+    { name: 'Mock Server', free: true, pro: true, team: true },
+    { name: 'Export (JUnit XML, HTML)', free: true, pro: true, team: true },
+    { name: 'Team Workspaces', free: true, pro: true, team: true },
 ];
 
 function FeatureCell({ value }) {
