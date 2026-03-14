@@ -237,7 +237,7 @@ export function AutocompleteInput({ value, onChange, className, placeholder, onK
     });
 
     return (
-        <div className="relative w-full h-full">
+        <div className="relative w-full h-full min-w-0">
             <input
                 ref={ref}
                 type="text"

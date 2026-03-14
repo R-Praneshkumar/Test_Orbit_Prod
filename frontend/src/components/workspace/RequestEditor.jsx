@@ -926,7 +926,7 @@ export const RequestEditor = ({ tabId }) => {
 
             {/* Top Bar: URL & Method */}
             <div className="h-14 border-b border-slate-200 dark:border-slate-700 flex items-center px-4 gap-3 bg-white dark:bg-slate-900 shadow-sm z-10">
-                <div className="flex-1 flex items-center border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800 focus-within:ring-2 focus-within:ring-corporate-500/20 focus-within:border-corporate-500 transition-all h-10">
+                <div className="flex-1 flex items-center border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800 focus-within:border-corporate-400 dark:focus-within:border-corporate-500 transition-all h-10 min-w-0">
 
                     <CustomMethodSelect
                         value={request.method}
