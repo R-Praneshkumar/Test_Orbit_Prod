@@ -174,16 +174,6 @@ async def create_subscription(req: CreateSubscriptionRequest, request: Request, 
             },
         })
 
-        # Pre-create a pending subscription record so webhook can find it
-        if user_id:
-            await _upsert_subscription(
-                user_id=user_id,
-                plan="pro",
-                status="pending",
-                razorpay_sub_id=subscription["id"],
-                razorpay_plan_id=plan_id,
-            )
-
         return {
             "subscription_id": subscription["id"],
             "short_url": subscription.get("short_url", ""),
@@ -195,6 +185,52 @@ async def create_subscription(req: CreateSubscriptionRequest, request: Request, 
     except Exception as e:
         logger.error(f"Razorpay create subscription failed: {e}")
         raise HTTPException(502, detail=f"Failed to create subscription: {str(e)}")
+
+
+@router.post("/confirm-subscription")
+async def confirm_subscription(request: Request, user: dict = Depends(verify_token)):
+    """Called by frontend after successful Razorpay checkout. Confirms and records the subscription."""
+    body = await request.json()
+    sub_id = body.get("subscription_id")
+    if not sub_id:
+        raise HTTPException(400, detail="subscription_id required")
+
+    client = _get_razorpay_client()
+    if not client:
+        raise HTTPException(503, detail="Razorpay not configured")
+
+    # Fetch subscription details directly from Razorpay API
+    try:
+        sub = client.subscription.fetch(sub_id)
+    except Exception as e:
+        logger.error(f"Razorpay fetch subscription failed: {e}")
+        raise HTTPException(502, detail=f"Failed to verify subscription: {e}")
+
+    # Verify the subscription is active/authenticated/created
+    rzp_status = sub.get("status", "")
+    if rzp_status not in ("active", "authenticated", "created"):
+        raise HTTPException(400, detail=f"Subscription status is '{rzp_status}', not active")
+
+    user_id = user.get("sub", "")
+    plan_id = sub.get("plan_id", "")
+    billing = "annual" if plan_id == settings.RAZORPAY_PLAN_PRO_ANNUAL_ID else "monthly"
+
+    # Write to Supabase — this is the primary record creation (not webhook)
+    if user_id:
+        await _upsert_subscription(
+            user_id=user_id,
+            plan="pro",
+            status="active",
+            razorpay_sub_id=sub_id,
+            razorpay_plan_id=plan_id,
+        )
+
+    return {
+        "plan": "pro",
+        "status": "active",
+        "billing": billing,
+        "subscription_id": sub_id,
+    }
 
 
 @router.get("/subscription-status")

@@ -120,18 +120,41 @@ export default function PricingPage() {
 
             // Open Razorpay Checkout
             if (window.Razorpay && data.razorpay_key_id) {
+                const subId = data.subscription_id;
                 const options = {
                     key: data.razorpay_key_id,
-                    subscription_id: data.subscription_id,
+                    subscription_id: subId,
                     name: 'TestOrbit',
                     description: data.plan_details?.name || 'Pro Plan',
                     handler: () => {
-                        toast.success('Subscription activated! Welcome to Pro.');
-                        useWorkspaceStore.getState().setSubscription({
-                            plan: 'pro',
-                            status: 'active',
-                            billing: annual ? 'annual' : 'monthly',
-                            subscription_id: data.subscription_id,
+                        // Confirm subscription with backend (writes to Supabase)
+                        authFetch(`${API_BASE}/razorpay/confirm-subscription`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ subscription_id: subId }),
+                        }).then(r => r.ok ? r.json() : null).then(confirmed => {
+                            if (confirmed) {
+                                toast.success('Subscription activated! Welcome to Pro.');
+                                useWorkspaceStore.getState().setSubscription({
+                                    plan: confirmed.plan,
+                                    status: confirmed.status,
+                                    billing: confirmed.billing,
+                                    subscription_id: confirmed.subscription_id,
+                                });
+                            } else {
+                                toast.success('Payment received! Activating Pro...');
+                                useWorkspaceStore.getState().setSubscription({
+                                    plan: 'pro', status: 'active',
+                                    billing: annual ? 'annual' : 'monthly',
+                                    subscription_id: subId,
+                                });
+                            }
+                        }).catch(() => {
+                            useWorkspaceStore.getState().setSubscription({
+                                plan: 'pro', status: 'active',
+                                billing: annual ? 'annual' : 'monthly',
+                                subscription_id: subId,
+                            });
                         });
                     },
                     theme: { color: '#7c3aed' },
