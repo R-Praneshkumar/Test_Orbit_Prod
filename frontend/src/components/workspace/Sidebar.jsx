@@ -222,16 +222,38 @@ const SidebarItem = ({ item, level = 0 }) => {
                     </span>
                 )}
 
-                {/* Settings gear for collections */}
+                {/* Quick action buttons for collections (visible on hover) */}
                 {item.type === 'collection' && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); openCollectionSettings(item.id); }}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-slate-400 dark:text-slate-500"
-                        title="Collection Settings"
-                        aria-label="Collection settings"
-                    >
-                        <Settings size={11} />
-                    </button>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+                        {flattenItems(item.items, 'request').length > 0 && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); openRunner(item.id); }}
+                                className="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-slate-400 dark:text-slate-500"
+                                title="Run Collection"
+                                aria-label="Run collection"
+                            >
+                                <Play size={10} />
+                            </button>
+                        )}
+                        {flattenItems(item.items, 'request').length > 0 && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); openTestDashboard(item.id); }}
+                                className="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-slate-400 dark:text-slate-500"
+                                title="Test Dashboard"
+                                aria-label="Test dashboard"
+                            >
+                                <FlaskConical size={10} />
+                            </button>
+                        )}
+                        <button
+                            onClick={(e) => { e.stopPropagation(); openCollectionSettings(item.id); }}
+                            className="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-slate-400 dark:text-slate-500"
+                            title="Collection Settings (base URL, auth, OpenAPI spec)"
+                            aria-label="Collection settings"
+                        >
+                            <Settings size={10} />
+                        </button>
+                    </div>
                 )}
 
                 {/* Context Menu Trigger */}

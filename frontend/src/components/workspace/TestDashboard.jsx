@@ -269,10 +269,24 @@ const SuitesTab = ({ collectionId, collection, folderId = null, scopedItems = nu
             {testSuites.length === 0 && !generating && (
                 <div className="text-center py-12">
                     <FlaskConical size={36} className="mx-auto mb-3 text-slate-200 dark:text-slate-700" strokeWidth={1} />
-                    <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">No test suites yet</p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-sm mx-auto">
-                        Use the generator above to create AI-powered test suites, or leave the prompt empty for comprehensive auto-generated tests.
+                    <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">No tests yet — let AI generate them</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 max-w-md mx-auto leading-relaxed">
+                        TestOrbit AI creates 20+ test assertions from your endpoints in seconds.
+                        It covers happy paths, edge cases, security checks, and performance tests.
+                        Click <strong>&quot;Generate with AI&quot;</strong> above to start — leave the prompt empty for comprehensive auto-generated tests.
                     </p>
+                    <button
+                        onClick={handleGenerate}
+                        disabled={generating}
+                        className="mt-4 text-xs font-semibold bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white px-5 py-2 rounded-lg inline-flex items-center gap-1.5 transition-all"
+                    >
+                        <Sparkles size={13} /> Generate Tests with AI
+                    </button>
+                    {!collection.openApiSpec && (
+                        <p className="text-[10px] text-sky-600 dark:text-sky-400 mt-3 max-w-sm mx-auto">
+                            Tip: Add an OpenAPI spec in Collection Settings for even smarter test generation.
+                        </p>
+                    )}
                 </div>
             )}
 

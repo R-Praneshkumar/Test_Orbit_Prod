@@ -4,6 +4,7 @@ import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
 import { API_BASE, authFetch } from '../../config';
 import { CurlImportModal } from './CurlImportModal';
 import { ImportCollectionModal } from './ImportCollectionModal';
+import { OnboardingChecklist } from '../common/OnboardingChecklist';
 
 const USAGE_COLORS = {
     purple: { bar: 'bg-sky-500', track: 'bg-sky-900/30 dark:bg-sky-900/40', warn: 'text-amber-400', full: 'text-red-400' },
@@ -553,6 +554,9 @@ export const Dashboard = () => {
                                 </div>
                             </div>
                         )}
+
+                        {/* Onboarding Checklist */}
+                        <OnboardingChecklist />
 
                         {/* Postman Migration Banner */}
                         {!migrationBannerDismissed && collections.length < 3 && (
