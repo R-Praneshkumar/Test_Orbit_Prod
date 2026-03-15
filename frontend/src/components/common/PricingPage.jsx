@@ -119,11 +119,6 @@ export default function PricingPage() {
                         // Official Razorpay verification: send payment_id + subscription_id + signature to backend
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => controller.abort(), 15000);
-                        const fallbackSub = {
-                            plan: 'pro', status: 'active',
-                            billing: annual ? 'annual' : 'monthly',
-                            subscription_id: response.razorpay_subscription_id || subId,
-                        };
                         authFetch(`${API_BASE}/razorpay/verify-payment`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -144,8 +139,7 @@ export default function PricingPage() {
                                     billing: verified.billing, subscription_id: verified.subscription_id,
                                 });
                             } else {
-                                toast.success('Payment received! Activating...');
-                                useWorkspaceStore.getState().setSubscription(fallbackSub);
+                                toast.error('Payment verification failed. Please refresh the page. If you were charged, your Pro access will activate via webhook.');
                             }
                         }).catch(() => {
                             clearTimeout(timeoutId);
