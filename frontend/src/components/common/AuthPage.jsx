@@ -113,8 +113,8 @@ const AuthPage = () => {
             {/* Left Panel — Branding */}
             <div className="hidden md:flex md:w-[55%] bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 relative overflow-hidden">
                 {/* Decorative circles */}
-                <div className="absolute top-20 -left-20 w-80 h-80 bg-corporate-500/10 rounded-full blur-3xl" />
-                <div className="absolute bottom-20 right-10 w-60 h-60 bg-corporate-400/10 rounded-full blur-3xl" />
+                <div className="absolute top-20 -left-20 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
+                <div className="absolute bottom-20 right-10 w-60 h-60 bg-white/5 rounded-full blur-3xl" />
                 <div className="absolute top-1/2 left-1/3 w-40 h-40 bg-white/5 rounded-full blur-2xl" />
 
                 <div className="relative z-10 flex flex-col justify-center px-12 lg:px-16 py-12 w-full">
@@ -246,7 +246,7 @@ const AuthPage = () => {
                                         type="text"
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
-                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500/40 focus:border-corporate-500 dark:focus:border-corporate-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-slate-400/40 focus:border-slate-500 dark:focus:border-slate-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
                                         placeholder="John Doe"
                                     />
                                 </div>
@@ -262,7 +262,7 @@ const AuthPage = () => {
                                     required
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500/40 focus:border-corporate-500 dark:focus:border-corporate-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                                    className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-slate-400/40 focus:border-slate-500 dark:focus:border-slate-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
                                     placeholder="you@example.com"
                                 />
                             </div>
@@ -276,7 +276,7 @@ const AuthPage = () => {
                                         <button
                                             type="button"
                                             onClick={() => { setMode('reset'); setError(null); setSuccess(null); }}
-                                            className="text-[11px] text-corporate-600 dark:text-corporate-400 hover:underline"
+                                            className="text-[11px] text-slate-700 dark:text-slate-300 hover:underline"
                                         >
                                             Forgot password?
                                         </button>
@@ -289,7 +289,7 @@ const AuthPage = () => {
                                         required
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500/40 focus:border-corporate-500 dark:focus:border-corporate-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-slate-400/40 focus:border-slate-500 dark:focus:border-slate-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
                                         placeholder="Min. 6 characters"
                                         minLength={6}
                                     />
@@ -300,7 +300,7 @@ const AuthPage = () => {
                         <button
                             type="submit"
                             disabled={loading || !supabase}
-                            className="w-full py-2.5 bg-corporate-600 hover:bg-corporate-700 text-white rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm mt-1"
+                            className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm mt-1"
                         >
                             {loading ? (
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -320,7 +320,7 @@ const AuthPage = () => {
                                 Remember your password?{' '}
                                 <button
                                     onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
-                                    className="text-corporate-600 dark:text-corporate-400 font-medium hover:underline"
+                                    className="text-slate-700 dark:text-slate-300 font-medium hover:underline"
                                 >
                                     Sign in
                                 </button>
@@ -330,7 +330,7 @@ const AuthPage = () => {
                                 Don&apos;t have an account?{' '}
                                 <button
                                     onClick={() => { setMode('signup'); setError(null); setSuccess(null); }}
-                                    className="text-corporate-600 dark:text-corporate-400 font-medium hover:underline"
+                                    className="text-slate-700 dark:text-slate-300 font-medium hover:underline"
                                 >
                                     Sign up
                                 </button>
@@ -340,7 +340,7 @@ const AuthPage = () => {
                                 Already have an account?{' '}
                                 <button
                                     onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
-                                    className="text-corporate-600 dark:text-corporate-400 font-medium hover:underline"
+                                    className="text-slate-700 dark:text-slate-300 font-medium hover:underline"
                                 >
                                     Sign in
                                 </button>

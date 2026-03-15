@@ -40,7 +40,7 @@ const UserMenu = () => {
         return (
             <button
                 onClick={() => setCurrentView('login')}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-corporate-600 hover:bg-corporate-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm"
             >
                 Sign In
             </button>
@@ -70,7 +70,7 @@ const UserMenu = () => {
                 {avatarUrl ? (
                     <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
                 ) : (
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-corporate-500 to-corporate-700 flex items-center justify-center text-white text-xs font-bold">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white text-xs font-bold">
                         {initial}
                     </div>
                 )}
@@ -130,7 +130,7 @@ const UserMenu = () => {
                         )}
                         <button
                             onClick={() => { setOpen(false); setCurrentView('pricing'); }}
-                            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-corporate-600 dark:text-corporate-400 hover:bg-corporate-50 dark:hover:bg-corporate-900/10 transition-colors"
+                            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                         >
                             <Sparkles size={15} />
                             {subscription?.plan === 'free' ? 'Upgrade to Pro' : 'Manage Subscription'}

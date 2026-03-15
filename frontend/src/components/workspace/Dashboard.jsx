@@ -353,7 +353,7 @@ function PostmanMigrationBanner({ onImport, onDismiss }) {
                     <div className="flex flex-wrap items-center gap-3">
                         <button
                             onClick={onImport}
-                            className="flex items-center gap-2 px-4 py-2 bg-corporate-600 hover:bg-corporate-700 text-white text-xs font-semibold rounded-lg transition-colors active:scale-95"
+                            className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors active:scale-95"
                         >
                             <Upload size={13} />
                             Import Postman Collection
@@ -585,7 +585,7 @@ export const Dashboard = () => {
                                     <button
                                         onClick={handleNewCollSubmit}
                                         disabled={!newCollName.trim()}
-                                        className="px-3 py-2 bg-corporate-600 hover:bg-corporate-700 disabled:bg-slate-300 dark:disabled:bg-slate-600 text-white text-sm font-semibold rounded-lg transition-colors"
+                                        className="px-3 py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 dark:disabled:bg-slate-600 text-white text-sm font-semibold rounded-lg transition-colors"
                                     >
                                         Create
                                     </button>
@@ -599,7 +599,7 @@ export const Dashboard = () => {
                             ) : (
                                 <button
                                     onClick={handleNewCollection}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-corporate-600 hover:bg-corporate-700 text-white text-sm font-semibold rounded-lg shadow-md shadow-black/20 transition-all active:scale-95"
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg shadow-md shadow-black/20 transition-all active:scale-95"
                                 >
                                     <Plus size={16} />
                                     New Collection

@@ -146,7 +146,7 @@ export default function PricingPage() {
                             toast.error('Could not verify payment. Please refresh the page. If you were charged, your Pro access will activate automatically.');
                         });
                     },
-                    theme: { color: '#2563EB' },
+                    theme: { color: '#1e293b' },
                 };
                 const rzp = new window.Razorpay(options);
                 rzp.open();
@@ -241,7 +241,7 @@ export default function PricingPage() {
                         <span className={`text-xs font-medium ${!annual ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}>Monthly</span>
                         <button
                             onClick={() => setAnnual(!annual)}
-                            className={`relative w-10 h-5 rounded-full transition-colors ${annual ? 'bg-corporate-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                            className={`relative w-10 h-5 rounded-full transition-colors ${annual ? 'bg-slate-900' : 'bg-slate-300 dark:bg-slate-600'}`}
                         >
                             <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${annual ? 'translate-x-5' : 'translate-x-0.5'}`} />
                         </button>
@@ -283,12 +283,12 @@ export default function PricingPage() {
                     </div>
 
                     {/* Pro */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border-2 border-corporate-500 dark:border-corporate-600 p-6 relative shadow-lg shadow-corporate-100 dark:shadow-corporate-950/30">
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-corporate-600 text-white text-[10px] font-bold px-3 py-1 rounded-full">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border-2 border-slate-900 dark:border-slate-400 p-6 relative shadow-lg shadow-slate-200 dark:shadow-slate-900/50">
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-3 py-1 rounded-full">
                             MOST POPULAR
                         </div>
                         <div className="flex items-center gap-2 mb-4">
-                            <Sparkles size={18} className="text-corporate-500" />
+                            <Sparkles size={18} className="text-slate-700 dark:text-slate-300" />
                             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Pro</h2>
                         </div>
                         <div className="mb-4">
@@ -304,7 +304,7 @@ export default function PricingPage() {
                             onClick={canSwitchToAnnual ? handleSwitchToAnnual : () => handleUpgrade('pro')}
                             className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors ${canSwitchToAnnual
                                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                : 'bg-corporate-600 hover:bg-corporate-700 text-white disabled:opacity-50'
+                                : 'bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-50'
                             }`}
                         >
                             {getProButtonText()}
@@ -319,13 +319,13 @@ export default function PricingPage() {
                             </button>
                         )}
                         <ul className="mt-6 space-y-2.5">
-                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-corporate-500 shrink-0" /> Everything in Free</li>
-                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Sparkles size={12} className="text-corporate-500 shrink-0" /> <strong>Unlimited</strong> AI calls</li>
-                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Sparkles size={12} className="text-corporate-500 shrink-0" /> <strong>Unlimited</strong> test & code gen</li>
-                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-corporate-500 shrink-0" /> Parallel test runner</li>
-                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-corporate-500 shrink-0" /> Unlimited mocks & export</li>
-                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-corporate-500 shrink-0" /> Collection sharing</li>
-                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-corporate-500 shrink-0" /> Priority support</li>
+                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-slate-700 dark:text-slate-300 shrink-0" /> Everything in Free</li>
+                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Sparkles size={12} className="text-slate-700 dark:text-slate-300 shrink-0" /> <strong>Unlimited</strong> AI calls</li>
+                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Sparkles size={12} className="text-slate-700 dark:text-slate-300 shrink-0" /> <strong>Unlimited</strong> test & code gen</li>
+                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-slate-700 dark:text-slate-300 shrink-0" /> Parallel test runner</li>
+                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-slate-700 dark:text-slate-300 shrink-0" /> Unlimited mocks & export</li>
+                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-slate-700 dark:text-slate-300 shrink-0" /> Collection sharing</li>
+                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-slate-700 dark:text-slate-300 shrink-0" /> Priority support</li>
                         </ul>
                     </div>
 
@@ -367,7 +367,7 @@ export default function PricingPage() {
                             <tr className="border-b border-slate-100 dark:border-slate-800">
                                 <th className="text-left px-6 py-3 font-medium text-slate-500 dark:text-slate-400">Feature</th>
                                 <th className="text-center px-4 py-3 font-medium text-slate-500 dark:text-slate-400 w-28">Free</th>
-                                <th className="text-center px-4 py-3 font-medium text-corporate-600 dark:text-corporate-400 w-28">Pro</th>
+                                <th className="text-center px-4 py-3 font-medium text-slate-700 dark:text-slate-300 w-28">Pro</th>
                                 <th className="text-center px-4 py-3 font-medium text-blue-600 dark:text-blue-400 w-28">Team</th>
                             </tr>
                         </thead>
