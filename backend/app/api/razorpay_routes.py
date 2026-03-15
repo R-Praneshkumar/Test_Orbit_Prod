@@ -147,6 +147,16 @@ def _extract_user_from_notes(entity: dict) -> str | None:
     return notes.get("user_id")
 
 
+def _plan_from_razorpay_id(plan_id: str) -> str:
+    """Determine our plan name from a Razorpay plan_id. Future-proof for Team plan."""
+    if plan_id in (settings.RAZORPAY_PLAN_PRO_ID, settings.RAZORPAY_PLAN_PRO_ANNUAL_ID):
+        return "pro"
+    # Future: when Team plan is added to Razorpay, add its ID here
+    # if plan_id == settings.RAZORPAY_PLAN_TEAM_ID:
+    #     return "team"
+    return "pro"  # Default for unknown plan IDs
+
+
 # ── Routes ──────────────────────────────────────────────────────
 
 @router.post("/create-subscription")
@@ -332,26 +342,38 @@ async def razorpay_webhook(request: Request):
     logger.info("Razorpay webhook: %s (sub=%s, user=%s)", event, razorpay_sub_id, user_id or "unknown")
 
     # Update subscription state in Supabase
+    # Derive plan name from Razorpay plan_id (future-proof for Team plan)
+    webhook_plan_id = entity.get("plan_id", "")
+    webhook_plan = _plan_from_razorpay_id(webhook_plan_id)
+
     if user_id:
         if event == "subscription.activated":
             await _upsert_subscription(
-                user_id=user_id, plan="pro", status="active",
+                user_id=user_id, plan=webhook_plan, status="active",
                 razorpay_sub_id=razorpay_sub_id,
+                razorpay_plan_id=webhook_plan_id,
                 period_start=entity.get("current_start") and datetime.fromtimestamp(entity["current_start"], tz=timezone.utc).isoformat(),
                 period_end=entity.get("current_end") and datetime.fromtimestamp(entity["current_end"], tz=timezone.utc).isoformat(),
             )
-            logger.info("Subscription activated for user %s", user_id)
+            logger.info("Subscription activated (%s) for user %s", webhook_plan, user_id)
         elif event == "subscription.charged":
             await _upsert_subscription(
-                user_id=user_id, plan="pro", status="active",
+                user_id=user_id, plan=webhook_plan, status="active",
                 razorpay_sub_id=razorpay_sub_id,
+                razorpay_plan_id=webhook_plan_id,
                 period_start=entity.get("current_start") and datetime.fromtimestamp(entity["current_start"], tz=timezone.utc).isoformat(),
                 period_end=entity.get("current_end") and datetime.fromtimestamp(entity["current_end"], tz=timezone.utc).isoformat(),
             )
-            logger.info("Subscription charged for user %s", user_id)
+            logger.info("Subscription charged (%s) for user %s", webhook_plan, user_id)
         elif event == "subscription.cancelled":
-            await _upsert_subscription(user_id=user_id, plan="free", status="cancelled", razorpay_sub_id=razorpay_sub_id)
-            logger.info("Subscription cancelled for user %s", user_id)
+            # Keep plan active — user retains access until current_period_end
+            # _get_user_plan() in routes.py checks period_end and downgrades when expired
+            await _upsert_subscription(
+                user_id=user_id, plan=webhook_plan, status="cancelled",
+                razorpay_sub_id=razorpay_sub_id,
+                period_end=entity.get("current_end") and datetime.fromtimestamp(entity["current_end"], tz=timezone.utc).isoformat(),
+            )
+            logger.info("Subscription cancelled (access until period end) for user %s", user_id)
         elif event == "subscription.paused":
             await _upsert_subscription(user_id=user_id, plan="free", status="paused", razorpay_sub_id=razorpay_sub_id)
             logger.info("Subscription paused (downgraded to free) for user %s", user_id)

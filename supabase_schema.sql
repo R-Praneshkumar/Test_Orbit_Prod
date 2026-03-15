@@ -299,7 +299,26 @@ create trigger guard_owner_role
   before update on team_members
   for each row execute function prevent_owner_role_change();
 
--- 3e. Auto-create profile on signup
+-- 3e. Prevent users from changing team plan/max_members (only service_role can)
+drop trigger if exists guard_team_plan on teams;
+
+create or replace function prevent_team_plan_change()
+returns trigger as $$
+begin
+  if OLD.plan is distinct from NEW.plan or OLD.max_members is distinct from NEW.max_members then
+    if coalesce(current_setting('request.jwt.claim.role', true), '') != 'service_role' then
+      raise exception 'Only the system can change team plan and member limits';
+    end if;
+  end if;
+  return NEW;
+end;
+$$ language plpgsql security definer;
+
+create trigger guard_team_plan
+  before update on teams
+  for each row execute function prevent_team_plan_change();
+
+-- 3f. Auto-create profile on signup
 drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists public.handle_new_user;
 
