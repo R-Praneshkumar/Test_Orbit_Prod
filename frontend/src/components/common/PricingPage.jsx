@@ -71,7 +71,8 @@ export default function PricingPage() {
 
     const handleCancel = async () => {
         if (!subscription?.subscription_id) {
-            toast.error('No active subscription to cancel');
+            toast.error('No subscription ID found. Try upgrading again from the free plan.');
+            useWorkspaceStore.getState().setSubscription({ plan: 'free', status: 'inactive', billing: null, subscription_id: null });
             return;
         }
         setCancelling(true);
@@ -170,19 +171,17 @@ export default function PricingPage() {
     const canSwitchToAnnual = isProMonthly && annual;
 
     const handleSwitchToAnnual = async () => {
-        if (!subscription?.subscription_id) {
-            toast.error('No active subscription found');
-            return;
-        }
         setLoading('pro');
         try {
-            // Step 1: Cancel current monthly
-            await authFetch(`${API_BASE}/razorpay/cancel`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ subscription_id: subscription.subscription_id }),
-            });
-            // Step 2: Create annual subscription
+            // Cancel current monthly if we have the subscription ID
+            if (subscription?.subscription_id) {
+                await authFetch(`${API_BASE}/razorpay/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subscription_id: subscription.subscription_id }),
+                });
+            }
+            // Create annual subscription (toggle is already set to annual)
             await handleUpgrade('pro');
         } catch {
             toast.error('Failed to switch plan');

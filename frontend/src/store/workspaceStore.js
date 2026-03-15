@@ -1083,17 +1083,16 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             const res = await authFetch(`${API_BASE}/razorpay/subscription-status`);
             if (res.ok) {
                 const data = await res.json();
-                if (data.plan && data.plan !== 'free') {
-                    set({ subscription: {
-                        plan: data.plan,
-                        status: data.status,
-                        billing: data.billing || null,
-                        subscription_id: data.subscription_id || null,
-                    }});
-                }
+                // Always update from backend — it's the source of truth
+                set({ subscription: {
+                    plan: data.plan || 'free',
+                    status: data.status || 'active',
+                    billing: data.billing || null,
+                    subscription_id: data.subscription_id || null,
+                }});
             }
         } catch {
-            // Silently fail
+            // Silently fail — keep existing state
         }
     },
 
