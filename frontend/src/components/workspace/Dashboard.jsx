@@ -529,8 +529,8 @@ export const Dashboard = () => {
                             </p>
                         </div>
 
-                        {/* Usage Stats */}
-                        {usage && usage.limits.ai_calls > 0 && (
+                        {/* Usage Stats — hidden for Pro/Team (limits = -1 or frontend knows plan is pro) */}
+                        {usage && usage.limits.ai_calls > 0 && subscription?.plan === 'free' && (
                             <div className="mb-8 bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-5">
                                 <div className="flex items-center justify-between mb-3">
                                     <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Today&apos;s Usage</h2>
