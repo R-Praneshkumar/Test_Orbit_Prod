@@ -70,7 +70,7 @@ const UserMenu = () => {
                 {avatarUrl ? (
                     <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
                 ) : (
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white text-xs font-bold">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold">
                         {initial}
                     </div>
                 )}

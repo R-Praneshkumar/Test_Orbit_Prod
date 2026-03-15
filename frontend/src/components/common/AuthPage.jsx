@@ -113,8 +113,8 @@ const AuthPage = () => {
             {/* Left Panel — Branding */}
             <div className="hidden md:flex md:w-[55%] bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 relative overflow-hidden">
                 {/* Decorative circles */}
-                <div className="absolute top-20 -left-20 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
-                <div className="absolute bottom-20 right-10 w-60 h-60 bg-white/5 rounded-full blur-3xl" />
+                <div className="absolute top-20 -left-20 w-80 h-80 bg-sky-500/10 rounded-full blur-3xl" />
+                <div className="absolute bottom-20 right-10 w-60 h-60 bg-blue-500/10 rounded-full blur-3xl" />
                 <div className="absolute top-1/2 left-1/3 w-40 h-40 bg-white/5 rounded-full blur-2xl" />
 
                 <div className="relative z-10 flex flex-col justify-center px-12 lg:px-16 py-12 w-full">
@@ -162,7 +162,7 @@ const AuthPage = () => {
                 <div className="w-full max-w-sm">
                     {/* Mobile logo (hidden on md+) */}
                     <div className="flex items-center gap-2.5 mb-8 md:hidden">
-                        <div className="w-9 h-9 bg-gradient-to-br from-purple-500 to-purple-700 rounded-lg flex items-center justify-center">
+                        <div className="w-9 h-9 bg-gradient-to-br from-sky-400 to-blue-600 rounded-lg flex items-center justify-center">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <circle cx="12" cy="12" r="3" fill="white" />
                                 <circle cx="12" cy="12" r="8" stroke="white" strokeWidth="1.5" fill="none" opacity="0.6" />

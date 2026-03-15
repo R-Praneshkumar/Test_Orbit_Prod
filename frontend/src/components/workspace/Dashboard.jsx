@@ -6,7 +6,7 @@ import { CurlImportModal } from './CurlImportModal';
 import { ImportCollectionModal } from './ImportCollectionModal';
 
 const USAGE_COLORS = {
-    purple: { bar: 'bg-purple-500', track: 'bg-purple-900/30 dark:bg-purple-900/40', warn: 'text-amber-400', full: 'text-red-400' },
+    purple: { bar: 'bg-sky-500', track: 'bg-sky-900/30 dark:bg-sky-900/40', warn: 'text-amber-400', full: 'text-red-400' },
     blue: { bar: 'bg-blue-500', track: 'bg-blue-900/30 dark:bg-blue-900/40', warn: 'text-amber-400', full: 'text-red-400' },
     emerald: { bar: 'bg-emerald-500', track: 'bg-emerald-900/30 dark:bg-emerald-900/40', warn: 'text-amber-400', full: 'text-red-400' },
 };
@@ -42,8 +42,8 @@ const CAPABILITIES = [
         icon: MessageSquare,
         title: 'AI Chat',
         desc: 'Ask AI anything about your API \u2014 debug errors, explain responses, suggest improvements.',
-        color: 'text-purple-400',
-        bg: 'bg-purple-900/20 dark:bg-purple-900/30 border-purple-800/50 dark:border-purple-800',
+        color: 'text-sky-400',
+        bg: 'bg-sky-900/20 dark:bg-sky-900/30 border-sky-800/50 dark:border-sky-800',
     },
     {
         icon: FlaskConical,
@@ -71,8 +71,8 @@ const CAPABILITIES = [
 function HeroBanner({ onSignUp, onLoadDemo, onImport, onCompare, onMigrate, onAlternative }) {
     return (
         <div className="relative bg-gradient-to-b from-slate-800 via-slate-850 to-slate-900 dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
-            {/* Subtle radial purple glow */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(124,58,237,0.10),transparent_60%)] pointer-events-none" />
+            {/* Subtle radial sky-blue glow */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(56,189,248,0.10),transparent_60%)] pointer-events-none" />
 
             <div className="relative z-10 max-w-5xl mx-auto px-8 py-14 sm:py-16 flex flex-col lg:flex-row items-center gap-12">
 
@@ -83,7 +83,7 @@ function HeroBanner({ onSignUp, onLoadDemo, onImport, onCompare, onMigrate, onAl
                     </div>
                     <h1 className="text-3xl sm:text-4xl font-bold text-white leading-tight mb-4">
                         AI-powered API testing.<br />
-                        <span className="text-purple-400">Free for teams.</span><br />
+                        <span className="text-sky-400">Free for teams.</span><br />
                         No credit limits.
                     </h1>
                     <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6 max-w-md">
@@ -172,7 +172,7 @@ function HeroBanner({ onSignUp, onLoadDemo, onImport, onCompare, onMigrate, onAl
                             <div className="flex gap-2"><span className="text-yellow-400">✓</span><span className="text-slate-300">rejects duplicate email</span></div>
                             <div className="flex gap-2"><span className="text-yellow-400">✓</span><span className="text-slate-300">validates required fields</span></div>
                             <div className="text-slate-700">──────────────────────────</div>
-                            <div className="text-purple-400 font-semibold">+ 16 more tests generated</div>
+                            <div className="text-sky-400 font-semibold">+ 16 more tests generated</div>
                             <div className="text-slate-500 text-[10px]">Completed in 2.3s</div>
                         </div>
                     </div>
@@ -537,14 +537,14 @@ export const Dashboard = () => {
                                     {subscription?.plan === 'free' && (
                                         <button
                                             onClick={() => setCurrentView('pricing')}
-                                            className="text-[10px] font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
+                                            className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
                                         >
                                             Upgrade for Unlimited
                                         </button>
                                     )}
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <UsageBar icon={<Sparkles size={13} className="text-purple-500" />} label="AI Calls" used={usage.ai_calls} limit={usage.limits.ai_calls} color="purple" />
+                                    <UsageBar icon={<Sparkles size={13} className="text-sky-500" />} label="AI Calls" used={usage.ai_calls} limit={usage.limits.ai_calls} color="purple" />
                                     <UsageBar icon={<FlaskRound size={13} className="text-blue-500" />} label="Test Gen" used={usage.test_gen} limit={usage.limits.test_gen} color="blue" />
                                     <UsageBar icon={<Code size={13} className="text-emerald-500" />} label="Code Gen" used={usage.code_gen} limit={usage.limits.code_gen} color="emerald" />
                                     {usage.limits.security_scan > 0 && (
