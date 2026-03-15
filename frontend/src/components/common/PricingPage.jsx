@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Check, X, Sparkles, Zap, Users, ArrowLeft, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Check, X, Sparkles, Zap, Users, ArrowLeft } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { API_BASE, authFetch } from '../../config';
 import { toast } from '../../utils/toast';
@@ -34,7 +34,6 @@ export default function PricingPage() {
     const [cancelling, setCancelling] = useState(false);
     const setCurrentView = useWorkspaceStore(s => s.setCurrentView);
     const subscription = useWorkspaceStore(s => s.subscription);
-    const user = useWorkspaceStore(s => s.user);
 
     // Load Razorpay checkout script on demand (only on this page)
     useEffect(() => {
@@ -47,28 +46,8 @@ export default function PricingPage() {
         }
     }, []);
 
-    // Fetch subscription status on mount (for logged-in users)
-    const fetchSubStatus = useCallback(async () => {
-        if (!user) return;
-        try {
-            const res = await authFetch(`${API_BASE}/razorpay/subscription-status`);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.plan && data.plan !== 'free') {
-                    useWorkspaceStore.getState().setSubscription({
-                        plan: data.plan,
-                        status: data.status,
-                        billing: data.billing || null,
-                        subscription_id: data.subscription_id || null,
-                    });
-                }
-            }
-        } catch {
-            // Silently fail — subscription status is optional
-        }
-    }, [user]);
-
-    useEffect(() => { fetchSubStatus(); }, [fetchSubStatus]);
+    // Subscription status is fetched by workspaceStore.fetchSubscriptionStatus() on login.
+    // No need to re-fetch here — just use the store value.
 
     const handleCancel = async () => {
         if (!subscription?.subscription_id) {
@@ -89,7 +68,7 @@ export default function PricingPage() {
                 return;
             }
             toast.success('Subscription cancelled successfully');
-            useWorkspaceStore.getState().setSubscription({ plan: 'free', status: 'cancelled' });
+            useWorkspaceStore.getState().setSubscription({ plan: 'free', status: 'cancelled', billing: null, subscription_id: null });
         } catch {
             toast.error('Failed to cancel subscription');
         } finally {
@@ -295,7 +274,7 @@ export default function PricingPage() {
                             <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> 50 AI calls/day</li>
                             <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> 10 test generations/day</li>
                             <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> Import from Postman</li>
-                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> 5 mock endpoints</li>
+                            <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"><Check size={12} className="text-emerald-500 shrink-0" /> Mock Server</li>
                         </ul>
                     </div>
 

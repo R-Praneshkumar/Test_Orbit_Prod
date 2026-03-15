@@ -103,6 +103,7 @@ async def _upsert_subscription(user_id: str, plan: str, status: str, razorpay_su
 
     return await _supabase_query(
         "POST", "subscriptions", body=body,
+        params={"on_conflict": "user_id"},
         prefer="resolution=merge-duplicates,return=minimal",
     )
 
