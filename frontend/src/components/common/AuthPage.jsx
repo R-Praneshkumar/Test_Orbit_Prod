@@ -111,10 +111,10 @@ const AuthPage = () => {
     return (
         <div className="flex-1 flex min-h-0 overflow-auto">
             {/* Left Panel — Branding */}
-            <div className="hidden md:flex md:w-[55%] bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 relative overflow-hidden">
+            <div className="hidden md:flex md:w-[55%] bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 relative overflow-hidden">
                 {/* Decorative circles */}
-                <div className="absolute top-20 -left-20 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl" />
-                <div className="absolute bottom-20 right-10 w-60 h-60 bg-indigo-400/20 rounded-full blur-3xl" />
+                <div className="absolute top-20 -left-20 w-80 h-80 bg-corporate-500/10 rounded-full blur-3xl" />
+                <div className="absolute bottom-20 right-10 w-60 h-60 bg-corporate-400/10 rounded-full blur-3xl" />
                 <div className="absolute top-1/2 left-1/3 w-40 h-40 bg-white/5 rounded-full blur-2xl" />
 
                 <div className="relative z-10 flex flex-col justify-center px-12 lg:px-16 py-12 w-full">
@@ -129,7 +129,7 @@ const AuthPage = () => {
                         </div>
                         <div>
                             <h1 className="text-xl font-bold text-white tracking-tight">TestOrbit</h1>
-                            <p className="text-xs text-purple-200">AI-Native API Testing</p>
+                            <p className="text-xs text-slate-300">AI-Native API Testing</p>
                         </div>
                     </div>
 
@@ -138,7 +138,7 @@ const AuthPage = () => {
                         Test APIs smarter,<br />
                         not harder.
                     </h2>
-                    <p className="text-purple-200 text-base mb-10 max-w-md leading-relaxed">
+                    <p className="text-slate-300 text-base mb-10 max-w-md leading-relaxed">
                         Powered by Google Gemini AI. Generate tests from natural language,
                         diagnose failures instantly, and ship with confidence.
                     </p>
@@ -148,9 +148,9 @@ const AuthPage = () => {
                         {features.map((f, i) => (
                             <div key={i} className="flex items-center gap-3">
                                 <div className="w-9 h-9 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
-                                    <f.icon size={17} className="text-purple-100" />
+                                    <f.icon size={17} className="text-slate-200" />
                                 </div>
-                                <span className="text-sm text-purple-100">{f.text}</span>
+                                <span className="text-sm text-slate-200">{f.text}</span>
                             </div>
                         ))}
                     </div>
@@ -246,7 +246,7 @@ const AuthPage = () => {
                                         type="text"
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
-                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500 dark:focus:border-purple-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500/40 focus:border-corporate-500 dark:focus:border-corporate-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
                                         placeholder="John Doe"
                                     />
                                 </div>
@@ -262,7 +262,7 @@ const AuthPage = () => {
                                     required
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500 dark:focus:border-purple-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                                    className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500/40 focus:border-corporate-500 dark:focus:border-corporate-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
                                     placeholder="you@example.com"
                                 />
                             </div>
@@ -276,7 +276,7 @@ const AuthPage = () => {
                                         <button
                                             type="button"
                                             onClick={() => { setMode('reset'); setError(null); setSuccess(null); }}
-                                            className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline"
+                                            className="text-[11px] text-corporate-600 dark:text-corporate-400 hover:underline"
                                         >
                                             Forgot password?
                                         </button>
@@ -289,7 +289,7 @@ const AuthPage = () => {
                                         required
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500 dark:focus:border-purple-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500/40 focus:border-corporate-500 dark:focus:border-corporate-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
                                         placeholder="Min. 6 characters"
                                         minLength={6}
                                     />
@@ -300,7 +300,7 @@ const AuthPage = () => {
                         <button
                             type="submit"
                             disabled={loading || !supabase}
-                            className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm mt-1"
+                            className="w-full py-2.5 bg-corporate-600 hover:bg-corporate-700 text-white rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm mt-1"
                         >
                             {loading ? (
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -320,7 +320,7 @@ const AuthPage = () => {
                                 Remember your password?{' '}
                                 <button
                                     onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
-                                    className="text-purple-600 dark:text-purple-400 font-medium hover:underline"
+                                    className="text-corporate-600 dark:text-corporate-400 font-medium hover:underline"
                                 >
                                     Sign in
                                 </button>
@@ -330,7 +330,7 @@ const AuthPage = () => {
                                 Don&apos;t have an account?{' '}
                                 <button
                                     onClick={() => { setMode('signup'); setError(null); setSuccess(null); }}
-                                    className="text-purple-600 dark:text-purple-400 font-medium hover:underline"
+                                    className="text-corporate-600 dark:text-corporate-400 font-medium hover:underline"
                                 >
                                     Sign up
                                 </button>
@@ -340,7 +340,7 @@ const AuthPage = () => {
                                 Already have an account?{' '}
                                 <button
                                     onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
-                                    className="text-purple-600 dark:text-purple-400 font-medium hover:underline"
+                                    className="text-corporate-600 dark:text-corporate-400 font-medium hover:underline"
                                 >
                                     Sign in
                                 </button>
