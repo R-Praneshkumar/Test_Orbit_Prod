@@ -162,6 +162,12 @@ async def create_subscription(req: CreateSubscriptionRequest, request: Request, 
     plan_info = PLAN_DETAILS.get(req.plan, {})
     user_id = user.get("sub", "")
 
+    # Prevent duplicate subscriptions
+    if user_id:
+        existing = await _get_user_plan(user_id)
+        if existing.get("plan") == "pro" and existing.get("status") == "active":
+            raise HTTPException(409, detail="You already have an active Pro subscription. Cancel it first to create a new one.")
+
     try:
         subscription = client.subscription.create({
             "plan_id": plan_id,
@@ -217,13 +223,16 @@ async def confirm_subscription(request: Request, user: dict = Depends(verify_tok
 
     # Write to Supabase — this is the primary record creation (not webhook)
     if user_id:
-        await _upsert_subscription(
+        result = await _upsert_subscription(
             user_id=user_id,
             plan="pro",
             status="active",
             razorpay_sub_id=sub_id,
             razorpay_plan_id=plan_id,
         )
+        if result is None:
+            logger.error("Failed to write subscription to Supabase for user %s (sub=%s)", user_id, sub_id)
+            raise HTTPException(502, detail="Payment confirmed but failed to save subscription. Please contact support or try refreshing.")
 
     return {
         "plan": "pro",
@@ -250,6 +259,13 @@ async def cancel_subscription(req: CancelSubscriptionRequest, request: Request, 
     client = _get_razorpay_client()
     if not client:
         raise HTTPException(503, detail="Razorpay not configured.")
+
+    # Verify user owns this subscription
+    user_id = user.get("sub", "")
+    if user_id:
+        existing = await _get_user_plan(user_id)
+        if existing.get("subscription_id") and existing["subscription_id"] != req.subscription_id:
+            raise HTTPException(403, detail="This subscription does not belong to you.")
 
     try:
         result = client.subscription.cancel(req.subscription_id)
@@ -310,8 +326,8 @@ async def razorpay_webhook(request: Request):
             await _upsert_subscription(user_id=user_id, plan="free", status="cancelled", razorpay_sub_id=razorpay_sub_id)
             logger.info("Subscription cancelled for user %s", user_id)
         elif event == "subscription.paused":
-            await _upsert_subscription(user_id=user_id, plan="pro", status="paused", razorpay_sub_id=razorpay_sub_id)
-            logger.info("Subscription paused for user %s", user_id)
+            await _upsert_subscription(user_id=user_id, plan="free", status="paused", razorpay_sub_id=razorpay_sub_id)
+            logger.info("Subscription paused (downgraded to free) for user %s", user_id)
     elif event == "payment.failed":
         payment_entity = payload.get("payload", {}).get("payment", {}).get("entity", {})
         logger.warning("Payment failed: %s", payment_entity.get("id"))

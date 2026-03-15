@@ -42,6 +42,7 @@ export default function PricingPage() {
             const script = document.createElement('script');
             script.src = 'https://checkout.razorpay.com/v1/checkout.js';
             script.async = true;
+            script.onerror = () => console.warn('Razorpay checkout script failed to load');
             document.body.appendChild(script);
         }
     }, []);
@@ -128,33 +129,37 @@ export default function PricingPage() {
                     description: data.plan_details?.name || 'Pro Plan',
                     handler: () => {
                         // Confirm subscription with backend (writes to Supabase)
+                        // 15s timeout for Render cold starts
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 15000);
+                        const fallbackSub = {
+                            plan: 'pro', status: 'active',
+                            billing: annual ? 'annual' : 'monthly',
+                            subscription_id: subId,
+                        };
                         authFetch(`${API_BASE}/razorpay/confirm-subscription`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ subscription_id: subId }),
-                        }).then(r => r.ok ? r.json() : null).then(confirmed => {
+                            signal: controller.signal,
+                        }).then(r => {
+                            clearTimeout(timeoutId);
+                            return r.ok ? r.json() : null;
+                        }).then(confirmed => {
                             if (confirmed) {
                                 toast.success('Subscription activated! Welcome to Pro.');
                                 useWorkspaceStore.getState().setSubscription({
-                                    plan: confirmed.plan,
-                                    status: confirmed.status,
-                                    billing: confirmed.billing,
-                                    subscription_id: confirmed.subscription_id,
+                                    plan: confirmed.plan, status: confirmed.status,
+                                    billing: confirmed.billing, subscription_id: confirmed.subscription_id,
                                 });
                             } else {
                                 toast.success('Payment received! Activating Pro...');
-                                useWorkspaceStore.getState().setSubscription({
-                                    plan: 'pro', status: 'active',
-                                    billing: annual ? 'annual' : 'monthly',
-                                    subscription_id: subId,
-                                });
+                                useWorkspaceStore.getState().setSubscription(fallbackSub);
                             }
                         }).catch(() => {
-                            useWorkspaceStore.getState().setSubscription({
-                                plan: 'pro', status: 'active',
-                                billing: annual ? 'annual' : 'monthly',
-                                subscription_id: subId,
-                            });
+                            clearTimeout(timeoutId);
+                            toast.success('Payment received! Pro activating shortly...');
+                            useWorkspaceStore.getState().setSubscription(fallbackSub);
                         });
                     },
                     theme: { color: '#7c3aed' },
@@ -196,13 +201,15 @@ export default function PricingPage() {
     const handleSwitchToAnnual = async () => {
         setLoading('pro');
         try {
-            // Cancel current monthly if we have the subscription ID
             if (subscription?.subscription_id) {
+                // Cancel current monthly subscription first
                 await authFetch(`${API_BASE}/razorpay/cancel`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ subscription_id: subscription.subscription_id }),
                 });
+            } else {
+                toast.info('Creating new annual plan. If you have an existing monthly charge, cancel it from your payment provider.');
             }
             // Create annual subscription (toggle is already set to annual)
             await handleUpgrade('pro');
