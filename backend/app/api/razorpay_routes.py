@@ -64,21 +64,24 @@ async def _supabase_query(method: str, table: str, params: dict = None, body: di
 
 
 async def _get_user_plan(user_id: str) -> dict:
-    """Look up user's subscription from Supabase. Returns dict with plan and status."""
+    """Look up user's subscription from Supabase. Returns dict with plan, status, and billing cycle."""
     result = await _supabase_query("GET", "subscriptions", params={
         "user_id": f"eq.{user_id}",
-        "select": "plan,status,razorpay_subscription_id,current_period_end",
+        "select": "plan,status,razorpay_subscription_id,razorpay_plan_id,current_period_end",
         "limit": "1",
     })
     if result and len(result) > 0:
         row = result[0]
+        plan_id = row.get("razorpay_plan_id", "")
+        billing = "annual" if plan_id == settings.RAZORPAY_PLAN_PRO_ANNUAL_ID else "monthly"
         return {
             "plan": row.get("plan", "free"),
             "status": row.get("status", "active"),
+            "billing": billing if row.get("plan") != "free" else None,
             "subscription_id": row.get("razorpay_subscription_id"),
             "expires_at": row.get("current_period_end"),
         }
-    return {"plan": "free", "status": "active", "subscription_id": None, "expires_at": None}
+    return {"plan": "free", "status": "active", "billing": None, "subscription_id": None, "expires_at": None}
 
 
 async def _upsert_subscription(user_id: str, plan: str, status: str, razorpay_sub_id: str = None, razorpay_plan_id: str = None, period_start: str = None, period_end: str = None):

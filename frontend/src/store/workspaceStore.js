@@ -246,7 +246,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     requestHistory: [],
 
     // Subscription state (persisted)
-    subscription: { plan: 'free', status: 'active', expiresAt: null },
+    subscription: { plan: 'free', status: 'active', expiresAt: null, billing: null, subscription_id: null },
 
     // Admin status (not persisted — checked on each login)
     isAdmin: false,

@@ -54,7 +54,12 @@ export default function PricingPage() {
             if (res.ok) {
                 const data = await res.json();
                 if (data.plan && data.plan !== 'free') {
-                    useWorkspaceStore.getState().setSubscription({ plan: data.plan, status: data.status });
+                    useWorkspaceStore.getState().setSubscription({
+                        plan: data.plan,
+                        status: data.status,
+                        billing: data.billing || null,
+                        subscription_id: data.subscription_id || null,
+                    });
                 }
             }
         } catch {
@@ -121,7 +126,12 @@ export default function PricingPage() {
                     description: data.plan_details?.name || 'Pro Plan',
                     handler: () => {
                         toast.success('Subscription activated! Welcome to Pro.');
-                        useWorkspaceStore.getState().setSubscription({ plan: 'pro', status: 'active' });
+                        useWorkspaceStore.getState().setSubscription({
+                            plan: 'pro',
+                            status: 'active',
+                            billing: annual ? 'annual' : 'monthly',
+                            subscription_id: data.subscription_id,
+                        });
                     },
                     theme: { color: '#7c3aed' },
                 };
@@ -153,6 +163,39 @@ export default function PricingPage() {
     };
 
     const currentPlan = subscription?.plan || 'free';
+    const isProMonthly = currentPlan === 'pro' && subscription?.billing === 'monthly';
+    const isProAnnual = currentPlan === 'pro' && subscription?.billing === 'annual';
+    const canSwitchToAnnual = isProMonthly && annual;
+
+    const handleSwitchToAnnual = async () => {
+        if (!subscription?.subscription_id) {
+            toast.error('No active subscription found');
+            return;
+        }
+        setLoading('pro');
+        try {
+            // Step 1: Cancel current monthly
+            await authFetch(`${API_BASE}/razorpay/cancel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subscription_id: subscription.subscription_id }),
+            });
+            // Step 2: Create annual subscription
+            await handleUpgrade('pro');
+        } catch {
+            toast.error('Failed to switch plan');
+            setLoading(null);
+        }
+    };
+
+    const getProButtonText = () => {
+        if (loading === 'pro') return 'Processing...';
+        if (currentPlan !== 'pro') return 'Upgrade to Pro';
+        if (canSwitchToAnnual) return 'Switch to Annual (save 17%)';
+        if (isProAnnual && annual) return 'Current Plan';
+        if (isProAnnual && !annual) return 'Current Plan (Annual)';
+        return 'Current Plan';
+    };
 
     return (
         <div className="flex-1 overflow-auto bg-slate-50 dark:bg-slate-950">
@@ -240,11 +283,14 @@ export default function PricingPage() {
                             Unlimited AI. Parallel testing. Full exports.
                         </p>
                         <button
-                            disabled={currentPlan === 'pro' || loading === 'pro'}
-                            onClick={() => handleUpgrade('pro')}
-                            className="w-full py-2 rounded-lg text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white transition-colors disabled:opacity-50"
+                            disabled={(currentPlan === 'pro' && !canSwitchToAnnual) || loading === 'pro'}
+                            onClick={canSwitchToAnnual ? handleSwitchToAnnual : () => handleUpgrade('pro')}
+                            className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors ${canSwitchToAnnual
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                : 'bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50'
+                            }`}
                         >
-                            {loading === 'pro' ? 'Processing...' : currentPlan === 'pro' ? 'Current Plan' : 'Upgrade to Pro'}
+                            {getProButtonText()}
                         </button>
                         {currentPlan === 'pro' && subscription?.subscription_id && (
                             <button

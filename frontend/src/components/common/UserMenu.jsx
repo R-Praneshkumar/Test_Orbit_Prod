@@ -123,15 +123,13 @@ const UserMenu = () => {
                                 Admin Dashboard
                             </button>
                         )}
-                        {subscription?.plan === 'free' && (
-                            <button
-                                onClick={() => { setOpen(false); setCurrentView('pricing'); }}
-                                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors"
-                            >
-                                <Sparkles size={15} />
-                                Upgrade to Pro
-                            </button>
-                        )}
+                        <button
+                            onClick={() => { setOpen(false); setCurrentView('pricing'); }}
+                            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors"
+                        >
+                            <Sparkles size={15} />
+                            {subscription?.plan === 'free' ? 'Upgrade to Pro' : 'Manage Subscription'}
+                        </button>
                     </div>
 
                     <div className="border-t border-slate-100 dark:border-slate-800 py-1">
