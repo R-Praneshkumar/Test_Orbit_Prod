@@ -127,33 +127,36 @@ export default function PricingPage() {
                     subscription_id: subId,
                     name: 'TestOrbit',
                     description: data.plan_details?.name || 'Pro Plan',
-                    handler: () => {
-                        // Confirm subscription with backend (writes to Supabase)
-                        // 15s timeout for Render cold starts
+                    handler: (response) => {
+                        // Official Razorpay verification: send payment_id + subscription_id + signature to backend
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => controller.abort(), 15000);
                         const fallbackSub = {
                             plan: 'pro', status: 'active',
                             billing: annual ? 'annual' : 'monthly',
-                            subscription_id: subId,
+                            subscription_id: response.razorpay_subscription_id || subId,
                         };
-                        authFetch(`${API_BASE}/razorpay/confirm-subscription`, {
+                        authFetch(`${API_BASE}/razorpay/verify-payment`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ subscription_id: subId }),
+                            body: JSON.stringify({
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_subscription_id: response.razorpay_subscription_id,
+                                razorpay_signature: response.razorpay_signature,
+                            }),
                             signal: controller.signal,
                         }).then(r => {
                             clearTimeout(timeoutId);
                             return r.ok ? r.json() : null;
-                        }).then(confirmed => {
-                            if (confirmed) {
+                        }).then(verified => {
+                            if (verified) {
                                 toast.success('Subscription activated! Welcome to Pro.');
                                 useWorkspaceStore.getState().setSubscription({
-                                    plan: confirmed.plan, status: confirmed.status,
-                                    billing: confirmed.billing, subscription_id: confirmed.subscription_id,
+                                    plan: verified.plan, status: verified.status,
+                                    billing: verified.billing, subscription_id: verified.subscription_id,
                                 });
                             } else {
-                                toast.success('Payment received! Activating Pro...');
+                                toast.success('Payment received! Activating...');
                                 useWorkspaceStore.getState().setSubscription(fallbackSub);
                             }
                         }).catch(() => {

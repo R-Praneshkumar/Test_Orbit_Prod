@@ -193,52 +193,73 @@ async def create_subscription(req: CreateSubscriptionRequest, request: Request, 
         raise HTTPException(502, detail=f"Failed to create subscription: {str(e)}")
 
 
-@router.post("/confirm-subscription")
-async def confirm_subscription(request: Request, user: dict = Depends(verify_token)):
-    """Called by frontend after successful Razorpay checkout. Confirms and records the subscription."""
+@router.post("/verify-payment")
+async def verify_payment(request: Request, user: dict = Depends(verify_token)):
+    """
+    Official Razorpay payment verification.
+    Frontend sends razorpay_payment_id, razorpay_subscription_id, razorpay_signature
+    after successful checkout. Backend verifies the HMAC signature to prove payment is real,
+    then activates the subscription in Supabase.
+    """
     body = await request.json()
-    sub_id = body.get("subscription_id")
-    if not sub_id:
-        raise HTTPException(400, detail="subscription_id required")
+    payment_id = body.get("razorpay_payment_id")
+    subscription_id = body.get("razorpay_subscription_id")
+    signature = body.get("razorpay_signature")
 
+    if not all([payment_id, subscription_id, signature]):
+        raise HTTPException(400, detail="Missing payment verification parameters (payment_id, subscription_id, signature)")
+
+    # ── Step 1: Verify signature (Razorpay official pattern) ──
+    # signature = HMAC-SHA256(razorpay_payment_id + "|" + razorpay_subscription_id, key_secret)
+    if not settings.RAZORPAY_KEY_SECRET:
+        raise HTTPException(503, detail="Razorpay key secret not configured")
+
+    expected = hmac.new(
+        settings.RAZORPAY_KEY_SECRET.encode(),
+        f"{payment_id}|{subscription_id}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected, signature):
+        logger.warning("Payment signature verification FAILED for payment=%s sub=%s", payment_id, subscription_id)
+        raise HTTPException(400, detail="Payment signature verification failed. This payment cannot be trusted.")
+
+    logger.info("Payment signature verified: payment=%s sub=%s", payment_id, subscription_id)
+
+    # ── Step 2: Fetch subscription details from Razorpay to get plan_id ──
     client = _get_razorpay_client()
     if not client:
         raise HTTPException(503, detail="Razorpay not configured")
 
-    # Fetch subscription details directly from Razorpay API
     try:
-        sub = client.subscription.fetch(sub_id)
+        sub = client.subscription.fetch(subscription_id)
     except Exception as e:
-        logger.error(f"Razorpay fetch subscription failed: {e}")
-        raise HTTPException(502, detail=f"Failed to verify subscription: {e}")
+        logger.error("Razorpay fetch subscription failed: %s", e)
+        raise HTTPException(502, detail=f"Signature verified but failed to fetch subscription details: {e}")
 
-    # Verify the subscription is active/authenticated/created
-    rzp_status = sub.get("status", "")
-    if rzp_status not in ("active", "authenticated", "created"):
-        raise HTTPException(400, detail=f"Subscription status is '{rzp_status}', not active")
-
-    user_id = user.get("sub", "")
     plan_id = sub.get("plan_id", "")
     billing = "annual" if plan_id == settings.RAZORPAY_PLAN_PRO_ANNUAL_ID else "monthly"
 
-    # Write to Supabase — this is the primary record creation (not webhook)
+    # ── Step 3: Write to Supabase ──
+    user_id = user.get("sub", "")
     if user_id:
         result = await _upsert_subscription(
             user_id=user_id,
             plan="pro",
             status="active",
-            razorpay_sub_id=sub_id,
+            razorpay_sub_id=subscription_id,
             razorpay_plan_id=plan_id,
         )
         if result is None:
-            logger.error("Failed to write subscription to Supabase for user %s (sub=%s)", user_id, sub_id)
-            raise HTTPException(502, detail="Payment confirmed but failed to save subscription. Please contact support or try refreshing.")
+            logger.error("Payment verified but Supabase write failed for user %s (sub=%s)", user_id, subscription_id)
+            raise HTTPException(502, detail="Payment verified but failed to save subscription. Please contact support.")
 
     return {
         "plan": "pro",
         "status": "active",
         "billing": billing,
-        "subscription_id": sub_id,
+        "subscription_id": subscription_id,
+        "verified": True,
     }
 
 
