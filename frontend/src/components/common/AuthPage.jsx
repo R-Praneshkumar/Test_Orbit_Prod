@@ -120,7 +120,7 @@ const AuthPage = () => {
                 <div className="relative z-10 flex flex-col justify-center px-12 lg:px-16 py-12 w-full">
                     {/* Logo */}
                     <div className="flex items-center gap-3 mb-10">
-                        <div className="w-11 h-11 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/20">
+                        <div className="w-11 h-11 bg-gradient-to-br from-sky-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-sky-500/20">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <circle cx="12" cy="12" r="3" fill="white" />
                                 <circle cx="12" cy="12" r="8" stroke="white" strokeWidth="1.5" fill="none" opacity="0.6" />
@@ -147,10 +147,10 @@ const AuthPage = () => {
                     <div className="space-y-4">
                         {features.map((f, i) => (
                             <div key={i} className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
-                                    <f.icon size={17} className="text-slate-200" />
+                                <div className="w-9 h-9 rounded-lg bg-sky-500/15 border border-sky-400/20 flex items-center justify-center shrink-0">
+                                    <f.icon size={17} className="text-sky-300" />
                                 </div>
-                                <span className="text-sm text-slate-200">{f.text}</span>
+                                <span className="text-sm text-slate-300">{f.text}</span>
                             </div>
                         ))}
                     </div>
@@ -246,7 +246,7 @@ const AuthPage = () => {
                                         type="text"
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
-                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-slate-400/40 focus:border-slate-500 dark:focus:border-slate-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 dark:focus:border-sky-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
                                         placeholder="John Doe"
                                     />
                                 </div>
@@ -262,7 +262,7 @@ const AuthPage = () => {
                                     required
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-slate-400/40 focus:border-slate-500 dark:focus:border-slate-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                                    className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 dark:focus:border-sky-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
                                     placeholder="you@example.com"
                                 />
                             </div>
@@ -276,7 +276,7 @@ const AuthPage = () => {
                                         <button
                                             type="button"
                                             onClick={() => { setMode('reset'); setError(null); setSuccess(null); }}
-                                            className="text-[11px] text-slate-700 dark:text-slate-300 hover:underline"
+                                            className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline"
                                         >
                                             Forgot password?
                                         </button>
@@ -289,7 +289,7 @@ const AuthPage = () => {
                                         required
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-slate-400/40 focus:border-slate-500 dark:focus:border-slate-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 dark:focus:border-sky-500 transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
                                         placeholder="Min. 6 characters"
                                         minLength={6}
                                     />
@@ -300,7 +300,7 @@ const AuthPage = () => {
                         <button
                             type="submit"
                             disabled={loading || !supabase}
-                            className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm mt-1"
+                            className="w-full py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-sky-500/20 mt-1"
                         >
                             {loading ? (
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -320,7 +320,7 @@ const AuthPage = () => {
                                 Remember your password?{' '}
                                 <button
                                     onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
-                                    className="text-slate-700 dark:text-slate-300 font-medium hover:underline"
+                                    className="text-sky-600 dark:text-sky-400 font-medium hover:underline"
                                 >
                                     Sign in
                                 </button>
@@ -330,7 +330,7 @@ const AuthPage = () => {
                                 Don&apos;t have an account?{' '}
                                 <button
                                     onClick={() => { setMode('signup'); setError(null); setSuccess(null); }}
-                                    className="text-slate-700 dark:text-slate-300 font-medium hover:underline"
+                                    className="text-sky-600 dark:text-sky-400 font-medium hover:underline"
                                 >
                                     Sign up
                                 </button>
@@ -340,7 +340,7 @@ const AuthPage = () => {
                                 Already have an account?{' '}
                                 <button
                                     onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
-                                    className="text-slate-700 dark:text-slate-300 font-medium hover:underline"
+                                    className="text-sky-600 dark:text-sky-400 font-medium hover:underline"
                                 >
                                     Sign in
                                 </button>
