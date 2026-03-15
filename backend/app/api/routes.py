@@ -40,11 +40,28 @@ limiter = Limiter(key_func=_get_rate_limit_key)
 
 
 async def _get_user_plan(user_id: str) -> str:
-    """Look up user's plan from Supabase subscriptions table. Falls back to 'free'."""
+    """Look up user's plan from Supabase subscriptions table. Falls back to 'free'.
+    For cancelled subscriptions, checks if still within the paid billing period."""
     from app.api.razorpay_routes import _get_user_plan as _lookup
+    from datetime import datetime as dt, timezone as tz
     try:
         sub = await _lookup(user_id)
-        return sub.get("plan", "free") if sub.get("status") == "active" else "free"
+        plan = sub.get("plan", "free")
+        status = sub.get("status", "active")
+
+        if plan == "pro" and status == "active":
+            return "pro"
+        if plan == "pro" and status == "cancelled":
+            # Keep Pro until billing period ends
+            expires = sub.get("expires_at")
+            if expires:
+                try:
+                    end = dt.fromisoformat(expires.replace("Z", "+00:00"))
+                    if end > dt.now(tz.utc):
+                        return "pro"
+                except (ValueError, TypeError):
+                    pass
+        return "free"
     except Exception:
         return "free"
 

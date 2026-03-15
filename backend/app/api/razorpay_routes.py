@@ -238,11 +238,17 @@ async def verify_payment(request: Request, user: dict = Depends(verify_token)):
         logger.error("Razorpay fetch subscription failed: %s", e)
         raise HTTPException(502, detail=f"Signature verified but failed to fetch subscription details: {e}")
 
+    # ── Step 2b: Verify subscription belongs to this user ──
+    sub_user_id = sub.get("notes", {}).get("user_id", "")
+    user_id = user.get("sub", "")
+    if sub_user_id and user_id and sub_user_id != user_id:
+        logger.warning("Subscription ownership mismatch: sub_user=%s, request_user=%s", sub_user_id, user_id)
+        raise HTTPException(403, detail="This subscription does not belong to you.")
+
     plan_id = sub.get("plan_id", "")
     billing = "annual" if plan_id == settings.RAZORPAY_PLAN_PRO_ANNUAL_ID else "monthly"
 
     # ── Step 3: Write to Supabase ──
-    user_id = user.get("sub", "")
     if user_id:
         result = await _upsert_subscription(
             user_id=user_id,
@@ -282,20 +288,19 @@ async def cancel_subscription(req: CancelSubscriptionRequest, request: Request, 
     if not client:
         raise HTTPException(503, detail="Razorpay not configured.")
 
-    # Verify user owns this subscription
+    # Verify user owns this subscription — reject if no subscription or ID mismatch
     user_id = user.get("sub", "")
     if user_id:
         existing = await _get_user_plan(user_id)
-        if existing.get("subscription_id") and existing["subscription_id"] != req.subscription_id:
+        if not existing.get("subscription_id") or existing["subscription_id"] != req.subscription_id:
             raise HTTPException(403, detail="This subscription does not belong to you.")
 
     try:
         result = client.subscription.cancel(req.subscription_id)
 
-        # Update DB status
-        user_id = user.get("sub", "")
+        # Update DB status — keep plan='pro' until billing period ends (industry standard)
         if user_id:
-            await _upsert_subscription(user_id=user_id, plan="free", status="cancelled", razorpay_sub_id=req.subscription_id)
+            await _upsert_subscription(user_id=user_id, plan="pro", status="cancelled", razorpay_sub_id=req.subscription_id)
 
         return {"status": "cancelled", "subscription_id": req.subscription_id, "detail": result}
     except Exception as e:

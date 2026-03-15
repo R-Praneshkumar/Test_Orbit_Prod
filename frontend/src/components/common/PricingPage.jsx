@@ -55,6 +55,12 @@ export default function PricingPage() {
             useWorkspaceStore.getState().setSubscription({ plan: 'free', status: 'inactive', billing: null, subscription_id: null });
             return;
         }
+        // Confirmation dialog
+        const confirmed = window.confirm(
+            'Are you sure you want to cancel?\n\nYou\'ll keep Pro features until the end of your current billing period. After that, you\'ll be downgraded to the Free plan.'
+        );
+        if (!confirmed) return;
+
         setCancelling(true);
         try {
             const res = await authFetch(`${API_BASE}/razorpay/cancel`, {
@@ -67,8 +73,11 @@ export default function PricingPage() {
                 toast.error(err.detail || 'Failed to cancel subscription');
                 return;
             }
-            toast.success('Subscription cancelled successfully');
-            useWorkspaceStore.getState().setSubscription({ plan: 'free', status: 'cancelled', billing: null, subscription_id: null });
+            toast.success('Subscription cancelled. You\'ll keep Pro features until the end of your billing period.');
+            useWorkspaceStore.getState().setSubscription({
+                ...subscription,
+                status: 'cancelled',
+            });
         } catch {
             toast.error('Failed to cancel subscription');
         } finally {
@@ -140,8 +149,7 @@ export default function PricingPage() {
                             }
                         }).catch(() => {
                             clearTimeout(timeoutId);
-                            toast.success('Payment received! Pro activating shortly...');
-                            useWorkspaceStore.getState().setSubscription(fallbackSub);
+                            toast.error('Could not verify payment. Please refresh the page. If you were charged, your Pro access will activate automatically.');
                         });
                     },
                     theme: { color: '#7c3aed' },
@@ -174,11 +182,12 @@ export default function PricingPage() {
     };
 
     const currentPlan = subscription?.plan || 'free';
+    const isCancelled = subscription?.status === 'cancelled';
     // If billing is unknown (null), default to 'monthly' — the more common case
     const billingCycle = subscription?.billing || (currentPlan === 'pro' ? 'monthly' : null);
     const isProMonthly = currentPlan === 'pro' && billingCycle === 'monthly';
     const isProAnnual = currentPlan === 'pro' && billingCycle === 'annual';
-    const canSwitchToAnnual = isProMonthly && annual;
+    const canSwitchToAnnual = isProMonthly && annual && !isCancelled;
 
     const handleSwitchToAnnual = async () => {
         setLoading('pro');
@@ -204,6 +213,7 @@ export default function PricingPage() {
     const getProButtonText = () => {
         if (loading === 'pro') return 'Processing...';
         if (currentPlan !== 'pro') return 'Upgrade to Pro';
+        if (isCancelled) return 'Renew Subscription';
         if (canSwitchToAnnual) return 'Switch to Annual (save 17%)';
         if (isProAnnual && annual) return 'Current Plan';
         if (isProAnnual && !annual) return 'Current Plan (Annual)';
@@ -296,7 +306,7 @@ export default function PricingPage() {
                             Unlimited AI. Parallel testing. Full exports.
                         </p>
                         <button
-                            disabled={(currentPlan === 'pro' && !canSwitchToAnnual) || loading === 'pro'}
+                            disabled={(currentPlan === 'pro' && !canSwitchToAnnual && !isCancelled) || loading === 'pro'}
                             onClick={canSwitchToAnnual ? handleSwitchToAnnual : () => handleUpgrade('pro')}
                             className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors ${canSwitchToAnnual
                                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -305,7 +315,7 @@ export default function PricingPage() {
                         >
                             {getProButtonText()}
                         </button>
-                        {currentPlan === 'pro' && subscription?.subscription_id && (
+                        {currentPlan === 'pro' && subscription?.subscription_id && !isCancelled && (
                             <button
                                 onClick={handleCancel}
                                 disabled={cancelling}

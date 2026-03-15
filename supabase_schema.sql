@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   plan TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'team')),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'paused', 'expired')),
-  razorpay_subscription_id TEXT,
+  razorpay_subscription_id TEXT UNIQUE,
   razorpay_plan_id TEXT,
   current_period_start TIMESTAMPTZ,
   current_period_end TIMESTAMPTZ,
