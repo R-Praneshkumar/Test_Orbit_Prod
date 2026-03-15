@@ -13,13 +13,16 @@ export function OnboardingChecklist() {
     const dismissedOnboarding = useWorkspaceStore(s => s.dismissedOnboarding);
     const dismissOnboarding = useWorkspaceStore(s => s.dismissOnboarding);
     const setCurrentView = useWorkspaceStore(s => s.setCurrentView);
+    const requestHistory = useWorkspaceStore(s => s.requestHistory);
     const [showSpecGuide, setShowSpecGuide] = useState(false);
 
     if (dismissedOnboarding) return null;
 
     // Detect real progress from store state
     const hasAccount = true;
-    const hasSentRequest = Object.keys(responses || {}).length > 0;
+    const hasSentRequest = Object.keys(responses || {}).length > 0
+        || (requestHistory && requestHistory.length > 0)
+        || collections.some(c => (c.runHistory || []).length > 0);
     const hasMultipleRequests = collections.some(c => (c.items || []).length > 1);
     const hasTests = collections.some(c => (c.testSuites || []).length > 0);
     const hasOpenApiSpec = collections.some(c => c.openApiSpec && c.openApiSpec.trim().length > 10);
