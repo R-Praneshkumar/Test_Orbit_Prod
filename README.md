@@ -8,7 +8,7 @@
   **Unlimited AI. Free for teams. No bloat.**
 
   [![CI](https://github.com/R-Praneshkumar/Test_Orbit_Prod/actions/workflows/ci.yml/badge.svg)](https://github.com/R-Praneshkumar/Test_Orbit_Prod/actions/workflows/ci.yml)
-  [![Google Gemini](https://img.shields.io/badge/AI-Gemini%202.0%20Flash-4285F4?style=flat-square&logo=google&logoColor=white)](https://ai.google.dev/)
+  [![AI Powered](https://img.shields.io/badge/AI-Powered-4285F4?style=flat-square)](https://testorbit.dev)
   [![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)](https://react.dev/)
   [![FastAPI](https://img.shields.io/badge/FastAPI-0.128-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
   [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
@@ -22,7 +22,7 @@
 
 ## Why TestOrbit?
 
-Postman v12 (March 2026) gutted the free plan — **1 user only, 50 AI credits/month, $19/user/month for teams**. TestOrbit is what we built instead.
+Postman v12 (March 2026) gutted the free plan — **1 user only, 50 AI credits/month, ₹1,600/user/month for teams**. TestOrbit is what we built instead.
 
 <table>
 <tr>
@@ -33,7 +33,7 @@ Postman v12 (March 2026) gutted the free plan — **1 user only, 50 AI credits/m
 - **Free for teams of 3** (Postman: 1 user)
 - **Unlimited AI on paid plans** (no credits, no meters)
 - **AI security scanning** (OWASP Top 10 — Postman doesn't have this)
-- **~$4/month Pro** (Postman: $19/month)
+- **₹399/month Pro** (Postman: ₹1,600/month)
 - **Web-first** — opens instantly in any browser, no install required
 
 </td>
@@ -61,8 +61,8 @@ Postman v12 (March 2026) gutted the free plan — **1 user only, 50 AI credits/m
 | **Free plan team size** | **3 users** | 1 user |
 | **AI calls (free)** | **50/day** | 50/month |
 | **AI calls (paid)** | **Unlimited** | Metered credits |
-| **Pro price (solo)** | **~$4/mo** | $19/mo |
-| **5-person team/year** | **~$310** | $1,140 |
+| **Pro price (solo)** | **₹399/mo** | ₹1,600/mo |
+| **5-person team/year** | **₹28,740** | ₹1,05,570 |
 | **AI security scanning** | **Yes** | No |
 | **AI test generation** | Yes | Yes |
 | **AI code generation** | Yes | Yes |
@@ -78,7 +78,7 @@ Postman v12 (March 2026) gutted the free plan — **1 user only, 50 AI credits/m
 
 ## Features
 
-### AI-Powered Testing (Gemini 2.0 Flash)
+### AI-Powered Testing
 
 | Feature | What it does |
 |---------|--------------|
@@ -187,7 +187,7 @@ Migration takes under 5 minutes:
 
 - **Node.js** 18+ ([Download](https://nodejs.org/))
 - **Python** 3.11+ ([Download](https://python.org/))
-- **Google Gemini API Key** ([Get one free](https://aistudio.google.com/apikey))
+- **AI API Key** ([Get one free](https://aistudio.google.com/apikey))
 
 ### 1. Clone & Setup Backend
 
@@ -228,7 +228,7 @@ npm run dev
 
 Open **http://localhost:5173** in your browser.
 
-> TestOrbit works fully offline without Supabase — you just won't have auth, cloud sync, or sharing. All AI features work with just the Gemini API key.
+> TestOrbit works fully offline without Supabase — you just won't have auth, cloud sync, or sharing. All AI features work with just the AI API key.
 
 ---
 
@@ -236,7 +236,7 @@ Open **http://localhost:5173** in your browser.
 
 | | Free | Pro | Team |
 |-|:----:|:---:|:----:|
-| **Price** | $0 | ~$4/mo (₹399) | ~$9/mo + ~$4/seat (₹799 + ₹399) |
+| **Price** | ₹0 | ₹399/mo | ₹799/mo + ₹399/seat |
 | **Users** | 3 | 1 | Up to 25 |
 | **AI calls** | 50/day | Unlimited | Unlimited |
 | **AI security scans** | 3/day | Unlimited | Unlimited |
@@ -286,10 +286,10 @@ See [DEVELOPER.md](DEVELOPER.md) for the full deployment guide, Supabase setup, 
 |    (React SPA)    | <────────────── |    (Cloudflare)    | <────────── |    (Render)        |
 +-------------------+                 +-------------------+             +-------------------+
         |                                      |                               |
-        |   Supabase Auth (JWT)                |   authFetch()                 |   Gemini API
+        |   Supabase Auth (JWT)                |   authFetch()                 |   AI API
         v                                      v                               v
 +-------------------+                                                 +-------------------+
-|   Supabase        |                                                 |   Google Gemini    |
+|   Supabase        |                                                 |   AI    |
 |   (Auth + DB)     |                                                 |   2.0 Flash        |
 +-------------------+                                                 +-------------------+
 ```
@@ -301,7 +301,7 @@ See [DEVELOPER.md](DEVELOPER.md) for the full deployment guide, Supabase setup, 
 | **Frontend** | React, Vite, Tailwind CSS | 19, 7, 4 |
 | **State** | Zustand (persisted to localStorage) | 5.x |
 | **Backend** | FastAPI, Python | 0.128+, 3.11+ |
-| **AI** | Google Gemini 2.0 Flash | via google-genai |
+| **AI** | AI Engine | via google-genai |
 | **Auth & DB** | Supabase (RLS + JWT) | 2.x |
 | **Payments** | Razorpay | INR billing |
 
@@ -367,7 +367,7 @@ MIT License — see [LICENSE](LICENSE) for details.
 
   **[Developer Guide](DEVELOPER.md)** · **[Roadmap](todo.md)** · **[Contributing](CONTRIBUTING.md)** · **[Pricing](https://testorbit.dev)**
 
-  Built with Gemini 2.0 Flash, React 19, and FastAPI
+  Built with AI, React 19, and FastAPI
 
   [Back to Top](#testorbit)
 

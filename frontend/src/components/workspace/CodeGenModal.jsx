@@ -286,7 +286,7 @@ export const CodeGenModal = ({ request, onClose }) => {
                         <div className="flex flex-col items-center justify-center py-12 text-slate-400 dark:text-slate-500">
                             <Loader2 size={32} className="animate-spin mb-3 text-corporate-500" />
                             <span className="text-sm font-medium">Generating {currentLang?.label} code...</span>
-                            <span className="text-xs mt-1">Powered by Gemini AI</span>
+                            <span className="text-xs mt-1">Generating with AI...</span>
                         </div>
                     )}
 

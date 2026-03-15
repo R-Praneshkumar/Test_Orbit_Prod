@@ -114,8 +114,8 @@ const DOCS_SECTIONS = [
     {
         id: 'overview', title: 'Overview', icon: BookOpen,
         content: (nav) => (<>
-            <SectionHeading icon={BookOpen} title="Welcome to TestOrbit" subtitle="AI-native API testing powered by Google Gemini" />
-            <P>TestOrbit is a comprehensive API testing platform that combines a traditional request editor with AI-powered features: automatic test generation, intelligent mock servers, code generation, contract testing, and conversational AI assistance. All powered by Google Gemini.</P>
+            <SectionHeading icon={BookOpen} title="Welcome to TestOrbit" subtitle="AI-native API testing platform" />
+            <P>TestOrbit is a comprehensive API testing platform that combines a traditional request editor with AI-powered features: automatic test generation, intelligent mock servers, code generation, contract testing, and conversational AI assistance. All platform.</P>
 
             <H3>Workspace Layout</H3>
             <div className="grid grid-cols-3 gap-3 my-4">
@@ -770,10 +770,10 @@ pm.variables.set('userId', data.user.id);
     {
         id: 'mock-server', title: 'Mock Server', icon: Server,
         content: () => (<>
-            <SectionHeading icon={Server} title="AI Mock Server" subtitle="Generate realistic API responses on-the-fly with Gemini" />
+            <SectionHeading icon={Server} title="AI Mock Server" subtitle="Generate realistic API responses on-the-fly with AI" />
 
             <H3>How It Works</H3>
-            <P>Send any request to <code className="text-xs bg-slate-100 dark:bg-slate-700 px-1 rounded">/mock-server/any/path</code> and Gemini AI generates a realistic JSON response based on the HTTP method and path. No real backend needed.</P>
+            <P>Send any request to <code className="text-xs bg-slate-100 dark:bg-slate-700 px-1 rounded">/mock-server/any/path</code> and AI generates a realistic JSON response based on the HTTP method and path. No real backend needed.</P>
             <CodeBlock code={`GET  /mock-server/api/users       → Returns a list of user objects
 GET  /mock-server/api/users/123  → Returns a single user object
 POST /mock-server/api/orders     → Returns a created order response`} />
@@ -821,7 +821,7 @@ POST /mock-server/api/orders     → Returns a created order response`} />
                 <Li><strong>Copy button</strong> — copy the generated code to clipboard</Li>
             </Ul>
 
-            <P>The generated code includes proper imports, error handling, type hints, and response parsing. Powered by Gemini AI.</P>
+            <P>The generated code includes proper imports, error handling, type hints, and response parsing. Powered by AI.</P>
         </>),
     },
     {

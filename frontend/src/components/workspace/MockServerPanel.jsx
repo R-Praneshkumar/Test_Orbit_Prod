@@ -72,7 +72,7 @@ export function MockServerPanel() {
                         AI Mock Server
                     </h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                        Send requests to <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-purple-600 dark:text-purple-400">/mock-server/*</code> and Gemini will invent the response.
+                        Send requests to <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-purple-600 dark:text-purple-400">/mock-server/*</code> and AI will generate the response.
                     </p>
                 </div>
                 <div className="flex items-center gap-3">

@@ -131,7 +131,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
                         return { role: 'assistant', content: m.data.response || '' };
                     }
                     // Free chat mode: drop spec-derived voice suggestions from context
-                    // to prevent Gemini anchoring on stale spec endpoints
+                    // to prevent AI anchoring on stale spec endpoints
                     if (!useSpecContext) return null;
                     return {
                         role: 'assistant',
@@ -167,7 +167,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
                     return;
                 }
                 let data = await res.json();
-                // Defensive: if Gemini returned a raw array, normalize to expected shape
+                // Defensive: if AI returned a raw array, normalize to expected shape
                 if (Array.isArray(data)) {
                     data = {
                         method: data[0]?.method || 'GET',

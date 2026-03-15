@@ -74,9 +74,9 @@ function ComparisonRow({ feature, testorbit, postman, highlight }) {
 // ──────────────────────────────────────────────
 
 const ALTERNATIVE_FEATURES = [
-    { icon: Zap, title: 'Unlimited AI', desc: 'No credit limits on paid plans. Gemini Flash AI costs us ~$0.001/call — we pass the savings to you.' },
+    { icon: Zap, title: 'Unlimited AI', desc: 'No credit limits on paid plans. Unlimited AI calls for Pro users — test generation, code gen, security scanning, all included.' },
     { icon: Users, title: 'Free for teams of 3', desc: 'Postman locked free teams to 1 user. TestOrbit keeps teams of up to 3 free forever.' },
-    { icon: DollarSign, title: '3.7x cheaper', desc: 'Pro at ₹399/mo (~$4). Team at ₹799/mo + ₹399/seat. A 5-person team pays ~$310/yr vs Postman\'s $1,140/yr.' },
+    { icon: DollarSign, title: '3.7x cheaper', desc: 'Pro at ₹399/mo. Team at ₹799/mo + ₹399/seat. A 5-person team pays ₹28,740/yr vs Postman\'s ₹1,05,570/yr.' },
     { icon: Clock, title: 'Opens instantly', desc: 'Web-first, zero install. Opens in any browser — no desktop app required.' },
     { icon: Shield, title: 'AI security scanning', desc: 'OWASP Top 10 vulnerability detection, auth bypass testing, injection fuzzing. Postman does not offer AI security scanning.' },
     { icon: FlaskConical, title: 'AI test generation', desc: 'Generate boundary, negative, and contract tests from a single request. 50 free per day.' },
@@ -94,7 +94,7 @@ export function PostmanAlternativePage() {
                     The fast, affordable, AI-powered<br />Postman alternative
                 </h1>
                 <p className="text-slate-500 dark:text-slate-400 text-sm max-w-2xl leading-relaxed">
-                    Postman v12 gutted the free plan (1 user, 50 AI credits/month) and charges $19/user/month for teams.
+                    Postman v12 gutted the free plan (1 user, 50 AI credits/month) and charges ₹1,600/user/month for teams.
                     TestOrbit gives you unlimited AI on paid plans, free teams of 3, and loads in 2 seconds — at a fraction of the cost.
                 </p>
             </div>
@@ -135,8 +135,8 @@ export function PostmanAlternativePage() {
                             <ComparisonRow feature="Free plan team size" testorbit="3 users" postman="1 user" highlight />
                             <ComparisonRow feature="AI calls (free)" testorbit="50/day" postman="50/month" highlight />
                             <ComparisonRow feature="AI calls (paid)" testorbit="Unlimited" postman="Metered credits" highlight />
-                            <ComparisonRow feature="Price (solo)" testorbit="₹399/mo (~$4)" postman="$9/mo (Solo)" />
-                            <ComparisonRow feature="Price (5-person team/yr)" testorbit="~$310/yr" postman="$1,140/yr" highlight />
+                            <ComparisonRow feature="Price (solo)" testorbit="₹399/mo" postman="₹833/mo (Solo)" />
+                            <ComparisonRow feature="Price (5-person team/yr)" testorbit="₹28,740/yr" postman="₹1,05,570/yr" highlight />
                             <ComparisonRow feature="AI security scanning" testorbit="Yes (OWASP Top 10)" postman="No" />
                             <ComparisonRow feature="AI test generation" testorbit={true} postman={true} />
                             <ComparisonRow feature="AI security scanning" testorbit={true} postman={false} highlight />
@@ -166,15 +166,15 @@ const VS_SECTIONS = [
         icon: DollarSign,
         testorbit: [
             'Free for teams of up to 3 — forever',
-            'Pro: ₹399/mo (~$4/mo) — unlimited AI',
-            'Team: ₹799/mo + ₹399/seat (~$9 + $4/seat) — role-based access',
+            'Pro: ₹399/mo — unlimited AI',
+            'Team: ₹799/mo + ₹399/seat — role-based access',
             'No hidden credit charges',
         ],
         postman: [
             'Free: 1 user only, 50 AI credits/month',
-            'Basic: $14/user/month',
-            'Professional: $29/user/month',
-            'AI credits metered at $0.035-0.05 each',
+            'Basic: ₹1,300/user/month',
+            'Professional: ₹2,685/user/month',
+            'AI credits metered separately',
         ],
     },
     {

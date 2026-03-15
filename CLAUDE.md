@@ -8,7 +8,7 @@
 
 - **Product:** TestOrbit — AI-Native API Testing Platform
 - **Frontend:** `frontend/` (React 19 + Vite 7 + Tailwind v4 + Zustand 5)
-- **Backend:** `backend/` (Python FastAPI + Google Gemini 2.0 Flash)
+- **Backend:** `backend/` (Python FastAPI + AI)
 - **Master roadmap:** `todo.md` (living document — update as items complete)
 - **Sprint tracker:** `sprint-tracker.md` (in project root — the FULL business plan + task tracker)
 

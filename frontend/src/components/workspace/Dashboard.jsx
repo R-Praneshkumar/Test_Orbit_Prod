@@ -88,7 +88,7 @@ function HeroBanner({ onSignUp, onLoadDemo, onImport, onCompare, onMigrate, onAl
                         No credit limits.
                     </h1>
                     <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6 max-w-md">
-                        Postman now charges $19/user/mo and gates AI behind 50 credits/month.
+                        Postman now charges ₹1,600/user/mo and gates AI behind 50 credits/month.
                         TestOrbit gives you <span className="text-white font-semibold">50 AI calls per day</span>, free
                         for teams of 3 &mdash; no credit card required.
                     </p>
@@ -101,7 +101,7 @@ function HeroBanner({ onSignUp, onLoadDemo, onImport, onCompare, onMigrate, onAl
                         </div>
                         <div className="flex items-center gap-2.5 text-sm text-slate-300">
                             <span className="text-green-400 text-base leading-none">✓</span>
-                            <span><span className="text-white font-semibold">3.7x cheaper</span> &mdash; 5-person team: ~$310/yr vs $1,140/yr</span>
+                            <span><span className="text-white font-semibold">3.7x cheaper</span> &mdash; 5-person team: ₹28,740/yr vs ₹1,05,570/yr</span>
                         </div>
                         <div className="flex items-center gap-2.5 text-sm text-slate-300">
                             <span className="text-green-400 text-base leading-none">✓</span>
@@ -241,8 +241,8 @@ function PostmanComparisonTable() {
         { feature: 'Free team members', postman: '1 (solo only)', testorbit: 'Up to 3', winner: 'testorbit' },
         { feature: 'AI test generation', postman: 'Credit-gated', testorbit: '10/day free', winner: 'testorbit' },
         { feature: 'Collections & requests', postman: 'Unlimited', testorbit: 'Unlimited', winner: 'tie' },
-        { feature: '5-person team cost', postman: '$1,140/yr', testorbit: '~$310/yr', winner: 'testorbit' },
-        { feature: 'Pro plan (individual)', postman: '$9/mo (Solo)', testorbit: '~$4/mo', winner: 'testorbit' },
+        { feature: '5-person team cost', postman: '₹1,05,570/yr', testorbit: '₹28,740/yr', winner: 'testorbit' },
+        { feature: 'Pro plan (individual)', postman: '₹833/mo (Solo)', testorbit: '₹399/mo', winner: 'testorbit' },
         { feature: 'All body types', postman: true, testorbit: true, winner: 'tie' },
         { feature: 'WebSocket testing', postman: true, testorbit: true, winner: 'tie' },
         { feature: 'Import/Export', postman: true, testorbit: true, winner: 'tie' },
@@ -323,7 +323,7 @@ function SocialProof() {
     return (
         <div className="mb-8 bg-slate-800/50 dark:bg-slate-900/50 border border-slate-700 dark:border-slate-800 rounded-xl p-6 text-center">
             <p className="text-sm text-slate-300 italic leading-relaxed max-w-lg mx-auto mb-3">
-                &ldquo;Postman just priced us out at $19/user/mo. TestOrbit gave us AI-powered testing with our whole 3-person team for free. The import took 30 seconds.&rdquo;
+                &ldquo;Postman just priced us out at ₹1,600/user/mo. TestOrbit gave us AI-powered testing with our whole 3-person team for free. The import took 30 seconds.&rdquo;
             </p>
             <p className="text-xs text-slate-500 font-medium">&mdash; Early adopter, indie dev team</p>
         </div>

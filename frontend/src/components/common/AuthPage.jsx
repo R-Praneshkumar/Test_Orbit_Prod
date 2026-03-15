@@ -102,7 +102,7 @@ const AuthPage = () => {
 
     // --- Features for left panel ---
     const features = [
-        { icon: Zap, text: 'AI-powered test generation with Gemini' },
+        { icon: Zap, text: 'AI-powered test generation' },
         { icon: Server, text: 'Smart mock server with realistic responses' },
         { icon: Wifi, text: 'WebSocket testing & real-time monitoring' },
         { icon: Shield, text: 'Automated failure diagnosis & fixes' },
@@ -139,7 +139,7 @@ const AuthPage = () => {
                         not harder.
                     </h2>
                     <p className="text-slate-300 text-base mb-10 max-w-md leading-relaxed">
-                        Powered by Google Gemini AI. Generate tests from natural language,
+                        Generate tests from natural language,
                         diagnose failures instantly, and ship with confidence.
                     </p>
 

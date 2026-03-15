@@ -85,7 +85,7 @@ export function TermsOfService() {
                 <p>
                     TestOrbit is an AI-powered API testing platform that provides tools for building, testing, and debugging HTTP APIs.
                     Features include request building, test generation, code generation, mock servers, WebSocket testing, and AI-assisted
-                    diagnostics. AI features are powered by Google Gemini.
+                    diagnostics. AI features are powered by third-party AI services.
                 </p>
             </Section>
 
@@ -154,7 +154,7 @@ export function TermsOfService() {
 
             <Section title="8. Third-Party Services">
                 <p>
-                    TestOrbit integrates with third-party services including Google Gemini (AI), Supabase (authentication and storage),
+                    TestOrbit integrates with third-party services including third-party AI services (AI), Supabase (authentication and storage),
                     and Razorpay (payments). Your use of these services is subject to their respective terms. We are not responsible for
                     the availability or behavior of third-party services.
                 </p>
@@ -233,7 +233,7 @@ export function PrivacyPolicy() {
                     configurations are stored locally in your browser. If logged in, this data may be synced to Supabase for
                     cross-device access.</p>
                 <p><strong>AI interaction data:</strong> When you use AI features, request context (method, URL, headers, body
-                    snippets) is sent to Google Gemini for processing. We do not persistently store the content of AI
+                    snippets) is sent to third-party AI services for processing. We do not persistently store the content of AI
                     conversations on our servers.</p>
             </Section>
 
@@ -251,7 +251,7 @@ export function PrivacyPolicy() {
             <Section title="4. Data Sharing">
                 <p>We do not sell your personal data. We share data only with:</p>
                 <ul className="list-disc pl-5 space-y-1 mt-1">
-                    <li><strong>Google (Gemini AI):</strong> Request context is sent for AI processing. Subject to Google&apos;s AI terms.</li>
+                    <li><strong>AI Provider:</strong> Request context is sent for AI processing. Subject to Google&apos;s AI terms.</li>
                     <li><strong>Supabase:</strong> Authentication and data storage. Subject to Supabase&apos;s privacy policy.</li>
                     <li><strong>Razorpay:</strong> Payment processing for paid plans. Subject to Razorpay&apos;s privacy policy.</li>
                     <li><strong>Law enforcement:</strong> When required by law, court order, or to protect our legal rights.</li>
