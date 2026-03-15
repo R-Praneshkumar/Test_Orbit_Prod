@@ -331,7 +331,7 @@ function SocialProof() {
 
 function PostmanMigrationBanner({ onImport, onDismiss }) {
     return (
-        <div className="mb-6 bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-5 relative">
+        <div className="mb-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 relative">
             <button
                 onClick={onDismiss}
                 className="absolute top-3 right-3 p-1 text-slate-600 hover:text-slate-400 transition-colors"
@@ -340,25 +340,25 @@ function PostmanMigrationBanner({ onImport, onDismiss }) {
                 <X size={14} />
             </button>
             <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-slate-700 dark:bg-slate-800 rounded-lg flex items-center justify-center shrink-0">
-                    <ArrowDownToLine size={20} className="text-slate-300" />
+                <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center shrink-0">
+                    <ArrowDownToLine size={20} className="text-slate-600 dark:text-slate-300" />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold text-slate-100 mb-1">
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
                         Switching from Postman?
                     </h3>
-                    <p className="text-xs text-slate-400 mb-3 leading-relaxed">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-3 leading-relaxed">
                         Import your Postman collections and environments in seconds. All requests, folders, auth, scripts, and variables are preserved.
                     </p>
                     <div className="flex flex-wrap items-center gap-3">
                         <button
                             onClick={onImport}
-                            className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-lg border border-white/20 transition-colors active:scale-95"
+                            className="flex items-center gap-2 px-4 py-2 bg-corporate-600 hover:bg-corporate-700 text-white text-xs font-semibold rounded-lg transition-colors active:scale-95"
                         >
                             <Upload size={13} />
                             Import Postman Collection
                         </button>
-                        <div className="flex items-center gap-3 text-[10px] text-slate-400">
+                        <div className="flex items-center gap-3 text-[10px] text-slate-500 dark:text-slate-400">
                             <span className="flex items-center gap-1"><Check size={10} className="text-emerald-400" /> Auth &amp; scripts</span>
                             <span className="flex items-center gap-1"><Check size={10} className="text-emerald-400" /> Folders</span>
                             <span className="flex items-center gap-1"><Check size={10} className="text-emerald-400" /> Environments</span>
@@ -464,7 +464,7 @@ export const Dashboard = () => {
     const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
 
     return (
-        <div className="flex-1 overflow-auto bg-slate-900 dark:bg-slate-950">
+        <div className={`flex-1 overflow-auto ${showHero ? 'bg-slate-900 dark:bg-slate-950' : 'bg-slate-50 dark:bg-slate-950'}`}>
 
             {/* ===== HERO BANNER — full-bleed, outside p-8 container ===== */}
             {showHero && (
@@ -499,7 +499,7 @@ export const Dashboard = () => {
                                 </button>
                                 <button
                                     onClick={() => setShowCurlImport(true)}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 dark:bg-slate-800 hover:bg-slate-700 dark:hover:bg-slate-700 border border-slate-700 dark:border-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
                                 >
                                     <Terminal size={16} />
                                     Import cURL
@@ -514,10 +514,10 @@ export const Dashboard = () => {
 
                         {/* Greeting */}
                         <div className="mb-8">
-                            <h1 className="text-2xl font-bold text-slate-100 tracking-tight">
+                            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
                                 {displayName ? `Welcome back, ${displayName}.` : 'Welcome to TestOrbit'}
                             </h1>
-                            <p className="text-sm text-slate-400 mt-1">
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                                 {collections.length} collection{collections.length !== 1 ? 's' : ''}
                                 {user && collections.filter(c => c.owner_id && c.owner_id !== user.id).length > 0 && (
                                     <span className="text-blue-500 dark:text-blue-400"> ({collections.filter(c => c.owner_id && c.owner_id !== user.id).length} shared)</span>
@@ -531,9 +531,9 @@ export const Dashboard = () => {
 
                         {/* Usage Stats — hidden for Pro/Team (limits = -1 or frontend knows plan is pro) */}
                         {usage && usage.limits.ai_calls > 0 && subscription?.plan === 'free' && (
-                            <div className="mb-8 bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-5">
+                            <div className="mb-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
                                 <div className="flex items-center justify-between mb-3">
-                                    <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Today&apos;s Usage</h2>
+                                    <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Today&apos;s Usage</h2>
                                     {subscription?.plan === 'free' && (
                                         <button
                                             onClick={() => setCurrentView('pricing')}
@@ -580,7 +580,7 @@ export const Dashboard = () => {
                                             if (e.key === 'Escape') { setShowNewCollInput(false); setNewCollName(''); }
                                         }}
                                         placeholder="Collection name..."
-                                        className="px-3 py-2 text-sm border border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500/30 bg-slate-800 dark:bg-slate-800 text-slate-100 w-48"
+                                        className="px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500/30 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 w-48"
                                     />
                                     <button
                                         onClick={handleNewCollSubmit}
@@ -591,7 +591,7 @@ export const Dashboard = () => {
                                     </button>
                                     <button
                                         onClick={() => { setShowNewCollInput(false); setNewCollName(''); }}
-                                        className="px-3 py-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+                                        className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
                                     >
                                         Cancel
                                     </button>
@@ -607,14 +607,14 @@ export const Dashboard = () => {
                             )}
                             <button
                                 onClick={() => setShowCurlImport(true)}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 dark:bg-slate-800 hover:bg-slate-700 dark:hover:bg-slate-700 border border-slate-700 dark:border-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
+                                className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
                             >
                                 <Terminal size={16} />
                                 Import cURL
                             </button>
                             <button
                                 onClick={() => setShowCollectionImport(true)}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 dark:bg-slate-800 hover:bg-slate-700 dark:hover:bg-slate-700 border border-slate-700 dark:border-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
+                                className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-all active:scale-95"
                             >
                                 <Upload size={16} />
                                 Import Collection
@@ -623,7 +623,7 @@ export const Dashboard = () => {
 
                         {/* Collections Grid */}
                         <div className="mb-8">
-                            <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4">
+                            <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">
                                 {collections.some(c => c.team_id) ? 'My Collections' : 'Collections'}
                             </h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -636,7 +636,7 @@ export const Dashboard = () => {
                                         <div
                                             key={col.id}
                                             onClick={() => handleOpenCollection(col.id)}
-                                            className="group bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:shadow-lg hover:border-corporate-600 hover:-translate-y-0.5 transition-all duration-200"
+                                            className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:shadow-lg hover:border-corporate-300 dark:hover:border-corporate-600 hover:-translate-y-0.5 transition-all duration-200"
                                         >
                                             <div className="flex items-start justify-between mb-3">
                                                 <div className="flex items-center gap-2.5">
@@ -644,7 +644,7 @@ export const Dashboard = () => {
                                                         <Folder size={18} className="text-corporate-600 dark:text-corporate-400" />
                                                     </div>
                                                     <div>
-                                                        <h3 className="text-sm font-semibold text-slate-100 group-hover:text-corporate-400 transition-colors">
+                                                        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-corporate-600 dark:group-hover:text-corporate-400 transition-colors">
                                                             {col.name}
                                                         </h3>
                                                         {(() => {
@@ -684,7 +684,7 @@ export const Dashboard = () => {
                                             </div>
 
                                             {lastRun && (
-                                                <div className="mt-3 pt-3 border-t border-slate-700 dark:border-slate-800">
+                                                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                                                     <div className="flex items-center justify-between text-[10px]">
                                                         <span className="text-slate-400 dark:text-slate-500">Last run</span>
                                                         <div className="flex items-center gap-2">
@@ -712,7 +712,7 @@ export const Dashboard = () => {
                                 {/* Add Collection Card */}
                                 <div
                                     onClick={handleNewCollection}
-                                    className="bg-slate-800/30 dark:bg-slate-900/30 border-2 border-dashed border-slate-700 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:border-corporate-600 hover:bg-corporate-900/10 transition-all flex flex-col items-center justify-center min-h-[140px]"
+                                    className="bg-slate-50 dark:bg-slate-900/30 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:border-corporate-400 dark:hover:border-corporate-600 hover:bg-corporate-50/30 dark:hover:bg-corporate-900/10 transition-all flex flex-col items-center justify-center min-h-[140px]"
                                 >
                                     <Plus size={24} className="text-slate-300 dark:text-slate-600 mb-2" />
                                     <span className="text-xs font-medium text-slate-400 dark:text-slate-500">New Collection</span>
@@ -747,7 +747,7 @@ export const Dashboard = () => {
                                                 <div
                                                     key={col.id}
                                                     onClick={() => handleOpenCollection(col.id)}
-                                                    className="group bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:shadow-lg hover:border-corporate-600 hover:-translate-y-0.5 transition-all duration-200"
+                                                    className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:shadow-lg hover:border-corporate-300 dark:hover:border-corporate-600 hover:-translate-y-0.5 transition-all duration-200"
                                                 >
                                                     <div className="flex items-start justify-between mb-3">
                                                         <div className="flex items-center gap-2.5">
@@ -755,7 +755,7 @@ export const Dashboard = () => {
                                                                 <Users size={18} className="text-corporate-600 dark:text-corporate-400" />
                                                             </div>
                                                             <div>
-                                                                <h3 className="text-sm font-semibold text-slate-100 group-hover:text-corporate-400 transition-colors">
+                                                                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-corporate-600 dark:group-hover:text-corporate-400 transition-colors">
                                                                     {col.name}
                                                                 </h3>
                                                                 {colRole && colRole !== 'owner' && (
@@ -782,7 +782,7 @@ export const Dashboard = () => {
                                                         )}
                                                     </div>
                                                     {lastRun && (
-                                                        <div className="mt-3 pt-3 border-t border-slate-700 dark:border-slate-800">
+                                                        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                                                             <div className="flex items-center justify-between text-[10px]">
                                                                 <span className="text-slate-400 dark:text-slate-500">Last run</span>
                                                                 <div className="flex items-center gap-2">
@@ -813,18 +813,18 @@ export const Dashboard = () => {
                         {recentRuns.length > 0 && (
                             <div>
                                 <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Recent Activity</h2>
-                                <div className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl overflow-hidden">
+                                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
                                     {recentRuns.map((run, idx) => (
                                         <div
                                             key={run.id || idx}
                                             onClick={() => handleOpenCollection(run.collectionId)}
-                                            className={`flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-700/50 transition-colors ${idx < recentRuns.length - 1 ? 'border-b border-slate-700 dark:border-slate-800' : ''
+                                            className={`flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${idx < recentRuns.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''
                                                 }`}
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-2 h-2 rounded-full ${(run.summary?.failed || 0) > 0 ? 'bg-amber-400' : 'bg-green-400'
                                                     }`} />
-                                                <span className="text-sm font-medium text-slate-200">{run.collectionName}</span>
+                                                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{run.collectionName}</span>
                                             </div>
                                             <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                                                 {run.summary?.passed !== undefined && (
