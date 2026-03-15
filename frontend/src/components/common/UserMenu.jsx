@@ -40,7 +40,7 @@ const UserMenu = () => {
         return (
             <button
                 onClick={() => setCurrentView('login')}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm"
             >
                 Sign In
             </button>

@@ -755,7 +755,7 @@ export const IntelligencePanel = ({ onCollapse }) => {
                         <button
                             onClick={handleExecute}
                             disabled={loading || !prompt.trim()}
-                            className="mt-2 w-full bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:bg-slate-400 text-white text-xs font-semibold py-2 rounded-md transition-colors flex items-center justify-center gap-2"
+                            className="mt-2 w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 disabled:from-slate-300 disabled:to-slate-400 text-white text-xs font-semibold py-2 rounded-md transition-all flex items-center justify-center gap-2"
                         >
                             {loading ? <Activity size={12} className="animate-spin" /> : <ArrowRight size={12} />}
                             <span>{loading ? 'AI is thinking...' : messages.length > 0 ? 'Send Follow-up' : 'Ask AI'}</span>

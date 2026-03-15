@@ -241,7 +241,7 @@ export default function PricingPage() {
                         <span className={`text-xs font-medium ${!annual ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}>Monthly</span>
                         <button
                             onClick={() => setAnnual(!annual)}
-                            className={`relative w-10 h-5 rounded-full transition-colors ${annual ? 'bg-slate-900' : 'bg-slate-300 dark:bg-slate-600'}`}
+                            className={`relative w-10 h-5 rounded-full transition-colors ${annual ? 'bg-sky-500' : 'bg-slate-300 dark:bg-slate-600'}`}
                         >
                             <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${annual ? 'translate-x-5' : 'translate-x-0.5'}`} />
                         </button>
@@ -283,8 +283,8 @@ export default function PricingPage() {
                     </div>
 
                     {/* Pro */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border-2 border-slate-900 dark:border-slate-400 p-6 relative shadow-lg shadow-slate-200 dark:shadow-slate-900/50">
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-3 py-1 rounded-full">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border-2 border-sky-500 dark:border-sky-400 p-6 relative shadow-lg shadow-sky-100 dark:shadow-sky-900/30">
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-sky-500 to-blue-600 text-white text-[10px] font-bold px-3 py-1 rounded-full">
                             MOST POPULAR
                         </div>
                         <div className="flex items-center gap-2 mb-4">
@@ -304,7 +304,7 @@ export default function PricingPage() {
                             onClick={canSwitchToAnnual ? handleSwitchToAnnual : () => handleUpgrade('pro')}
                             className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors ${canSwitchToAnnual
                                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                : 'bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-50'
+                                : 'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white disabled:opacity-50'
                             }`}
                         >
                             {getProButtonText()}

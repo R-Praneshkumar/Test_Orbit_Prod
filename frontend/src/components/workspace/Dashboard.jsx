@@ -353,7 +353,7 @@ function PostmanMigrationBanner({ onImport, onDismiss }) {
                     <div className="flex flex-wrap items-center gap-3">
                         <button
                             onClick={onImport}
-                            className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors active:scale-95"
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-semibold rounded-lg transition-colors active:scale-95"
                         >
                             <Upload size={13} />
                             Import Postman Collection
@@ -523,7 +523,7 @@ export const Dashboard = () => {
                                     <span className="text-blue-500 dark:text-blue-400"> ({collections.filter(c => c.owner_id && c.owner_id !== user.id).length} shared)</span>
                                 )}
                                 {user && collections.filter(c => c.team_id).length > 0 && (
-                                    <span className="text-corporate-500 dark:text-corporate-400"> &middot; {collections.filter(c => c.team_id).length} team</span>
+                                    <span className="text-sky-500 dark:text-sky-400"> &middot; {collections.filter(c => c.team_id).length} team</span>
                                 )}
                                 {' '}&middot; AI-powered API testing
                             </p>
@@ -548,7 +548,7 @@ export const Dashboard = () => {
                                     <UsageBar icon={<FlaskRound size={13} className="text-blue-500" />} label="Test Gen" used={usage.test_gen} limit={usage.limits.test_gen} color="blue" />
                                     <UsageBar icon={<Code size={13} className="text-emerald-500" />} label="Code Gen" used={usage.code_gen} limit={usage.limits.code_gen} color="emerald" />
                                     {usage.limits.security_scan > 0 && (
-                                        <UsageBar icon={<Shield size={13} className="text-corporate-500" />} label="Security Scan" used={usage.security_scan || 0} limit={usage.limits.security_scan} color="purple" />
+                                        <UsageBar icon={<Shield size={13} className="text-sky-500" />} label="Security Scan" used={usage.security_scan || 0} limit={usage.limits.security_scan} color="purple" />
                                     )}
                                 </div>
                             </div>
@@ -580,12 +580,12 @@ export const Dashboard = () => {
                                             if (e.key === 'Escape') { setShowNewCollInput(false); setNewCollName(''); }
                                         }}
                                         placeholder="Collection name..."
-                                        className="px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-corporate-500/30 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 w-48"
+                                        className="px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-sky-500/30 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 w-48"
                                     />
                                     <button
                                         onClick={handleNewCollSubmit}
                                         disabled={!newCollName.trim()}
-                                        className="px-3 py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 dark:disabled:bg-slate-600 text-white text-sm font-semibold rounded-lg transition-colors"
+                                        className="px-3 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-600 text-white text-sm font-semibold rounded-lg transition-colors"
                                     >
                                         Create
                                     </button>
@@ -599,7 +599,7 @@ export const Dashboard = () => {
                             ) : (
                                 <button
                                     onClick={handleNewCollection}
-                                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg shadow-md shadow-black/20 transition-all active:scale-95"
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white text-sm font-semibold rounded-lg shadow-md shadow-black/20 transition-all active:scale-95"
                                 >
                                     <Plus size={16} />
                                     New Collection
@@ -636,15 +636,15 @@ export const Dashboard = () => {
                                         <div
                                             key={col.id}
                                             onClick={() => handleOpenCollection(col.id)}
-                                            className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:shadow-lg hover:border-corporate-300 dark:hover:border-corporate-600 hover:-translate-y-0.5 transition-all duration-200"
+                                            className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:shadow-lg hover:border-sky-300 dark:hover:border-sky-600 hover:-translate-y-0.5 transition-all duration-200"
                                         >
                                             <div className="flex items-start justify-between mb-3">
                                                 <div className="flex items-center gap-2.5">
-                                                    <div className="w-9 h-9 bg-corporate-50 dark:bg-corporate-900/30 border border-corporate-200 dark:border-corporate-700 rounded-lg flex items-center justify-center">
-                                                        <Folder size={18} className="text-corporate-600 dark:text-corporate-400" />
+                                                    <div className="w-9 h-9 bg-sky-50 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-700 rounded-lg flex items-center justify-center">
+                                                        <Folder size={18} className="text-sky-600 dark:text-sky-400" />
                                                     </div>
                                                     <div>
-                                                        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-corporate-600 dark:group-hover:text-corporate-400 transition-colors">
+                                                        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                                                             {col.name}
                                                         </h3>
                                                         {(() => {
@@ -667,7 +667,7 @@ export const Dashboard = () => {
                                                         })()}
                                                     </div>
                                                 </div>
-                                                <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-corporate-500 transition-colors mt-1" />
+                                                <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-sky-500 transition-colors mt-1" />
                                             </div>
 
                                             <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
@@ -712,7 +712,7 @@ export const Dashboard = () => {
                                 {/* Add Collection Card */}
                                 <div
                                     onClick={handleNewCollection}
-                                    className="bg-slate-50 dark:bg-slate-900/30 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:border-corporate-400 dark:hover:border-corporate-600 hover:bg-corporate-50/30 dark:hover:bg-corporate-900/10 transition-all flex flex-col items-center justify-center min-h-[140px]"
+                                    className="bg-slate-50 dark:bg-slate-900/30 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:border-sky-400 dark:hover:border-sky-600 hover:bg-sky-50/30 dark:hover:bg-sky-900/10 transition-all flex flex-col items-center justify-center min-h-[140px]"
                                 >
                                     <Plus size={24} className="text-slate-300 dark:text-slate-600 mb-2" />
                                     <span className="text-xs font-medium text-slate-400 dark:text-slate-500">New Collection</span>
@@ -734,7 +734,7 @@ export const Dashboard = () => {
                             return Object.entries(teamGroups).map(([teamName, cols]) => (
                                 <div key={teamName} className="mb-8">
                                     <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
-                                        <Users size={13} className="text-corporate-500" /> {teamName}
+                                        <Users size={13} className="text-sky-500" /> {teamName}
                                     </h2>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {cols.map(col => {
@@ -747,15 +747,15 @@ export const Dashboard = () => {
                                                 <div
                                                     key={col.id}
                                                     onClick={() => handleOpenCollection(col.id)}
-                                                    className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:shadow-lg hover:border-corporate-300 dark:hover:border-corporate-600 hover:-translate-y-0.5 transition-all duration-200"
+                                                    className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 cursor-pointer hover:shadow-lg hover:border-sky-300 dark:hover:border-sky-600 hover:-translate-y-0.5 transition-all duration-200"
                                                 >
                                                     <div className="flex items-start justify-between mb-3">
                                                         <div className="flex items-center gap-2.5">
-                                                            <div className="w-9 h-9 bg-corporate-50 dark:bg-corporate-900/30 border border-corporate-200 dark:border-corporate-700 rounded-lg flex items-center justify-center">
-                                                                <Users size={18} className="text-corporate-600 dark:text-corporate-400" />
+                                                            <div className="w-9 h-9 bg-sky-50 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-700 rounded-lg flex items-center justify-center">
+                                                                <Users size={18} className="text-sky-600 dark:text-sky-400" />
                                                             </div>
                                                             <div>
-                                                                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-corporate-600 dark:group-hover:text-corporate-400 transition-colors">
+                                                                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                                                                     {col.name}
                                                                 </h3>
                                                                 {colRole && colRole !== 'owner' && (
@@ -769,7 +769,7 @@ export const Dashboard = () => {
                                                                 )}
                                                             </div>
                                                         </div>
-                                                        <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-corporate-500 transition-colors mt-1" />
+                                                        <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-sky-500 transition-colors mt-1" />
                                                     </div>
                                                     <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                                                         <span className="flex items-center gap-1">

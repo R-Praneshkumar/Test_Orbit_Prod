@@ -142,7 +142,7 @@ export const CurlImportModal = ({ onClose }) => {
                         <button
                             onClick={handleParse}
                             disabled={!curlInput.trim()}
-                            className="mt-3 bg-slate-800 dark:bg-slate-600 hover:bg-slate-900 dark:hover:bg-slate-500 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
+                            className="mt-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 disabled:from-slate-300 disabled:to-slate-400 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all"
                         >
                             Parse cURL
                         </button>
