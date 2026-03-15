@@ -1902,7 +1902,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
 }), {
     name: 'gemini-workspace-storage',
-    version: 16,
+    version: 17,
     partialize: (state) => {
         // Exclude transient runtime data from persistence
         // _realtimeChannel contains circular refs (RealtimeChannel → socket → channels → channel)
@@ -2142,6 +2142,10 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 ...env,
                 team_id: env.team_id || null,
             }));
+        }
+        if (version < 17) {
+            // v16 → v17: Reset onboarding checklist for all users (new improved checklist)
+            persisted.dismissedOnboarding = false;
         }
         return persisted;
     },
