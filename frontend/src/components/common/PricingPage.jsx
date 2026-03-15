@@ -163,8 +163,10 @@ export default function PricingPage() {
     };
 
     const currentPlan = subscription?.plan || 'free';
-    const isProMonthly = currentPlan === 'pro' && subscription?.billing === 'monthly';
-    const isProAnnual = currentPlan === 'pro' && subscription?.billing === 'annual';
+    // If billing is unknown (null), default to 'monthly' — the more common case
+    const billingCycle = subscription?.billing || (currentPlan === 'pro' ? 'monthly' : null);
+    const isProMonthly = currentPlan === 'pro' && billingCycle === 'monthly';
+    const isProAnnual = currentPlan === 'pro' && billingCycle === 'annual';
     const canSwitchToAnnual = isProMonthly && annual;
 
     const handleSwitchToAnnual = async () => {

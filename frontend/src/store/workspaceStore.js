@@ -272,6 +272,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             }
             await get().fetchProfile();
             get().checkAdminStatus();
+            get().fetchSubscriptionStatus();
             get().fetchRemoteCollections();
             get().fetchRemoteEnvironments();
             get().subscribeToCollectionChanges();
@@ -292,6 +293,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                     }
                     await get().fetchProfile();
                     get().checkAdminStatus();
+                    get().fetchSubscriptionStatus();
                     get().fetchRemoteCollections();
                     get().fetchRemoteEnvironments();
                     get().subscribeToCollectionChanges();
@@ -323,6 +325,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                         activeTutorial: null,
                         profile: null,
                         isAdmin: false,
+                        subscription: { plan: 'free', status: 'active', billing: null, subscription_id: null },
                     });
                 }
             }
@@ -1072,6 +1075,27 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
     // Subscription
     setSubscription: (sub) => set({ subscription: { ...sub } }),
+
+    // Fetch subscription status from backend on login
+    fetchSubscriptionStatus: async () => {
+        try {
+            const { authFetch, API_BASE } = await import('../config');
+            const res = await authFetch(`${API_BASE}/razorpay/subscription-status`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.plan && data.plan !== 'free') {
+                    set({ subscription: {
+                        plan: data.plan,
+                        status: data.status,
+                        billing: data.billing || null,
+                        subscription_id: data.subscription_id || null,
+                    }});
+                }
+            }
+        } catch {
+            // Silently fail
+        }
+    },
 
     // Admin check
     checkAdminStatus: async () => {
