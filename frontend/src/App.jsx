@@ -3,7 +3,7 @@ import { Sidebar } from './components/workspace/Sidebar';
 import { TabManager } from './components/workspace/TabManager';
 import { ResizeHandle } from './components/workspace/ResizeHandle';
 import { useWorkspaceStore, flattenItems } from './store/workspaceStore';
-import { Layout, Home, Wrench, Server, Book, Sun, Moon, Wifi, WifiOff, PanelLeftOpen, PanelRightOpen, FolderTree, Search, Sparkles, MessageSquare, FlaskConical } from 'lucide-react';
+import { Layout, Home, Wrench, Server, Book, Sun, Moon, Wifi, WifiOff, PanelLeftOpen, PanelRightOpen, FolderTree, Search, Sparkles, MessageSquare, FlaskConical, Plus } from 'lucide-react';
 import AuthPage from './components/common/AuthPage';
 import UserMenu from './components/common/UserMenu';
 import GuestBanner from './components/common/GuestBanner';
@@ -325,14 +325,33 @@ function App() {
                     ? <WebSocketTester tabId={visibleTabId} />
                     : <RequestEditor tabId={visibleTabId} />
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 bg-slate-50/50 dark:bg-slate-900/50">
-                <div className="w-20 h-20 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm rounded-xl flex items-center justify-center mb-6">
-                  <Layout size={40} strokeWidth={1} />
+              <div className="flex-1 flex flex-col items-center justify-center bg-slate-50/50 dark:bg-slate-900/50 p-8">
+                <div className="w-16 h-16 bg-gradient-to-br from-sky-400 to-blue-600 rounded-2xl flex items-center justify-center mb-5 shadow-lg shadow-sky-500/10">
+                  <Layout size={32} strokeWidth={1} className="text-white" />
                 </div>
-                <h2 className="text-xl font-medium text-slate-600 dark:text-slate-300 tracking-tight">Gemini Workspace</h2>
-                <p className="max-w-xs text-center mt-2 text-sm text-slate-400 dark:text-slate-500">
-                  Select a request from the explorer or ask the Intelligence Panel to build one for you.
+                <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200 tracking-tight mb-1">TestOrbit Workspace</h2>
+                <p className="max-w-sm text-center text-sm text-slate-400 dark:text-slate-500 mb-6">
+                  Select a request from the sidebar, or get started with one of these:
                 </p>
+                <div className="flex flex-wrap gap-3 justify-center mb-6">
+                  <button
+                    onClick={() => { const s = useWorkspaceStore.getState(); const colId = s.activeCollectionId || s.collections[0]?.id; if (colId) s.addRequest(colId); }}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-semibold rounded-lg transition-all active:scale-95 shadow-md shadow-sky-500/15"
+                  >
+                    <Plus size={14} /> New Request
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('dashboard')}
+                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-lg transition-all active:scale-95"
+                  >
+                    <Home size={14} /> Import Collection
+                  </button>
+                </div>
+                <div className="flex flex-col items-center gap-2 text-[11px] text-slate-400 dark:text-slate-500">
+                  <span>Press <kbd className="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded text-[10px] font-mono">Ctrl+K</kbd> to search anything</span>
+                  <span>Right-click a collection for <strong>Share, Run, Tests, Settings</strong></span>
+                  <span>The <strong>Intelligence Panel →</strong> on the right has AI Chat, Tests & Code Gen</span>
+                </div>
               </div>
             )}
           </div>

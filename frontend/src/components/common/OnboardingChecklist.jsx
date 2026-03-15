@@ -75,15 +75,15 @@ export function OnboardingChecklist() {
                         </h3>
                         <p className="text-[10px] text-slate-500 dark:text-slate-400">{completed}/{total} complete</p>
                     </div>
-                    {/* Dismiss — only when ALL done */}
-                    {allDone && (
-                        <button
-                            onClick={dismissOnboarding}
-                            className="text-[10px] font-semibold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 transition-colors px-2 py-1 rounded-md hover:bg-sky-50 dark:hover:bg-sky-900/20"
-                        >
-                            Dismiss
-                        </button>
-                    )}
+                    {/* Dismiss — always available, user's choice */}
+                    <button
+                        onClick={dismissOnboarding}
+                        className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                        aria-label="Dismiss checklist"
+                        title="Dismiss checklist"
+                    >
+                        <X size={14} />
+                    </button>
                 </div>
 
                 {/* Progress bar */}
