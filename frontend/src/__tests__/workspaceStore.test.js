@@ -426,6 +426,40 @@ describe('workspaceStore — request CRUD', () => {
         expect(suite.tests[0].requestId).toBeNull();
     });
 
+    it('deleteRequest removes a collection entirely', () => {
+        // Add a request and open its tab
+        useWorkspaceStore.getState().addRequest('col-1');
+        const reqId = useWorkspaceStore.getState().collections[0].items[0].id;
+        useWorkspaceStore.getState().setResponseData(reqId, { status: 200 }, 100);
+
+        // Delete the collection itself
+        useWorkspaceStore.getState().deleteRequest('col-1');
+
+        const { collections, activeTabs, activeTabId, responses } = useWorkspaceStore.getState();
+        expect(collections).toHaveLength(0);
+        expect(activeTabs).toHaveLength(0);
+        expect(activeTabId).toBeNull();
+        expect(responses[reqId]).toBeUndefined();
+    });
+
+    it('deleteRequest on folder cleans up child request tabs', () => {
+        const folderId = useWorkspaceStore.getState().addFolder('col-1', 'Folder');
+        useWorkspaceStore.getState().addRequestToFolder('col-1', folderId);
+        const reqId = useWorkspaceStore.getState().collections[0].items[0].items[0].id;
+
+        // Open the child request as a tab
+        useWorkspaceStore.getState().openTab({ id: reqId, name: 'Child', type: 'request' });
+        expect(useWorkspaceStore.getState().activeTabs).toHaveLength(1);
+
+        // Delete the folder
+        useWorkspaceStore.getState().deleteRequest(folderId);
+
+        const { collections, activeTabs, activeTabId } = useWorkspaceStore.getState();
+        expect(collections[0].items).toHaveLength(0);
+        expect(activeTabs).toHaveLength(0);
+        expect(activeTabId).toBeNull();
+    });
+
     it('duplicateRequest creates a copy next to original', () => {
         useWorkspaceStore.getState().addRequest('col-1');
         const reqId = useWorkspaceStore.getState().collections[0].items[0].id;

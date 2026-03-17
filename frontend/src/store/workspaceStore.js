@@ -1399,42 +1399,91 @@ export const useWorkspaceStore = create(persist((set, get) => ({
         get().saveCollectionToSupabase(collectionId);
     },
 
-    // Delete a request from collections, tabs, response cache, AND test suite references
+    // Delete a request, folder, or collection — cleans up tabs, responses, and test suite refs
     deleteRequest: (id) => {
-        const colId = get().findCollectionForRequest(id);
+        const state = get();
+        const isCollection = state.collections.some(c => c.id === id);
 
-        set((state) => {
-            const removeRecursive = (items) =>
-                items.filter(item => item.id !== id).map(item =>
-                    item.items ? { ...item, items: removeRecursive(item.items) } : item
-                );
+        if (isCollection) {
+            // --- Collection deletion ---
+            const col = state.collections.find(c => c.id === id);
+            const allChildIds = new Set(flattenItems(col?.items || []).map(i => i.id));
 
-            const newTabs = state.activeTabs.filter(t => t.id !== id);
-            let newActiveId = state.activeTabId;
-            if (state.activeTabId === id) {
-                newActiveId = newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null;
+            set((state) => {
+                const newTabs = state.activeTabs.filter(t => !allChildIds.has(t.id));
+                let newActiveId = state.activeTabId;
+                if (allChildIds.has(state.activeTabId)) {
+                    newActiveId = newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null;
+                }
+                const restResponses = { ...state.responses };
+                for (const rid of allChildIds) delete restResponses[rid];
+
+                const newCollections = state.collections.filter(c => c.id !== id);
+                return {
+                    collections: newCollections,
+                    activeTabs: newTabs,
+                    activeTabId: newActiveId,
+                    responses: restResponses,
+                    activeCollectionId: state.activeCollectionId === id
+                        ? (newCollections.length > 0 ? newCollections[0].id : null)
+                        : state.activeCollectionId,
+                };
+            });
+
+            // Delete from Supabase
+            if (supabase && state.user) {
+                supabase.from('collections').delete().eq('id', id);
             }
-            const { [id]: _, ...restResponses } = state.responses;
+        } else {
+            // --- Request or folder deletion ---
+            const colId = get().findCollectionForRequest(id);
 
-            return {
-                // Remove from items tree AND null out test suite references
-                collections: state.collections.map(col => ({
-                    ...col,
-                    items: removeRecursive(col.items),
-                    testSuites: (col.testSuites || []).map(suite => ({
-                        ...suite,
-                        tests: (suite.tests || []).map(t =>
-                            t.requestId === id ? { ...t, requestId: null } : t
-                        )
-                    }))
-                })),
-                activeTabs: newTabs,
-                activeTabId: newActiveId,
-                responses: restResponses
-            };
-        });
+            set((state) => {
+                // Collect IDs of the item itself + all nested children (for folder cleanup)
+                const idsToRemove = new Set([id]);
+                const collectChildren = (items) => {
+                    for (const item of (items || [])) {
+                        if (item.id === id && item.items) {
+                            flattenItems(item.items).forEach(child => idsToRemove.add(child.id));
+                        } else if (item.items) {
+                            collectChildren(item.items);
+                        }
+                    }
+                };
+                state.collections.forEach(col => collectChildren(col.items));
 
-        if (colId) get().saveCollectionToSupabase(colId);
+                const removeRecursive = (items) =>
+                    (items || []).filter(item => item.id !== id).map(item =>
+                        item.items ? { ...item, items: removeRecursive(item.items) } : item
+                    );
+
+                const newTabs = state.activeTabs.filter(t => !idsToRemove.has(t.id));
+                let newActiveId = state.activeTabId;
+                if (idsToRemove.has(state.activeTabId)) {
+                    newActiveId = newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null;
+                }
+                const restResponses = { ...state.responses };
+                for (const rid of idsToRemove) delete restResponses[rid];
+
+                return {
+                    collections: state.collections.map(col => ({
+                        ...col,
+                        items: removeRecursive(col.items),
+                        testSuites: (col.testSuites || []).map(suite => ({
+                            ...suite,
+                            tests: (suite.tests || []).map(t =>
+                                idsToRemove.has(t.requestId) ? { ...t, requestId: null } : t
+                            )
+                        }))
+                    })),
+                    activeTabs: newTabs,
+                    activeTabId: newActiveId,
+                    responses: restResponses
+                };
+            });
+
+            if (colId) get().saveCollectionToSupabase(colId);
+        }
     },
 
     // Rename a request or collection
