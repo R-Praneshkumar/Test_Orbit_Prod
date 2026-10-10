@@ -5,7 +5,6 @@ import asyncio
 import json as json_module
 import aiohttp
 import logging
-import jwt as pyjwt
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from app.services.ai_service import ai_service
@@ -14,7 +13,7 @@ from app.services.usage_service import usage_service
 from app.services.security_scanner import security_scanner
 from app.services.perf_analyzer import perf_analyzer
 from app.core.config import get_settings
-from app.core.security import validate_proxy_url, verify_token, PinnedResolver
+from app.core.security import validate_proxy_url, verify_token, PinnedResolver, read_bounded_response
 
 logger = logging.getLogger(__name__)
 
@@ -23,68 +22,15 @@ _settings = get_settings()
 
 
 def _get_rate_limit_key(request: Request) -> str:
-    """Extract user ID from JWT for per-user rate limiting. Falls back to IP."""
-    auth = request.headers.get("authorization", "")
-    if auth.startswith("Bearer "):
-        try:
-            payload = pyjwt.decode(auth[7:], options={"verify_signature": False})
-            user_id = payload.get("sub")
-            if user_id and user_id != "anonymous":
-                return f"user:{user_id}"
-        except Exception:
-            pass
+    """Use the server-observed peer; never trust unsigned JWT claims."""
     return get_remote_address(request)
 
 
 limiter = Limiter(key_func=_get_rate_limit_key)
 
 
-async def _get_user_plan(user_id: str) -> str:
-    """Look up user's plan from Supabase subscriptions table. Falls back to 'free'.
-    For cancelled subscriptions, checks if still within the paid billing period."""
-    from app.api.razorpay_routes import _get_user_plan as _lookup
-    from datetime import datetime as dt, timezone as tz
-    try:
-        sub = await _lookup(user_id)
-        plan = sub.get("plan", "free")
-        status = sub.get("status", "active")
-
-        if plan == "pro" and status == "active":
-            return "pro"
-        if plan == "pro" and status == "cancelled":
-            # Keep Pro until billing period ends
-            expires = sub.get("expires_at")
-            if expires:
-                try:
-                    end = dt.fromisoformat(expires.replace("Z", "+00:00"))
-                    if end > dt.now(tz.utc):
-                        return "pro"
-                except (ValueError, TypeError):
-                    pass
-        return "free"
-    except Exception:
-        return "free"
-
-
-async def _enforce_daily_limit(endpoint: str, user: dict):
-    """Check daily usage limits before an AI call. Raises 429 if exceeded."""
-    user_id = user.get("sub", "anonymous")
-    if user_id == "anonymous":
-        return
-    plan = await _get_user_plan(user_id)
-    exceeded = usage_service.check_limit(user_id, endpoint, plan)
-    if exceeded:
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "code": "DAILY_LIMIT_EXCEEDED",
-                "message": f"Daily {exceeded['category'].replace('_', ' ')} limit reached ({exceeded['limit']}). Upgrade to Pro for unlimited access.",
-                "category": exceeded["category"],
-                "used": exceeded["used"],
-                "limit": exceeded["limit"],
-                "upgrade_url": "/pricing",
-            },
-        )
+# Payment, plan tiers, and daily usage limits were removed — all AI features are
+# unlimited for every authenticated user. Usage is still counted for admin analytics only.
 
 # Maximum proxy request body size: 10MB
 MAX_PROXY_BODY_SIZE = 10_485_760
@@ -273,7 +219,6 @@ class ProxyRequest(BaseModel):
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def generate_tests(request: Request, req: GenerateRequest, user: dict = Depends(verify_token)):
     """Generates test cases using Gemini 3."""
-    await _enforce_daily_limit("generate", user)
     context = f"{req.url} {req.context or ''}"
     result = await ai_service.generate_tests(
         context,
@@ -290,7 +235,6 @@ async def generate_tests(request: Request, req: GenerateRequest, user: dict = De
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def run_tests(request: Request, req: RunRequest, user: dict = Depends(verify_token)):
     """Runs tests in parallel using aiohttp."""
-    await _enforce_daily_limit("run", user)
     logger.info(f"Running batch for {len(req.tests)} tests...")
     results = await test_runner.run_batch(req.tests, req.base_url)
     logger.info("Batch execution complete. Analyzing optimizations...")
@@ -321,7 +265,6 @@ async def run_tests(request: Request, req: RunRequest, user: dict = Depends(veri
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def chat(request: Request, req: ChatRequest, user: dict = Depends(verify_token)):
     """Conversational AI assistant for API testing help."""
-    await _enforce_daily_limit("chat", user)
     try:
         result = await ai_service.chat(
             message=req.message,
@@ -338,7 +281,6 @@ async def chat(request: Request, req: ChatRequest, user: dict = Depends(verify_t
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def process_voice(request: Request, cmd: VoiceCommand, user: dict = Depends(verify_token)):
     """Processes natural language commands with optional OpenAPI spec and conversation history."""
-    await _enforce_daily_limit("voice", user)
     try:
         result = await ai_service.generate_payload_from_intent(
             cmd.transcript,
@@ -356,7 +298,6 @@ async def process_voice(request: Request, cmd: VoiceCommand, user: dict = Depend
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def generate_code(request: Request, req: CodeGenRequest, user: dict = Depends(verify_token)):
     """Generates code snippets for a given API request using Gemini AI."""
-    await _enforce_daily_limit("codegen", user)
     result = await ai_service.generate_code(
         method=req.method,
         url=req.url,
@@ -375,7 +316,6 @@ async def generate_code(request: Request, req: CodeGenRequest, user: dict = Depe
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def diagnose_failure(request: Request, req: DiagnoseRequest, user: dict = Depends(verify_token)):
     """Diagnoses why an API test failed using Gemini AI."""
-    await _enforce_daily_limit("diagnose", user)
     result = await ai_service.diagnose_failure(
         method=req.method,
         url=req.url,
@@ -396,7 +336,6 @@ async def diagnose_failure(request: Request, req: DiagnoseRequest, user: dict = 
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def suggest_tests(request: Request, req: SuggestRequest, user: dict = Depends(verify_token)):
     """Generates AI-powered test suggestions with assertions for a single endpoint."""
-    await _enforce_daily_limit("suggest", user)
     try:
         result = await ai_service.suggest_endpoint_tests(
             method=req.method,
@@ -422,7 +361,6 @@ async def suggest_tests(request: Request, req: SuggestRequest, user: dict = Depe
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def contract_check(request: Request, req: ContractCheckRequest, user: dict = Depends(verify_token)):
     """Runs contract checks comparing live API responses against OpenAPI schemas."""
-    await _enforce_daily_limit("contract-check", user)
     try:
         results = await test_runner.run_contract_check(
             openapi_spec=req.openapi_spec,
@@ -458,7 +396,6 @@ async def contract_check(request: Request, req: ContractCheckRequest, user: dict
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def security_scan(request: Request, req: SecurityScanRequest, user: dict = Depends(verify_token)):
     """AI-powered security vulnerability scanner for API request/response pairs."""
-    await _enforce_daily_limit("security-scan", user)
     try:
         result = await security_scanner.scan(
             method=req.method,
@@ -481,7 +418,6 @@ async def security_scan(request: Request, req: SecurityScanRequest, user: dict =
 @limiter.limit(_settings.AI_RATE_LIMIT)
 async def perf_analyze(request: Request, req: PerfAnalyzeRequest, user: dict = Depends(verify_token)):
     """AI-powered performance analysis for collection run results."""
-    await _enforce_daily_limit("perf-analyze", user)
     try:
         result = await perf_analyzer.analyze(req.results)
         usage_service.record(user.get("sub", "anonymous"), "perf-analyze")
@@ -544,10 +480,11 @@ async def proxy_request(request: Request, req: ProxyRequest, user: dict = Depend
                 method=req.method,
                 url=req.url,
                 headers=headers,
+                allow_redirects=False,
                 **request_kwargs
             ) as response:
                 try:
-                    raw_bytes = await response.read()
+                    raw_bytes = await read_bounded_response(response)
                     text = raw_bytes.decode('utf-8', errors='replace')
                     try:
                         data = json_module.loads(text)
@@ -583,7 +520,5 @@ async def proxy_request(request: Request, req: ProxyRequest, user: dict = Depend
 
 @router.get("/usage/today")
 async def get_usage_today(request: Request, user: dict = Depends(verify_token)):
-    """Get today's AI usage stats for the authenticated user."""
-    user_id = user.get("sub", "anonymous")
-    plan = await _get_user_plan(user_id) if user_id != "anonymous" else "free"
-    return usage_service.get_today(user.get("sub", "anonymous"), plan)
+    """Get today's AI usage counts (informational only — all features are unlimited)."""
+    return usage_service.get_today(user.get("sub", "anonymous"))

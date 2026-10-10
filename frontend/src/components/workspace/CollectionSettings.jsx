@@ -6,7 +6,7 @@ import ShareModal from './ShareModal';
 import { toast } from '../../utils/toast';
 
 // --- Collection-Level Auto-Auth Panel ---
-const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
+const CollectionAutoAuthPanel = ({ collection, updateCollection, readOnly }) => {
     const localMode = useWorkspaceStore(state => state.localMode);
     const [tokenStatus, setTokenStatus] = useState(null);
     const [tokenError, setTokenError] = useState(null);
@@ -85,6 +85,7 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
                         value={collection.autoAuthLoginUrl || ''}
                         onChange={(e) => handleChange('autoAuthLoginUrl', e.target.value)}
                         placeholder="https://api.example.com/login"
+                        disabled={readOnly}
                         className={inputClass}
                     />
                 </div>
@@ -94,6 +95,7 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
                     <select
                         value={collection.autoAuthMethod || 'POST'}
                         onChange={(e) => handleChange('autoAuthMethod', e.target.value)}
+                        disabled={readOnly}
                         className={inputClass}
                     >
                         <option value="POST">POST</option>
@@ -108,6 +110,7 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
                         value={collection.autoAuthTokenPath || ''}
                         onChange={(e) => handleChange('autoAuthTokenPath', e.target.value)}
                         placeholder="token (or data.access_token)"
+                        disabled={readOnly}
                         className={inputClass}
                     />
                 </div>
@@ -127,6 +130,7 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
                                     handleChange('autoAuthLoginHeaders', updated);
                                 }}
                                 placeholder="Header name"
+                                disabled={readOnly}
                                 className={`${inputClass} flex-1`}
                             />
                             <input
@@ -138,10 +142,12 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
                                     handleChange('autoAuthLoginHeaders', updated);
                                 }}
                                 placeholder="Value"
+                                disabled={readOnly}
                                 className={`${inputClass} flex-1`}
                             />
                             <button
                                 onClick={() => handleChange('autoAuthLoginHeaders', (collection.autoAuthLoginHeaders || []).filter((_, i) => i !== idx))}
+                                disabled={readOnly}
                                 className="text-slate-400 hover:text-red-500 text-xs px-1 shrink-0"
                             >
                                 Remove
@@ -150,6 +156,7 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
                     ))}
                     <button
                         onClick={() => handleChange('autoAuthLoginHeaders', [...(collection.autoAuthLoginHeaders || []), { key: '', value: '' }])}
+                        disabled={readOnly}
                         className="text-xs text-corporate-600 dark:text-corporate-400 hover:underline"
                     >
                         + Add Header
@@ -163,6 +170,7 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
                     value={collection.autoAuthBody || ''}
                     onChange={(e) => handleChange('autoAuthBody', e.target.value)}
                     placeholder={'{"email": "user@example.com", "password": "pass"}'}
+                    readOnly={readOnly}
                     className={`${inputClass} resize-none`}
                     rows={5}
                 />
@@ -171,7 +179,7 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
             <div className="flex items-center gap-3">
                 <button
                     onClick={handleTestLogin}
-                    disabled={tokenStatus === 'loading' || !collection.autoAuthLoginUrl}
+                    disabled={readOnly || tokenStatus === 'loading' || !collection.autoAuthLoginUrl}
                     className="px-4 py-2 text-xs font-semibold text-white bg-corporate-600 hover:bg-corporate-700 disabled:bg-slate-300 dark:disabled:bg-slate-600 rounded-lg transition-colors"
                 >
                     {tokenStatus === 'loading' ? 'Logging in...' : 'Test Login'}
@@ -179,6 +187,7 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
                 {collection.autoAuthToken && (
                     <button
                         onClick={() => updateCollection(collection.id, { autoAuthToken: '', autoAuthTokenTime: null })}
+                        disabled={readOnly}
                         className="px-3 py-2 text-xs text-slate-500 hover:text-red-500 transition-colors"
                     >
                         Clear Token
@@ -199,7 +208,7 @@ const CollectionAutoAuthPanel = ({ collection, updateCollection }) => {
                             >Copy</button>
                             <button
                                 onClick={handleTestLogin}
-                                disabled={tokenStatus === 'loading' || !collection.autoAuthLoginUrl}
+                                disabled={readOnly || tokenStatus === 'loading' || !collection.autoAuthLoginUrl}
                                 className="text-[10px] px-2 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-700 transition-colors disabled:opacity-50"
                             >Refresh</button>
                         </div>
@@ -392,6 +401,7 @@ const AuthTabContent = ({ collection, updateCollection, inputClass, readOnly }) 
                 </div>
                 <button
                     onClick={() => updateCollection(collection.id, { forceCollectionAuth: !collection.forceCollectionAuth })}
+                    disabled={readOnly}
                     className={`relative w-10 h-5 rounded-full transition-colors ${collection.forceCollectionAuth ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}`}
                 >
                     <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${collection.forceCollectionAuth ? 'left-5' : 'left-0.5'}`} />
@@ -403,6 +413,7 @@ const AuthTabContent = ({ collection, updateCollection, inputClass, readOnly }) 
                 <select
                     value={collection.authType || 'none'}
                     onChange={(e) => updateCollection(collection.id, { authType: e.target.value })}
+                    disabled={readOnly}
                     className={`${inputClass} max-w-xs`}
                 >
                     <option value="none">No Auth</option>
@@ -420,6 +431,7 @@ const AuthTabContent = ({ collection, updateCollection, inputClass, readOnly }) 
                         value={collection.authToken || ''}
                         onChange={(e) => updateCollection(collection.id, { authToken: e.target.value })}
                         placeholder="Paste your Bearer token here or use {{token_var}}"
+                        readOnly={readOnly}
                         className={`${inputClass} resize-none`}
                         rows={4}
                     />
@@ -438,6 +450,7 @@ const AuthTabContent = ({ collection, updateCollection, inputClass, readOnly }) 
                             value={collection.authUsername || ''}
                             onChange={(e) => updateCollection(collection.id, { authUsername: e.target.value })}
                             placeholder="username"
+                            disabled={readOnly}
                             className={inputClass}
                         />
                     </div>
@@ -448,6 +461,7 @@ const AuthTabContent = ({ collection, updateCollection, inputClass, readOnly }) 
                             value={collection.authPassword || ''}
                             onChange={(e) => updateCollection(collection.id, { authPassword: e.target.value })}
                             placeholder="password"
+                            disabled={readOnly}
                             className={inputClass}
                         />
                     </div>
@@ -462,6 +476,7 @@ const AuthTabContent = ({ collection, updateCollection, inputClass, readOnly }) 
                             type="text"
                             value={collection.authKeyName || 'X-API-Key'}
                             onChange={(e) => updateCollection(collection.id, { authKeyName: e.target.value })}
+                            disabled={readOnly}
                             className={inputClass}
                         />
                     </div>
@@ -472,6 +487,7 @@ const AuthTabContent = ({ collection, updateCollection, inputClass, readOnly }) 
                             value={collection.authKeyValue || ''}
                             onChange={(e) => updateCollection(collection.id, { authKeyValue: e.target.value })}
                             placeholder="Your API key or use {{api_key}}"
+                            disabled={readOnly}
                             className={inputClass}
                         />
                     </div>
@@ -479,7 +495,7 @@ const AuthTabContent = ({ collection, updateCollection, inputClass, readOnly }) 
             )}
 
             {collection.authType === 'auto-auth' && (
-                <CollectionAutoAuthPanel key={collection.id} collection={collection} updateCollection={updateCollection} />
+                <CollectionAutoAuthPanel key={collection.id} collection={collection} updateCollection={updateCollection} readOnly={readOnly} />
             )}
 
             {(!collection.authType || collection.authType === 'none') && (
@@ -525,6 +541,7 @@ const ScriptsTabContent = ({ collection, updateCollection, readOnly }) => {
                     value={collection.preScript || ''}
                     onChange={(e) => updateCollection(collection.id, { preScript: e.target.value })}
                     placeholder={'// Runs before each request in this collection\n// Available: pm.variables.set(k,v), pm.variables.get(k)\npm.variables.set(\'token\', \'abc\');'}
+                    readOnly={readOnly}
                     rows={8}
                     className="w-full text-xs font-mono px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-900 text-green-400 outline-none focus:ring-2 focus:ring-corporate-500/30 resize-none placeholder-slate-600"
                 />
@@ -539,6 +556,7 @@ const ScriptsTabContent = ({ collection, updateCollection, readOnly }) => {
                     value={collection.postScript || ''}
                     onChange={(e) => updateCollection(collection.id, { postScript: e.target.value })}
                     placeholder={'// Runs after each request in this collection\npm.test(\'Status OK\', () => pm.expect(pm.response.status).to.equal(200));'}
+                    readOnly={readOnly}
                     rows={8}
                     className="w-full text-xs font-mono px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-900 text-green-400 outline-none focus:ring-2 focus:ring-corporate-500/30 resize-none placeholder-slate-600"
                 />

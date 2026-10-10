@@ -26,6 +26,7 @@ class JSONFormatter(logging.Formatter):
     """Formats log records as single-line JSON objects."""
 
     def format(self, record: logging.LogRecord) -> str:
+        from app.core.security import SecretMaskingFilter
         entry = {
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
@@ -45,6 +46,10 @@ class JSONFormatter(logging.Formatter):
             val = getattr(record, key, None)
             if val is not None:
                 entry[key] = val
+        # Redact every string, including tracebacks and extra fields, before JSON
+        # escaping so masking never corrupts escaped quotation marks.
+        entry = {key: SecretMaskingFilter._mask(value) if isinstance(value, str) else value
+                 for key, value in entry.items()}
         return json.dumps(entry, default=str)
 
 
@@ -63,6 +68,8 @@ def setup_structured_logging(level: str = "INFO"):
         root.removeHandler(h)
 
     handler = logging.StreamHandler()
+    from app.core.security import SecretMaskingFilter
+    handler.addFilter(SecretMaskingFilter())
     handler.setFormatter(JSONFormatter())
     root.addHandler(handler)
 

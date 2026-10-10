@@ -1,3 +1,5 @@
+> Historical draft: paid tiers and pricing in this document are retired. See [README](../../README.md) for the current open-source project.
+
 ---
 title: "AI API testing without credit limits"
 description: "Why we made AI unlimited on paid plans. The economics of Gemini Flash, how credit-based AI pricing hurts developers, and what we do differently."

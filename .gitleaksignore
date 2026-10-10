@@ -1,0 +1,4 @@
+# Reviewed historical examples only; no file-wide or provider-wide exclusions.
+fa5b2cf9044c575d3d69c2912e97bf026691983e:backend/tests/test_routes.py:jwt:645
+fa5b2cf9044c575d3d69c2912e97bf026691983e:backend/tests/test_routes.py:generic-api-key:640
+979294c48e7d308252de8c14dc4dc9da191377f0:frontend/src/components/workspace/DocsPanel.jsx:generic-api-key:331

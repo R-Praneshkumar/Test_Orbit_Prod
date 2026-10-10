@@ -73,7 +73,6 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 from app.api.routes import router as api_router
 from app.api.mock_routes import router as mock_router
 from app.api.oauth_routes import router as oauth_router
-from app.api.razorpay_routes import router as razorpay_router
 from app.api.admin_routes import router as admin_router
 from app.api.digest_routes import router as digest_router
 
@@ -82,7 +81,6 @@ app.include_router(admin_router, prefix=settings.API_V1_STR)
 app.include_router(digest_router, prefix=settings.API_V1_STR)
 app.include_router(mock_router, prefix="/mock-server", tags=["Mock Server"])
 app.include_router(oauth_router, prefix=settings.API_V1_STR, tags=["OAuth 2.0"])
-app.include_router(razorpay_router, prefix=settings.API_V1_STR, tags=["Razorpay Billing"])
 
 @app.get("/")
 async def root():

@@ -1,42 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Folder, FlaskConical, CheckCircle, XCircle, Plus, Terminal, Upload, Clock, ArrowRight, FileText, Users, Shield, Pencil, Sparkles, Code, FlaskRound, MessageSquare, Server, Check, ArrowDownToLine, X } from 'lucide-react';
 import { useWorkspaceStore, flattenItems } from '../../store/workspaceStore';
-import { API_BASE, authFetch } from '../../config';
+import { API_BASE } from '../../config';
 import { CurlImportModal } from './CurlImportModal';
 import { ImportCollectionModal } from './ImportCollectionModal';
 import { OnboardingChecklist } from '../common/OnboardingChecklist';
-
-const USAGE_COLORS = {
-    purple: { bar: 'bg-sky-500', track: 'bg-sky-900/30 dark:bg-sky-900/40', warn: 'text-amber-400', full: 'text-red-400' },
-    blue: { bar: 'bg-blue-500', track: 'bg-blue-900/30 dark:bg-blue-900/40', warn: 'text-amber-400', full: 'text-red-400' },
-    emerald: { bar: 'bg-emerald-500', track: 'bg-emerald-900/30 dark:bg-emerald-900/40', warn: 'text-amber-400', full: 'text-red-400' },
-};
-
-function UsageBar({ icon, label, used, limit, color }) {
-    const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
-    const c = USAGE_COLORS[color] || USAGE_COLORS.purple;
-    const isWarn = pct >= 80 && pct < 100;
-    const isFull = pct >= 100;
-
-    return (
-        <div>
-            <div className="flex items-center justify-between mb-1.5">
-                <span className="flex items-center gap-1.5 text-xs font-medium text-slate-300 dark:text-slate-300">
-                    {icon} {label}
-                </span>
-                <span className={`text-xs font-semibold ${isFull ? c.full : isWarn ? c.warn : 'text-slate-400 dark:text-slate-400'}`}>
-                    {used}/{limit}
-                </span>
-            </div>
-            <div className={`h-1.5 rounded-full ${c.track}`}>
-                <div
-                    className={`h-full rounded-full transition-all duration-500 ${isFull ? 'bg-red-500' : isWarn ? 'bg-amber-500' : c.bar}`}
-                    style={{ width: `${pct}%` }}
-                />
-            </div>
-        </div>
-    );
-}
 
 const CAPABILITIES = [
     {
@@ -89,19 +57,19 @@ function HeroBanner({ onSignUp, onLoadDemo, onImport, onCompare, onMigrate, onAl
                     </h1>
                     <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6 max-w-md">
                         Postman now charges ₹1,600/user/mo and gates AI behind 50 credits/month.
-                        TestOrbit gives you <span className="text-white font-semibold">50 AI calls per day</span>, free
-                        for teams of 3 &mdash; no credit card required.
+                        TestOrbit gives you <span className="text-white font-semibold">unlimited AI</span>, free
+                        for your whole team &mdash; no credit card required.
                     </p>
 
                     {/* Competitor comparison bullets */}
                     <div className="space-y-2.5 mb-8">
                         <div className="flex items-center gap-2.5 text-sm text-slate-300">
                             <span className="text-green-400 text-base leading-none">✓</span>
-                            <span><span className="text-white font-semibold">30x more AI free</span> &mdash; 50 calls/day vs Postman&apos;s 50/month</span>
+                            <span><span className="text-white font-semibold">Unlimited AI</span> &mdash; no monthly credit caps</span>
                         </div>
                         <div className="flex items-center gap-2.5 text-sm text-slate-300">
                             <span className="text-green-400 text-base leading-none">✓</span>
-                            <span><span className="text-white font-semibold">3.7x cheaper</span> &mdash; 5-person team: ₹28,740/yr vs ₹1,05,570/yr</span>
+                            <span><span className="text-white font-semibold">Free for your whole team</span> &mdash; vs Postman&apos;s ₹1,05,570/yr</span>
                         </div>
                         <div className="flex items-center gap-2.5 text-sm text-slate-300">
                             <span className="text-green-400 text-base leading-none">✓</span>
@@ -204,45 +172,13 @@ function CapabilityCards() {
     );
 }
 
-function FreePlanSummary({ onViewPricing }) {
-    return (
-        <div className="mb-8 bg-slate-800 dark:bg-slate-900 rounded-xl border border-slate-700 dark:border-slate-800 p-5">
-            <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">Free plan includes</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-                {[
-                    'Unlimited collections & requests',
-                    '50 AI calls per day',
-                    '10 test generations per day',
-                    '10 code generations per day',
-                    'Import from Postman',
-                    'All body types (JSON, Form, File)',
-                    'WebSocket testing',
-                    'Up to 3 team members',
-                ].map(item => (
-                    <div key={item} className="flex items-center gap-2 text-xs text-slate-300">
-                        <Check size={12} className="text-emerald-400 shrink-0" />
-                        {item}
-                    </div>
-                ))}
-            </div>
-            <button
-                onClick={onViewPricing}
-                className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
-            >
-                Need more? See pricing <ArrowRight size={12} />
-            </button>
-        </div>
-    );
-}
-
 function PostmanComparisonTable() {
     const rows = [
-        { feature: 'AI calls (free)', postman: '50/month', testorbit: '50/day (~1,500/mo)', winner: 'testorbit' },
+        { feature: 'AI calls (free)', postman: '50/month', testorbit: 'Unlimited', winner: 'testorbit' },
         { feature: 'Free team members', postman: '1 (solo only)', testorbit: 'Up to 3', winner: 'testorbit' },
-        { feature: 'AI test generation', postman: 'Credit-gated', testorbit: '10/day free', winner: 'testorbit' },
+        { feature: 'AI test generation', postman: 'Credit-gated', testorbit: 'Unlimited', winner: 'testorbit' },
         { feature: 'Collections & requests', postman: 'Unlimited', testorbit: 'Unlimited', winner: 'tie' },
-        { feature: '5-person team cost', postman: '₹1,05,570/yr', testorbit: '₹28,740/yr', winner: 'testorbit' },
-        { feature: 'Pro plan (individual)', postman: '₹833/mo (Solo)', testorbit: '₹399/mo', winner: 'testorbit' },
+        { feature: '5-person team cost', postman: '₹1,05,570/yr', testorbit: 'Free', winner: 'testorbit' },
         { feature: 'All body types', postman: true, testorbit: true, winner: 'tie' },
         { feature: 'WebSocket testing', postman: true, testorbit: true, winner: 'tie' },
         { feature: 'Import/Export', postman: true, testorbit: true, winner: 'tie' },
@@ -381,25 +317,14 @@ export const Dashboard = () => {
     const user = useWorkspaceStore(state => state.user);
     const profile = useWorkspaceStore(state => state.profile);
     const getCollectionRole = useWorkspaceStore(state => state.getCollectionRole);
-    const subscription = useWorkspaceStore(state => state.subscription);
     const [showCurlImport, setShowCurlImport] = useState(false);
     const [showCollectionImport, setShowCollectionImport] = useState(false);
     const [showNewCollInput, setShowNewCollInput] = useState(false);
     const [newCollName, setNewCollName] = useState('');
-    const [usage, setUsage] = useState(null);
     const [migrationBannerDismissed, setMigrationBannerDismissed] = useState(() => {
         try { return localStorage.getItem('testorbit_migration_banner_dismissed') === 'true'; }
         catch { return false; }
     });
-
-    useEffect(() => {
-        let cancelled = false;
-        authFetch(`${API_BASE}/usage/today`)
-            .then(r => r.ok ? r.json() : null)
-            .then(data => { if (!cancelled && data) setUsage(data); })
-            .catch(() => {});
-        return () => { cancelled = true; };
-    }, []);
 
     const handleOpenCollection = (colId) => {
         setActiveCollection(colId);
@@ -488,7 +413,6 @@ export const Dashboard = () => {
                             <PostmanComparisonTable />
                             <MigrationSteps onImport={() => setShowCollectionImport(true)} />
                             <CapabilityCards />
-                            <FreePlanSummary onViewPricing={() => setCurrentView('pricing')} />
                             <SocialProof />
                             <div className="flex flex-wrap gap-3 mb-8">
                                 <button
@@ -529,31 +453,6 @@ export const Dashboard = () => {
                                 {' '}&middot; AI-powered API testing
                             </p>
                         </div>
-
-                        {/* Usage Stats — hidden for Pro/Team (limits = -1 or frontend knows plan is pro) */}
-                        {usage && usage.limits.ai_calls > 0 && subscription?.plan === 'free' && (
-                            <div className="mb-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-                                <div className="flex items-center justify-between mb-3">
-                                    <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Today&apos;s Usage</h2>
-                                    {subscription?.plan === 'free' && (
-                                        <button
-                                            onClick={() => setCurrentView('pricing')}
-                                            className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-                                        >
-                                            Upgrade for Unlimited
-                                        </button>
-                                    )}
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <UsageBar icon={<Sparkles size={13} className="text-sky-500" />} label="AI Calls" used={usage.ai_calls} limit={usage.limits.ai_calls} color="purple" />
-                                    <UsageBar icon={<FlaskRound size={13} className="text-blue-500" />} label="Test Gen" used={usage.test_gen} limit={usage.limits.test_gen} color="blue" />
-                                    <UsageBar icon={<Code size={13} className="text-emerald-500" />} label="Code Gen" used={usage.code_gen} limit={usage.limits.code_gen} color="emerald" />
-                                    {usage.limits.security_scan > 0 && (
-                                        <UsageBar icon={<Shield size={13} className="text-sky-500" />} label="Security Scan" used={usage.security_scan || 0} limit={usage.limits.security_scan} color="purple" />
-                                    )}
-                                </div>
-                            </div>
-                        )}
 
                         {/* Onboarding Checklist */}
                         <OnboardingChecklist />
@@ -854,10 +753,6 @@ export const Dashboard = () => {
                 {/* Footer links */}
                 <div className="max-w-5xl mx-auto mt-8 pb-2">
                     <div className="flex items-center justify-center gap-3 text-[11px] text-slate-400 dark:text-slate-500">
-                        <button onClick={() => setCurrentView('pricing')} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                            Pricing
-                        </button>
-                        <span>&middot;</span>
                         <button onClick={() => setCurrentView('terms')} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
                             Terms of Service
                         </button>

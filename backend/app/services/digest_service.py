@@ -10,7 +10,7 @@ from datetime import datetime, timezone, timedelta
 import aiohttp
 
 from app.core.config import get_settings
-from app.services.usage_service import usage_service, FREE_LIMITS
+from app.services.usage_service import usage_service
 
 logger = logging.getLogger(__name__)
 
@@ -134,19 +134,6 @@ def _render_html(stats: dict, date_range: str, period_label: str) -> str:
       </td>
     </tr>
   </table>
-</td></tr>
-
-<!-- Free Tier Info -->
-<tr><td style="padding:0 32px 24px;">
-  <div style="background:#f9fafb;border-radius:8px;padding:16px;">
-    <h3 style="margin:0 0 8px;font-size:13px;color:#374151;">Free Tier Limits (per user/day)</h3>
-    <table width="100%" style="font-size:12px;color:#6b7280;">
-      <tr><td>AI Calls</td><td align="right" style="font-weight:600;color:#18181b;">{FREE_LIMITS['ai_calls']}/day</td></tr>
-      <tr><td>Test Generation</td><td align="right" style="font-weight:600;color:#18181b;">{FREE_LIMITS['test_gen']}/day</td></tr>
-      <tr><td>Code Generation</td><td align="right" style="font-weight:600;color:#18181b;">{FREE_LIMITS['code_gen']}/day</td></tr>
-      <tr><td>Security Scans</td><td align="right" style="font-weight:600;color:#18181b;">{FREE_LIMITS['security_scan']}/day</td></tr>
-    </table>
-  </div>
 </td></tr>
 
 <!-- Footer -->

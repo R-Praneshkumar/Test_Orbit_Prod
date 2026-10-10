@@ -6,14 +6,7 @@ When Supabase is configured (S4.3+), this can also persist to a usage_logs table
 """
 from datetime import datetime, timezone, timedelta
 
-# Free tier limits (Pro/Team = unlimited, enforced via plan check)
-# Postman gives 50 AI credits/MONTH — we give 50/DAY (30x more generous)
-FREE_LIMITS = {
-    "ai_calls": 50,
-    "test_gen": 10,
-    "code_gen": 10,
-    "security_scan": 3,
-}
+USAGE_CATEGORIES = ("ai_calls", "test_gen", "code_gen", "security_scan")
 
 # Map endpoint names to the usage categories they increment
 ENDPOINT_CATEGORIES = {
@@ -60,24 +53,9 @@ class UsageService:
         for cat in categories:
             entry[cat] = entry.get(cat, 0) + 1
 
-    def check_limit(self, user_id: str, endpoint: str, plan: str = "free") -> dict | None:
-        """Check if a user has exceeded their daily limit for an endpoint's categories.
-        Returns dict with exceeded category info, or None if within limits."""
-        if user_id == "anonymous" or plan in ("pro", "team"):
-            return None  # No limits for dev mode or paid plans
+    def get_today(self, user_id: str) -> dict:
+        """Return informational counters; endpoint rate limits still apply."""
         entry = self._get_entry(user_id)
-        categories = ENDPOINT_CATEGORIES.get(endpoint, ["ai_calls"])
-        for cat in categories:
-            limit = FREE_LIMITS.get(cat, -1)
-            used = entry.get(cat, 0)
-            if limit > 0 and used >= limit:
-                return {"category": cat, "used": used, "limit": limit}
-        return None
-
-    def get_today(self, user_id: str, plan: str = "free") -> dict:
-        """Get today's usage stats for a user, including limits based on plan."""
-        entry = self._get_entry(user_id)
-        is_pro = plan in ("pro", "team")
 
         tomorrow = datetime.now(timezone.utc).replace(
             hour=0, minute=0, second=0, microsecond=0
@@ -88,13 +66,6 @@ class UsageService:
             "test_gen": entry["test_gen"],
             "code_gen": entry["code_gen"],
             "security_scan": entry.get("security_scan", 0),
-            "limits": {
-                "ai_calls": -1 if is_pro else FREE_LIMITS["ai_calls"],
-                "test_gen": -1 if is_pro else FREE_LIMITS["test_gen"],
-                "code_gen": -1 if is_pro else FREE_LIMITS["code_gen"],
-                "security_scan": -1 if is_pro else FREE_LIMITS["security_scan"],
-            },
-            "plan": plan,
             "resets_at": tomorrow.isoformat(),
         }
 

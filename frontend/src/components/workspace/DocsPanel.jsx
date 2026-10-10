@@ -328,7 +328,7 @@ const DOCS_SECTIONS = [
 
             <H4>4. API Key</H4>
             <P>Send a custom header with your API key. Configure the header name (default: <code className="text-xs bg-slate-100 dark:bg-slate-700 px-1 rounded">X-API-Key</code>) and the key value.</P>
-            <CodeBlock code={`X-API-Key: sk-1234567890abcdef`} />
+            <CodeBlock code={`X-API-Key: <your-api-key>`} />
 
             <H4>5. Auto-Auth (Login → Token)</H4>
             <P>Automatically logs in to an endpoint and extracts a token. Ideal for OAuth2 password flows or custom login APIs.</P>

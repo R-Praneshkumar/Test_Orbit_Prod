@@ -7,9 +7,10 @@ import hmac as hmac_module
 import logging
 import time
 import uuid
+import secrets
 from app.api.routes import limiter
 from app.core.config import get_settings
-from app.core.security import verify_token, validate_proxy_url
+from app.core.security import verify_token, validate_proxy_url, PinnedResolver, read_bounded_response
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -18,12 +19,13 @@ _settings = get_settings()
 # --- OAuth State Token (CSRF Protection) ---
 # State tokens expire after 10 minutes
 _OAUTH_STATE_TTL = 600
+_OAUTH_PROCESS_SECRET = secrets.token_bytes(32)
 
 
 def _get_state_secret() -> bytes:
     """Get the HMAC signing key for OAuth state tokens."""
-    secret = _settings.SUPABASE_JWT_SECRET or "testorbit-dev-oauth-state-fallback"
-    return secret.encode()
+    secret = _settings.OAUTH_STATE_SECRET or _settings.SUPABASE_JWT_SECRET
+    return secret.encode() if secret else _OAUTH_PROCESS_SECRET
 
 
 def generate_oauth_state() -> str:
@@ -52,7 +54,8 @@ def validate_oauth_state(state: str) -> bool:
 
     # Verify not expired
     try:
-        if time.time() - int(ts) > _OAUTH_STATE_TTL:
+        age = time.time() - int(ts)
+        if age < 0 or age > _OAUTH_STATE_TTL:
             return False
     except (ValueError, OverflowError):
         return False
@@ -94,7 +97,7 @@ async def exchange_token(request: Request, req: TokenRequest, user: dict = Depen
     Proxies the OAuth 2.0 token exchange request to the provider.
     This avoids CORS issues and keeps client_secret off the frontend.
     """
-    is_production = _settings.ENV == "production"
+    is_production = _settings.ENV != "development"
 
     try:
         data = {
@@ -125,18 +128,21 @@ async def exchange_token(request: Request, req: TokenRequest, user: dict = Depen
 
         logger.info(f"OAuth token exchange: {req.grant_type} → {req.token_url}")
 
-        # SSRF protection: validate the token URL
-        await validate_proxy_url(req.token_url)
+        # SSRF protection: validate the token URL and pin DNS to the resolved IPs
+        hostname, resolved_addrs = await validate_proxy_url(req.token_url)
 
         timeout = aiohttp.ClientTimeout(total=15)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
+        # Pin DNS to the pre-resolved IPs to prevent DNS rebinding (TOCTOU)
+        connector = aiohttp.TCPConnector(resolver=PinnedResolver(hostname, resolved_addrs))
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             async with session.post(
                 req.token_url,
                 data=data,
-                headers={"Accept": "application/json"}
+                headers={"Accept": "application/json"},
+                allow_redirects=False
             ) as response:
-                response_text = await response.text()
-                
+                response_text = (await read_bounded_response(response, 1_048_576)).decode("utf-8", errors="replace")
+
                 # Try to parse as JSON
                 try:
                     import json
@@ -187,18 +193,21 @@ async def refresh_token(request: Request, req: RefreshRequest, user: dict = Depe
 
         logger.info(f"OAuth token refresh → {req.token_url}")
 
-        # SSRF protection: validate the token URL
-        await validate_proxy_url(req.token_url)
+        # SSRF protection: validate the token URL and pin DNS to the resolved IPs
+        hostname, resolved_addrs = await validate_proxy_url(req.token_url)
 
         timeout = aiohttp.ClientTimeout(total=15)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
+        # Pin DNS to the pre-resolved IPs to prevent DNS rebinding (TOCTOU)
+        connector = aiohttp.TCPConnector(resolver=PinnedResolver(hostname, resolved_addrs))
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             async with session.post(
                 req.token_url,
                 data=data,
-                headers={"Accept": "application/json"}
+                headers={"Accept": "application/json"},
+                allow_redirects=False
             ) as response:
-                response_text = await response.text()
-                
+                response_text = (await read_bounded_response(response, 1_048_576)).decode("utf-8", errors="replace")
+
                 try:
                     import json
                     result = json.loads(response_text)

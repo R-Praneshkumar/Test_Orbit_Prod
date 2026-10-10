@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LogOut, User, ChevronDown, Sparkles, Crown, Users, Shield } from 'lucide-react';
+import { LogOut, User, ChevronDown, Users, Shield } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 
 /**
@@ -12,7 +12,6 @@ const UserMenu = () => {
     const profile = useWorkspaceStore(state => state.profile);
     const logout = useWorkspaceStore(state => state.logout);
     const setCurrentView = useWorkspaceStore(state => state.setCurrentView);
-    const subscription = useWorkspaceStore(state => state.subscription);
     const isAdmin = useWorkspaceStore(state => state.isAdmin);
 
     const [open, setOpen] = useState(false);
@@ -76,11 +75,6 @@ const UserMenu = () => {
                 )}
                 <span className="text-xs font-medium text-slate-700 dark:text-slate-300 hidden sm:flex items-center gap-1.5 max-w-[140px]">
                     <span className="truncate">{displayName}</span>
-                    {subscription?.plan !== 'free' && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 shrink-0">
-                            PRO
-                        </span>
-                    )}
                 </span>
                 <ChevronDown size={12} className={`text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
@@ -88,18 +82,9 @@ const UserMenu = () => {
             {/* Dropdown */}
             {open && (
                 <div className="absolute right-0 top-full mt-1.5 w-60 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-lg shadow-slate-200/50 dark:shadow-slate-900/50 z-50 overflow-hidden">
-                    {/* User info + plan badge */}
+                    {/* User info */}
                     <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center justify-between mb-0.5">
-                            <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{displayName}</p>
-                            {subscription?.plan === 'free' ? (
-                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">Free</span>
-                            ) : (
-                                <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
-                                    <Crown size={9} /> Pro
-                                </span>
-                            )}
-                        </div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate mb-0.5">{displayName}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.email}</p>
                     </div>
 
@@ -128,13 +113,6 @@ const UserMenu = () => {
                                 Admin Dashboard
                             </button>
                         )}
-                        <button
-                            onClick={() => { setOpen(false); setCurrentView('pricing'); }}
-                            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                        >
-                            <Sparkles size={15} />
-                            {subscription?.plan === 'free' ? 'Upgrade to Pro' : 'Manage Subscription'}
-                        </button>
                     </div>
 
                     <div className="border-t border-slate-100 dark:border-slate-800 py-1">

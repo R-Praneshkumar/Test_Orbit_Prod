@@ -1,3 +1,5 @@
+> Historical draft: paid tiers and pricing in this document are retired. See [README](../../README.md) for the current open-source project.
+
 # TestOrbit Demo Video — Script & Storyboard
 
 > 2-minute screen recording. Goal: show import → AI test gen → security scan → export. Emphasize speed.

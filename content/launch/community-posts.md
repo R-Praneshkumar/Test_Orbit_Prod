@@ -1,3 +1,5 @@
+> Historical draft: paid tiers and pricing in this document are retired. See [README](../../README.md) for the current open-source project.
+
 # TestOrbit — Community Engagement Posts
 
 > Ready-to-post content for each platform. Copy, review, customize, submit.

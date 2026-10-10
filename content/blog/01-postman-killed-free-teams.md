@@ -1,3 +1,5 @@
+> Historical draft: paid tiers and pricing in this document are retired. See [README](../../README.md) for the current open-source project.
+
 ---
 title: "Postman killed free teams — here's what we built instead"
 description: "Postman v12 gutted the free plan to 1 user and 50 AI credits/month. We built TestOrbit: unlimited AI, free for teams of 3, at a fraction of the cost."

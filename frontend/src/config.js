@@ -12,7 +12,7 @@ export { BACKEND_URL };
 /**
  * Authenticated fetch — wraps native fetch() and auto-attaches the Supabase
  * Bearer token from the current session. Use this for all API_BASE calls.
- * Mock server calls don't need auth so they can use plain fetch().
+ * Mock server calls require this wrapper too.
  */
 export async function authFetch(url, options = {}) {
     const headers = { ...options.headers };

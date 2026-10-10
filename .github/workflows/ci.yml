@@ -6,7 +6,39 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
+  secrets:
+    name: Secret scan (full history)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install verified scanner and scan
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 -o /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  /tmp/gitleaks.tar.gz' | sha256sum --check
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks git . --log-opts=--all --redact=100 --no-banner
+
+  database:
+    name: Database access policy tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test local database policies
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/schema-test" --ignore-scripts --no-audit @electric-sql/pglite@0.5.8
+          TESTORBIT_PGLITE_MODULE="file://$RUNNER_TEMP/schema-test/node_modules/@electric-sql/pglite/dist/index.js" node scripts/test-schema.mjs
+
   frontend:
     name: Frontend (Lint + Build + Test)
     runs-on: ubuntu-latest
@@ -51,7 +83,9 @@ jobs:
 
       - name: Install dependencies
         working-directory: backend
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade 'pip>=26.2' 'setuptools>=83.0.0'
+          pip install -r requirements.txt
 
       - name: Import check
         working-directory: backend

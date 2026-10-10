@@ -965,11 +965,11 @@ describe('workspaceStore — request history', () => {
         expect(useWorkspaceStore.getState().requestHistory[0].url).toBe('/second');
     });
 
-    it('addRequestHistory caps at 50 entries', () => {
-        for (let i = 0; i < 55; i++) {
+    it('addRequestHistory caps at 200 entries', () => {
+        for (let i = 0; i < 205; i++) {
             useWorkspaceStore.getState().addRequestHistory({ url: `/req-${i}` });
         }
-        expect(useWorkspaceStore.getState().requestHistory).toHaveLength(50);
+        expect(useWorkspaceStore.getState().requestHistory).toHaveLength(200);
     });
 
     it('clearRequestHistory empties the history', () => {

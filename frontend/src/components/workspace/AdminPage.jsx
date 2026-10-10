@@ -221,7 +221,7 @@ const AdminPage = () => {
         );
     }
 
-    const { active_users, usage_today, top_users, plan_limits, tracked_endpoints, total_tracked_users } = stats;
+    const { active_users, usage_today, top_users, tracked_endpoints, total_tracked_users } = stats;
 
     return (
         <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-900">
@@ -293,7 +293,7 @@ const AdminPage = () => {
                                     value={val}
                                     icon={Icon}
                                     colorClass={STAT_COLORS[key] || 'text-slate-600 bg-slate-50'}
-                                    subtitle={`Free limit: ${plan_limits[key]}/day`}
+                                    subtitle="Usage today"
                                 />
                             );
                         })}

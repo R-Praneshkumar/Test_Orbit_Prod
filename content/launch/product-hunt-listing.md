@@ -1,3 +1,5 @@
+> Historical draft: paid tiers and pricing in this document are retired. See [README](../../README.md) for the current open-source project.
+
 # TestOrbit — Product Hunt Launch Kit
 
 > Ready-to-use copy for Product Hunt submission. Review, customize screenshots, and submit.

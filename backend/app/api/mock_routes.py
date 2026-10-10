@@ -16,8 +16,8 @@ _settings = get_settings()
 async def list_mocks(request: Request, _user: dict = Depends(verify_token)):
     """List all registered mocks with metadata. Requires authentication."""
     return {
-        "mocks": mock_service.list_mocks(),
-        "count": len(mock_service.list_mocks()),
+        "mocks": mock_service.list_mocks(_user["sub"]),
+        "count": len(mock_service.list_mocks(_user["sub"])),
     }
 
 
@@ -25,7 +25,7 @@ async def list_mocks(request: Request, _user: dict = Depends(verify_token)):
 @limiter.limit(_settings.MOCK_RATE_LIMIT)
 async def clear_mocks(request: Request, _user: dict = Depends(verify_token)):
     """Clear all mocks and delete the persistence file. Requires authentication."""
-    mock_service.clear_mocks()
+    mock_service.clear_mocks(_user["sub"])
     return {"status": "cleared"}
 
 
@@ -33,7 +33,7 @@ async def clear_mocks(request: Request, _user: dict = Depends(verify_token)):
 async def delete_mock(path: str, request: Request, _user: dict = Depends(verify_token)):
     """Delete a single mock by method + path (admin endpoint). Requires authentication."""
     method = request.query_params.get("method", "GET").upper()
-    deleted = mock_service.delete_mock(method, path)
+    deleted = mock_service.delete_mock(method, path, _user["sub"])
     if not deleted:
         raise HTTPException(status_code=404, detail=f"No mock found for {method} /{path}")
     return {"status": "deleted", "method": method, "path": path}
@@ -41,13 +41,13 @@ async def delete_mock(path: str, request: Request, _user: dict = Depends(verify_
 
 @router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
 @limiter.limit(_settings.MOCK_RATE_LIMIT)
-async def handle_mock_request(request: Request, path: str):
+async def handle_mock_request(request: Request, path: str, _user: dict = Depends(verify_token)):
     """Catch-all: serve cached mock or generate a new one with AI."""
     method = request.method
     logger.info(f"Mock Request: {method} /{path}")
 
-    mock_data = mock_service.get_mock(method, path)
-    if mock_data:
+    mock_data = mock_service.get_mock(method, path, _user["sub"])
+    if mock_data is not None:
         logger.info("Serving cached mock")
         return mock_data
 
@@ -56,7 +56,7 @@ async def handle_mock_request(request: Request, path: str):
         generated_mock = await ai_service.generate_mock_response(method, path)
         if "error" in generated_mock and generated_mock.get("error"):
             raise HTTPException(status_code=500, detail=generated_mock["error"])
-        mock_service.add_mock(method, path, generated_mock)
+        mock_service.add_mock(method, path, generated_mock, _user["sub"])
         return generated_mock
     except HTTPException:
         raise

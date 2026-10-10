@@ -2,7 +2,8 @@
  * Script Execution Engine
  *
  * Provides a Postman-compatible pm.* API for pre-request and post-response scripts.
- * Scripts run in a Web Worker with dangerous globals shadowed and a 5-second timeout guard.
+ * Trusted scripts run in a Web Worker with a 5-second timeout guard.
+ * A Worker is not a complete security boundary for hostile imported JavaScript.
  * If a script runs longer than SCRIPT_TIMEOUT_MS (e.g., while(true){}), the worker
  * is terminated and an error is returned.
  */
@@ -14,6 +15,20 @@ const SCRIPT_TIMEOUT_MS = 5000;
 // Web Worker code (runs in an isolated thread)
 // ---------------------------------------------------------------------------
 const WORKER_CODE = `"use strict";
+
+// Harden the sandbox: strip network + escape-reachable capabilities from the worker
+// global. Shadowing the parameters below is not enough on its own — a user script can
+// recover the real global via the Function constructor (Function("return this")()).
+// This reduces accidental access; it is not a complete sandbox for hostile code.
+try {
+  self.fetch = undefined;
+  self.XMLHttpRequest = undefined;
+  self.WebSocket = undefined;
+  self.EventSource = undefined;
+  self.importScripts = undefined;
+  self.Request = undefined;
+  self.Response = undefined;
+} catch (e) { /* ignore */ }
 
 function buildExpect(value) {
   var beObj = {

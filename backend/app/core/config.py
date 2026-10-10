@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from functools import lru_cache
 
 class Settings(BaseSettings):
@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     # Supabase JWT verification
     SUPABASE_URL: str = ""          # e.g. https://yourproject.supabase.co — used to fetch JWKS for ES256/RS256 tokens
     SUPABASE_JWT_SECRET: str = ""  # Required for HS256 tokens; from Supabase Dashboard → Settings → API → JWT Secret
-    SUPABASE_SERVICE_ROLE_KEY: str = ""  # For backend writes (webhook → subscriptions). From Supabase Dashboard → Settings → API.
     REQUIRE_AUTH: bool = True       # JWT auth enforced by default. Set False only for local development without Supabase.
+    OAUTH_STATE_SECRET: str = ""    # Optional shared signing secret for multi-worker OAuth flows.
 
     # CORS — comma-separated in env, or use defaults for dev
     ALLOWED_ORIGINS: str = ""
@@ -34,13 +34,6 @@ class Settings(BaseSettings):
             return [o.strip() for o in allowed.split(",") if o.strip()]
         return v
 
-    # Razorpay (INR billing via Razorpay)
-    RAZORPAY_KEY_ID: str = ""
-    RAZORPAY_KEY_SECRET: str = ""
-    RAZORPAY_WEBHOOK_SECRET: str = ""
-    RAZORPAY_PLAN_PRO_ID: str = ""       # monthly ₹399 plan ID from Razorpay dashboard
-    RAZORPAY_PLAN_PRO_ANNUAL_ID: str = ""  # annual ₹3999 plan ID
-
     # Admin (comma-separated list of admin email addresses)
     ADMIN_EMAILS: str = ""
 
@@ -56,9 +49,22 @@ class Settings(BaseSettings):
     PROXY_RATE_LIMIT: str = "60/minute"
     MOCK_RATE_LIMIT: str = "30/minute"
 
+    @model_validator(mode="after")
+    def validate_deployment_security(self):
+        if self.ENV not in {"development", "staging", "production"}:
+            raise ValueError("ENV must be development, staging, or production")
+        if self.ENV != "development":
+            if not self.REQUIRE_AUTH:
+                raise ValueError("Authentication is required outside local development")
+            if not self.SUPABASE_URL.startswith("https://"):
+                raise ValueError("An HTTPS SUPABASE_URL is required outside local development")
+        return self
+
     class Config:
         case_sensitive = True
         env_file = ".env"
+        # Ignore retired billing variables in existing local environments.
+        extra = "ignore"
 
 @lru_cache()
 def get_settings():

@@ -1,6 +1,14 @@
 __pycache__
 *.pyc
 .env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+.venv
+data
+.git
 *.log
 .pytest_cache
 mocks.json

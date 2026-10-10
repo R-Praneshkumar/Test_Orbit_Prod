@@ -51,10 +51,6 @@ function LegalFooter() {
             <button onClick={() => setCurrentView('privacy')} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
                 Privacy Policy
             </button>
-            <span>&middot;</span>
-            <button onClick={() => setCurrentView('pricing')} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                Pricing
-            </button>
         </div>
     );
 }
@@ -76,8 +72,8 @@ export function TermsOfService() {
             <Section title="1. Acceptance of Terms">
                 <p>
                     By accessing or using TestOrbit (&quot;the Service&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;).
-                    If you do not agree, do not use the Service. These Terms apply to all users, including guests, free-tier users,
-                    and paid subscribers.
+                    If you do not agree, do not use the Service. These Terms apply to all users, including guests and
+                    registered users.
                 </p>
             </Section>
 
@@ -97,18 +93,11 @@ export function TermsOfService() {
                 </p>
             </Section>
 
-            <Section title="4. Free and Paid Plans">
+            <Section title="4. Free Service">
                 <p>
-                    TestOrbit offers a Free tier with daily usage limits on AI features and paid plans (Pro, Team) with expanded or
-                    unlimited access. Paid plans are billed monthly or annually in Indian Rupees (INR) via Razorpay.
-                </p>
-                <p>
-                    <strong>Billing:</strong> Subscriptions renew automatically. You may cancel at any time from your account settings.
-                    Cancellations take effect at the end of the current billing period. No refunds are provided for partial periods.
-                </p>
-                <p>
-                    <strong>Price changes:</strong> We may update pricing with 30 days&apos; notice. Existing subscribers keep their
-                    current rate until the end of their billing cycle.
+                    TestOrbit is free to use. All features &mdash; including AI-powered test generation, code generation,
+                    security scanning, and AI chat &mdash; are available without paid feature tiers. Deployment rate limits and external provider charges may apply.
+                    There are no paid plans, subscriptions, or credits.
                 </p>
             </Section>
 
@@ -118,7 +107,7 @@ export function TermsOfService() {
                     <li>Use the Service to attack, scan, or probe third-party systems without authorization</li>
                     <li>Attempt to bypass rate limits, usage quotas, or security controls</li>
                     <li>Upload or transmit malicious content, malware, or illegal data</li>
-                    <li>Resell, sublicense, or redistribute the Service without written permission</li>
+                    <li>Misrepresent affiliation with the hosted service. Source-code reuse is governed by the MIT license.</li>
                     <li>Use AI features to generate harmful, abusive, or illegal content</li>
                     <li>Interfere with the Service&apos;s infrastructure, availability, or other users&apos; experience</li>
                 </ul>
@@ -154,8 +143,8 @@ export function TermsOfService() {
 
             <Section title="8. Third-Party Services">
                 <p>
-                    TestOrbit integrates with third-party services including third-party AI services (AI), Supabase (authentication and storage),
-                    and Razorpay (payments). Your use of these services is subject to their respective terms. We are not responsible for
+                    TestOrbit integrates with third-party services including third-party AI services (AI) and Supabase (authentication and storage).
+                    Your use of these services is subject to their respective terms. We are not responsible for
                     the availability or behavior of third-party services.
                 </p>
             </Section>
@@ -225,10 +214,8 @@ export function PrivacyPolicy() {
                 <p><strong>Account information:</strong> When you sign up, we collect your email address, display name, and
                     authentication provider (Google, GitHub, or email). This is managed by Supabase Auth.</p>
                 <p><strong>Usage data:</strong> We track daily usage counts for AI features (chat calls, test generations,
-                    code generations) to enforce free-tier limits and display usage statistics. These counters are stored in
+                    code generations) to display usage statistics. These counters are stored in
                     memory and reset daily at midnight UTC.</p>
-                <p><strong>Payment information:</strong> If you subscribe to a paid plan, payment details are collected and
-                    processed by Razorpay. We do not store your card numbers, UPI IDs, or bank details on our servers.</p>
                 <p><strong>Workspace data:</strong> Your API collections, requests, environments, test suites, and mock server
                     configurations are stored locally in your browser. If logged in, this data may be synced to Supabase for
                     cross-device access.</p>
@@ -240,9 +227,7 @@ export function PrivacyPolicy() {
             <Section title="3. How We Use Your Information">
                 <ul className="list-disc pl-5 space-y-1">
                     <li>Provide and operate the Service (authentication, data sync, AI features)</li>
-                    <li>Enforce usage limits and manage subscriptions</li>
-                    <li>Process payments through Razorpay</li>
-                    <li>Send transactional emails (account verification, password reset, billing receipts)</li>
+                    <li>Send transactional emails (account verification, password reset)</li>
                     <li>Monitor and improve Service performance and reliability</li>
                     <li>Detect and prevent abuse, fraud, or Terms violations</li>
                 </ul>
@@ -253,7 +238,6 @@ export function PrivacyPolicy() {
                 <ul className="list-disc pl-5 space-y-1 mt-1">
                     <li><strong>AI Provider:</strong> Request context is sent for AI processing. Subject to Google&apos;s AI terms.</li>
                     <li><strong>Supabase:</strong> Authentication and data storage. Subject to Supabase&apos;s privacy policy.</li>
-                    <li><strong>Razorpay:</strong> Payment processing for paid plans. Subject to Razorpay&apos;s privacy policy.</li>
                     <li><strong>Law enforcement:</strong> When required by law, court order, or to protect our legal rights.</li>
                 </ul>
             </Section>
@@ -309,11 +293,7 @@ export function PrivacyPolicy() {
                 </p>
                 <p>
                     <strong>Usage logs:</strong> Daily usage counters are stored in memory and reset every 24 hours.
-                    Persistent usage logs (when enabled) are retained for 90 days for billing verification.
-                </p>
-                <p>
-                    <strong>Payment records:</strong> Transaction records are retained for 7 years as required by Indian
-                    tax and accounting regulations.
+                    Persistent usage logs (when enabled) are retained for 90 days.
                 </p>
             </Section>
 

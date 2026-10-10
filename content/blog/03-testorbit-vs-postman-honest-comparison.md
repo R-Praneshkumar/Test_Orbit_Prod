@@ -1,3 +1,5 @@
+> Historical draft: paid tiers and pricing in this document are retired. See [README](../../README.md) for the current open-source project.
+
 ---
 title: "TestOrbit vs Postman: an honest comparison for small teams"
 description: "A fair, no-BS comparison of TestOrbit and Postman for indie devs, startups, and small teams. Where each tool wins, where each falls short."

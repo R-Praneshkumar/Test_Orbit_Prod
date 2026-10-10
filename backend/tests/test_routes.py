@@ -355,6 +355,10 @@ class TestProxyEndpoint:
         mock_response.status = 200
         mock_response.reason = "OK"
         mock_response.read = AsyncMock(return_value=b'{"users":[]}')
+        async def response_chunks(_size):
+            yield b'{"users":[]}'
+        mock_response.content = MagicMock()
+        mock_response.content.iter_chunked = response_chunks
         mock_response.headers = {"Content-Type": "application/json", "X-Request-Id": "abc"}
 
         mock_session_ctx = AsyncMock()
@@ -637,12 +641,12 @@ class TestSecretMasking:
     def test_masks_api_key_in_log(self):
         from app.core.security import SecretMaskingFilter
         f = SecretMaskingFilter()
-        assert "***MASKED***" in f._mask("key=AIzaSyD123456789012345678901234567890")
+        assert "***MASKED***" in f._mask("key=" + "AIzaSyD" + "1234567890" * 3)
 
     def test_masks_jwt_in_log(self):
         from app.core.security import SecretMaskingFilter
         f = SecretMaskingFilter()
-        masked = f._mask("token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U")
+        masked = f._mask("token " + ".".join(["eyJ" + "a" * 20, "b" * 20, "c" * 20]))
         assert "***MASKED***" in masked
 
     def test_does_not_mask_normal_text(self):

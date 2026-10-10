@@ -5,7 +5,7 @@ import logging
 import time
 from typing import List, Dict, Any, Optional
 
-from app.core.security import validate_proxy_url
+from app.core.security import validate_proxy_url, safe_request, read_bounded_response
 from app.services.schema_comparator import (
     compare_to_schema,
     parse_openapi_spec,
@@ -64,8 +64,8 @@ class TestRunner:
         try:
             # Add strict timeout (10 seconds) to prevent hanging
             timeout = aiohttp.ClientTimeout(total=10)
-            async with session.request(method, url, headers=headers, json=payload, timeout=timeout) as response:
-                content = await response.read()
+            async with safe_request(method, url, headers=headers, json=payload, timeout=timeout) as response:
+                content = await read_bounded_response(response)
                 duration = (time.perf_counter() - start_time) * 1000  # ms
 
                 # Decode response body (truncate to 50KB to avoid memory issues)
@@ -177,8 +177,8 @@ class TestRunner:
 
                 start_time = time.perf_counter()
                 try:
-                    async with session.request(method, full_url) as response:
-                        content = await response.read()
+                    async with safe_request(method, full_url, timeout=timeout) as response:
+                        content = await read_bounded_response(response)
                         duration_ms = int((time.perf_counter() - start_time) * 1000)
 
                         # Try to parse response as JSON

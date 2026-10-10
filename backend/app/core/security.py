@@ -8,6 +8,7 @@ import logging
 import re
 import socket as socket_module
 import time
+from contextlib import asynccontextmanager
 from urllib.parse import urlparse
 from fastapi import Request, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -39,17 +40,19 @@ class SecretMaskingFilter(logging.Filter):
     """Logging filter that masks secrets in log messages."""
 
     def filter(self, record):
-        if isinstance(record.msg, str):
-            record.msg = self._mask(record.msg)
-        if record.args:
-            record.args = tuple(
-                self._mask(a) if isinstance(a, str) else a
-                for a in record.args
-            )
+        # Format first: mapping arguments and nested objects can contain secrets.
+        record.msg = self._mask(record.getMessage())
+        record.args = ()
         return True
 
     @staticmethod
     def _mask(text: str) -> str:
+        text = re.sub(r'(?i)(bearer\s+)[^\s\"\',;]+', r'\1***MASKED***', text)
+        text = re.sub(
+            r'(?i)((?:[\w-]*(?:key|token|secret|password|authorization)[\w-]*)[\"\']?\s*[:=]\s*[\"\']?)([^\s\"\'&,;}]+)',
+            r'\1***MASKED***', text,
+        )
+        text = re.sub(r'(?i)([a-z][a-z0-9+.-]*://)[^\s/@]+:[^\s/@]+@', r'\1***MASKED***@', text)
         for pattern in _SECRET_PATTERNS:
             text = pattern.sub(lambda m: m.group(0)[:8] + '***MASKED***' if m.lastindex is None or m.lastindex < 2 else m.group(1) + '***MASKED***', text)
         return text
@@ -121,20 +124,24 @@ async def _decode_token_auto(token: str, settings) -> dict:
         raise HTTPException(status_code=401, detail=f"Invalid token format: {str(e)}")
 
     alg = header.get("alg", "HS256")
+    if alg not in {"HS256", "ES256", "RS256"}:
+        raise HTTPException(status_code=401, detail="Unsupported JWT algorithm")
 
     if alg == "HS256":
         if not settings.SUPABASE_JWT_SECRET:
             raise HTTPException(status_code=500, detail="SUPABASE_JWT_SECRET not configured for HS256 token")
-        return _decode_hs256(token, settings.SUPABASE_JWT_SECRET)
+        issuer = settings.SUPABASE_URL.rstrip("/") + "/auth/v1" if settings.SUPABASE_URL else None
+        return _decode_hs256(token, settings.SUPABASE_JWT_SECRET, issuer)
     else:
         # ES256 or RS256 — use JWKS
         return await _decode_jwks(token, header, alg, settings)
 
 
-def _decode_hs256(token: str, secret: str) -> dict:
+def _decode_hs256(token: str, secret: str, issuer: str | None = None) -> dict:
     """Decode and validate a Supabase HS256 JWT using the shared secret."""
     try:
-        return jwt.decode(token, secret, algorithms=["HS256"], audience="authenticated")
+        return jwt.decode(token, secret, algorithms=["HS256"], audience="authenticated",
+                          issuer=issuer, options={"require": ["exp", "sub", "aud"]})
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidAudienceError:
@@ -210,7 +217,9 @@ async def _decode_jwks(token: str, header: dict, alg: str, settings) -> dict:
         raise HTTPException(status_code=401, detail=f"Failed to load public key: {str(e)}")
 
     try:
-        return jwt.decode(token, public_key, algorithms=[alg], audience="authenticated")
+        return jwt.decode(token, public_key, algorithms=[alg], audience="authenticated",
+                          issuer=f"{supabase_url}/auth/v1",
+                          options={"require": ["exp", "sub", "aud", "iss"]})
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidAudienceError:
@@ -285,7 +294,7 @@ async def validate_proxy_url(url: str) -> tuple:
     private/loopback addresses are blocked to prevent SSRF.
     """
     from app.core.config import get_settings
-    is_production = get_settings().ENV == "production"
+    is_production = get_settings().ENV != "development"
 
     try:
         parsed = urlparse(url)
@@ -318,6 +327,10 @@ async def validate_proxy_url(url: str) -> tuple:
         for family, _, _, _, sockaddr in addr_info:
             ip = ipaddress.ip_address(sockaddr[0])
             if is_production:
+                # Include IPv4-mapped IPv6, reserved, multicast and shared ranges.
+                effective_ip = getattr(ip, "ipv4_mapped", None) or ip
+                if not effective_ip.is_global or effective_ip.is_multicast:
+                    raise HTTPException(status_code=400, detail="Target address is not a public IP")
                 for network in BLOCKED_NETWORKS:
                     if ip in network:
                         raise HTTPException(
@@ -341,6 +354,28 @@ async def validate_proxy_url(url: str) -> tuple:
 
 
 # --- Security Headers Middleware ---
+
+async def read_bounded_response(response, limit: int = 10_485_760) -> bytes:
+    """Limit decompressed response bytes before they can exhaust server memory."""
+    chunks = []
+    size = 0
+    async for chunk in response.content.iter_chunked(65_536):
+        size += len(chunk)
+        if size > limit:
+            raise HTTPException(status_code=502, detail="Upstream response exceeds size limit")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+@asynccontextmanager
+async def safe_request(method: str, url: str, **kwargs):
+    """Make one request to validated, pinned addresses without redirects."""
+    import aiohttp
+    hostname, addresses = await validate_proxy_url(url)
+    connector = aiohttp.TCPConnector(resolver=PinnedResolver(hostname, addresses))
+    async with aiohttp.ClientSession(connector=connector) as session:
+        async with session.request(method, url, allow_redirects=False, **kwargs) as response:
+            yield response
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Adds standard security headers to all responses."""

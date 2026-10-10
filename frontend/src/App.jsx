@@ -8,7 +8,6 @@ import AuthPage from './components/common/AuthPage';
 import UserMenu from './components/common/UserMenu';
 import GuestBanner from './components/common/GuestBanner';
 import { ToastContainer } from './components/common/Toast';
-import { UsageBanner, UpgradeModal } from './components/common/UpgradePrompt';
 
 // Lazy-loaded panels — each gets its own chunk.
 // On chunk load failure (stale deploy), reload the page to get fresh assets.
@@ -24,7 +23,6 @@ const TestDashboard = lazyLoad(() => import('./components/workspace/TestDashboar
 const MockServerPanel = lazyLoad(() => import('./components/workspace/MockServerPanel').then(m => ({ default: m.MockServerPanel })));
 const DocsPanel = lazyLoad(() => import('./components/workspace/DocsPanel').then(m => ({ default: m.DocsPanel })));
 const ProfilePage = lazyLoad(() => import('./components/common/ProfilePage'));
-const PricingPage = lazyLoad(() => import('./components/common/PricingPage'));
 const TeamPage = lazyLoad(() => import('./components/workspace/TeamPage'));
 const TermsOfService = lazyLoad(() => import('./components/common/LegalPages').then(m => ({ default: m.TermsOfService })));
 const PrivacyPolicy = lazyLoad(() => import('./components/common/LegalPages').then(m => ({ default: m.PrivacyPolicy })));
@@ -240,7 +238,6 @@ function App() {
 
       {/* Guest Banner */}
       <GuestBanner />
-      <UsageBanner />
 
       {/* Main Content */}
       <Suspense fallback={<div className="flex-1 flex items-center justify-center"><div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" /></div>}>
@@ -248,8 +245,6 @@ function App() {
         <ProfilePage />
       ) : currentView === 'team' ? (
         <TeamPage />
-      ) : currentView === 'pricing' ? (
-        <PricingPage />
       ) : currentView === 'terms' ? (
         <TermsOfService />
       ) : currentView === 'privacy' ? (
@@ -406,7 +401,6 @@ function App() {
       <CommandPalette />
       </Suspense>
       <ToastContainer />
-      <UpgradeModal />
     </div>
   );
 }

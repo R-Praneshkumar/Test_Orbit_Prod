@@ -1,3 +1,5 @@
+> Historical draft: paid tiers and pricing in this document are retired. See [README](README.md) for the current open-source project.
+
 # TestOrbit — Business Plan & Go-to-Market Strategy
 
 > **Created:** 2026-03-01

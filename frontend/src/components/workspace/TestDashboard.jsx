@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { useWorkspaceStore, flattenItems, flattenItemsWithPath, groupTestsByFolder, findFolderById, matchTestToRequest } from '../../store/workspaceStore';
 import { API_BASE, authFetch } from '../../config';
-import { checkLimitExceeded } from '../../utils/upgradePrompt';
 import { runLocalContractChecks } from '../../utils/contractEngine';
 import { toast } from '../../utils/toast';
 
@@ -186,7 +185,6 @@ const SuitesTab = ({ collectionId, collection, folderId = null, scopedItems = nu
                     base_url: collection.baseUrl || undefined,
                 })
             });
-            if (!res.ok && await checkLimitExceeded(res)) return;
             const data = await res.json();
             const rawErr = data.error || data.detail;
             const errMsg = rawErr ? (typeof rawErr === 'string' ? rawErr : (rawErr.message || JSON.stringify(rawErr))) : null;
@@ -489,7 +487,6 @@ const SuggestTab = ({ collection, scopedItems = null }) => {
                     base_url: collection.baseUrl || undefined,
                 })
             });
-            if (!res.ok && await checkLimitExceeded(res)) return;
             const data = await res.json();
             const rawErr2 = data.error || data.detail;
             if (!res.ok || rawErr2) {
@@ -725,7 +722,6 @@ const ContractTab = ({ collection, scopedItems = null }) => {
                     local_mode: localMode,
                 })
             });
-            if (!res.ok && await checkLimitExceeded(res)) return;
             const data = await res.json();
             const rawErr3 = data.error || data.detail;
             if (!res.ok || rawErr3) {

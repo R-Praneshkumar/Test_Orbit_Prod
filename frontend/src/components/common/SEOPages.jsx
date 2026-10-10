@@ -39,12 +39,6 @@ function CTASection() {
                 >
                     {user ? 'Go to Dashboard' : 'Get Started Free'}
                 </button>
-                <button
-                    onClick={() => setCurrentView('pricing')}
-                    className="px-6 py-2.5 border border-purple-300 text-white font-semibold rounded-lg text-sm hover:bg-purple-500/20 transition-colors"
-                >
-                    View Pricing
-                </button>
             </div>
         </div>
     );
@@ -74,12 +68,12 @@ function ComparisonRow({ feature, testorbit, postman, highlight }) {
 // ──────────────────────────────────────────────
 
 const ALTERNATIVE_FEATURES = [
-    { icon: Zap, title: 'Unlimited AI', desc: 'No credit limits on paid plans. Unlimited AI calls for Pro users — test generation, code gen, security scanning, all included.' },
+    { icon: Zap, title: 'Unlimited AI', desc: 'No credit limits, no metering. Unlimited AI calls for everyone — test generation, code gen, security scanning, all included.' },
     { icon: Users, title: 'Free for teams of 3', desc: 'Postman locked free teams to 1 user. TestOrbit keeps teams of up to 3 free forever.' },
-    { icon: DollarSign, title: '3.7x cheaper', desc: 'Pro at ₹399/mo. Team at ₹799/mo + ₹399/seat. A 5-person team pays ₹28,740/yr vs Postman\'s ₹1,05,570/yr.' },
+    { icon: DollarSign, title: 'Completely free', desc: 'Free for your whole team — no per-seat charges, vs Postman\'s ₹1,05,570/yr.' },
     { icon: Clock, title: 'Opens instantly', desc: 'Web-first, zero install. Opens in any browser — no desktop app required.' },
     { icon: Shield, title: 'AI security scanning', desc: 'OWASP Top 10 vulnerability detection, auth bypass testing, injection fuzzing. Postman does not offer AI security scanning.' },
-    { icon: FlaskConical, title: 'AI test generation', desc: 'Generate boundary, negative, and contract tests from a single request. 50 free per day.' },
+    { icon: FlaskConical, title: 'AI test generation', desc: 'Generate boundary, negative, and contract tests from a single request. Unlimited and free.' },
 ];
 
 export function PostmanAlternativePage() {
@@ -95,7 +89,7 @@ export function PostmanAlternativePage() {
                 </h1>
                 <p className="text-slate-500 dark:text-slate-400 text-sm max-w-2xl leading-relaxed">
                     Postman v12 gutted the free plan (1 user, 50 AI credits/month) and charges ₹1,600/user/month for teams.
-                    TestOrbit gives you unlimited AI on paid plans, free teams of 3, and loads in 2 seconds — at a fraction of the cost.
+                    TestOrbit gives you unlimited AI, free teams of 3, and loads in 2 seconds — at no cost.
                 </p>
             </div>
 
@@ -132,11 +126,6 @@ export function PostmanAlternativePage() {
                             </tr>
                         </thead>
                         <tbody>
-                            <ComparisonRow feature="Free plan team size" testorbit="3 users" postman="1 user" highlight />
-                            <ComparisonRow feature="AI calls (free)" testorbit="50/day" postman="50/month" highlight />
-                            <ComparisonRow feature="AI calls (paid)" testorbit="Unlimited" postman="Metered credits" highlight />
-                            <ComparisonRow feature="Price (solo)" testorbit="₹399/mo" postman="₹833/mo (Solo)" />
-                            <ComparisonRow feature="Price (5-person team/yr)" testorbit="₹28,740/yr" postman="₹1,05,570/yr" highlight />
                             <ComparisonRow feature="AI security scanning" testorbit="Yes (OWASP Top 10)" postman="No" />
                             <ComparisonRow feature="AI test generation" testorbit={true} postman={true} />
                             <ComparisonRow feature="AI security scanning" testorbit={true} postman={false} highlight />
@@ -162,13 +151,13 @@ export function PostmanAlternativePage() {
 
 const VS_SECTIONS = [
     {
-        title: 'Pricing',
+        title: 'Open-source access',
         icon: DollarSign,
         testorbit: [
-            'Free for teams of up to 3 — forever',
-            'Pro: ₹399/mo — unlimited AI',
-            'Team: ₹799/mo + ₹399/seat — role-based access',
-            'No hidden credit charges',
+            'Free for your whole team — forever',
+            'Free — unlimited AI, no credits',
+            'Free — role-based team access',
+            'No application checkout or paid tiers',
         ],
         postman: [
             'Free: 1 user only, 50 AI credits/month',
@@ -181,8 +170,8 @@ const VS_SECTIONS = [
         title: 'AI Capabilities',
         icon: Sparkles,
         testorbit: [
-            '50 AI calls/day free (30x more than Postman)',
-            'Unlimited AI on paid plans (no credits)',
+            'Unlimited AI calls — free for everyone',
+            'No paid feature gates',
             'AI security scanning (OWASP Top 10)',
             'AI test generation + code generation',
             'AI diagnostics + voice input',
@@ -452,12 +441,12 @@ export function MigrateFromPostmanPage() {
             {/* Why switch section */}
             <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-5 border border-slate-200 dark:border-slate-800 rounded-xl text-center">
-                    <div className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 mb-1">50/day</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">Free AI calls<br />(vs Postman's 50/month)</div>
+                    <div className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 mb-1">AI tools</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">AI-assisted testing<br />(provider limits apply)</div>
                 </div>
                 <div className="p-5 border border-slate-200 dark:border-slate-800 rounded-xl text-center">
                     <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mb-1">3 users</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">Free team plan<br />(vs Postman's 1 user)</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">Team collaboration<br />(role-based access)</div>
                 </div>
                 <div className="p-5 border border-slate-200 dark:border-slate-800 rounded-xl text-center">
                     <div className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 mb-1">2 sec</div>

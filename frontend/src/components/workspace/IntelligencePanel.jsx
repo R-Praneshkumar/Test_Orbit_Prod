@@ -7,7 +7,6 @@ import { toast } from '../../utils/toast';
 
 import { API_BASE, authFetch } from '../../config';
 import { proxyFetch } from '../../utils/proxyFetch';
-import { checkLimitExceeded } from '../../utils/upgradePrompt';
 
 const EMPTY_MESSAGES = [];
 const EMPTY_SUITES = [];
@@ -160,7 +159,6 @@ export const IntelligencePanel = ({ onCollapse }) => {
                     })
                 });
                 if (!res.ok) {
-                    if (await checkLimitExceeded(res)) return;
                     const errData = await res.json();
                     const errMsg = safeErrorMessage(errData.error?.message || errData.error || errData.detail || 'Request failed');
                     addCollectionChatMessage({ role: 'error', content: errMsg });
@@ -210,7 +208,6 @@ export const IntelligencePanel = ({ onCollapse }) => {
                     })
                 });
                 if (!res.ok) {
-                    if (await checkLimitExceeded(res)) return;
                     const errData = await res.json();
                     const errMsg = safeErrorMessage(errData.error?.message || errData.error || errData.detail || 'AI service error');
                     addCollectionChatMessage({ role: 'error', content: errMsg });
@@ -359,7 +356,6 @@ export const IntelligencePanel = ({ onCollapse }) => {
                     base_url: col?.baseUrl || undefined,
                 })
             });
-            if (!res.ok && await checkLimitExceeded(res)) return;
             const data = await res.json();
             const rawErr = data.error || data.detail;
             const errMsg = rawErr ? (typeof rawErr === 'string' ? rawErr : (rawErr.message || JSON.stringify(rawErr))) : null;

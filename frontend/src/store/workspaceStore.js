@@ -245,8 +245,6 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     // Individual request history — global audit trail (persisted, capped at 50)
     requestHistory: [],
 
-    // Subscription state (persisted)
-    subscription: { plan: 'free', status: 'active', expiresAt: null, billing: null, subscription_id: null },
 
     // Admin status (not persisted — checked on each login)
     isAdmin: false,
@@ -272,7 +270,6 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             }
             await get().fetchProfile();
             get().checkAdminStatus();
-            get().fetchSubscriptionStatus();
             get().fetchRemoteCollections();
             get().fetchRemoteEnvironments();
             get().subscribeToCollectionChanges();
@@ -293,7 +290,6 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                     }
                     await get().fetchProfile();
                     get().checkAdminStatus();
-                    get().fetchSubscriptionStatus();
                     get().fetchRemoteCollections();
                     get().fetchRemoteEnvironments();
                     get().subscribeToCollectionChanges();
@@ -325,7 +321,6 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                         activeTutorial: null,
                         profile: null,
                         isAdmin: false,
-                        subscription: { plan: 'free', status: 'active', billing: null, subscription_id: null },
                     });
                 }
             }
@@ -1072,29 +1067,6 @@ export const useWorkspaceStore = create(persist((set, get) => ({
     setSidebarWidth: (w) => set({ sidebarWidth: Math.max(200, Math.min(400, w)) }),
     setIntelligenceWidth: (w) => set({ intelligenceWidth: Math.max(240, Math.min(480, w)) }),
     setEditorSplitRatio: (r) => set({ editorSplitRatio: Math.max(0.25, Math.min(0.75, r)) }),
-
-    // Subscription
-    setSubscription: (sub) => set({ subscription: { ...sub } }),
-
-    // Fetch subscription status from backend on login
-    fetchSubscriptionStatus: async () => {
-        try {
-            const { authFetch, API_BASE } = await import('../config');
-            const res = await authFetch(`${API_BASE}/razorpay/subscription-status`);
-            if (res.ok) {
-                const data = await res.json();
-                // Always update from backend — it's the source of truth
-                set({ subscription: {
-                    plan: data.plan || 'free',
-                    status: data.status || 'active',
-                    billing: data.billing || null,
-                    subscription_id: data.subscription_id || null,
-                }});
-            }
-        } catch {
-            // Silently fail — keep existing state
-        }
-    },
 
     // Admin check
     checkAdminStatus: async () => {
@@ -1951,7 +1923,7 @@ export const useWorkspaceStore = create(persist((set, get) => ({
 
 }), {
     name: 'gemini-workspace-storage',
-    version: 17,
+    version: 18,
     partialize: (state) => {
         // Exclude transient runtime data from persistence
         // _realtimeChannel contains circular refs (RealtimeChannel → socket → channels → channel)
@@ -2002,6 +1974,8 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             return cleaned;
         });
 
+        delete persisted.subscription;
+        if (persisted.currentView === 'pricing') persisted.currentView = 'workspace';
         return persisted;
     },
     migrate: (persisted, version) => {
@@ -2171,10 +2145,6 @@ export const useWorkspaceStore = create(persist((set, get) => ({
                 })),
             }));
         }
-        if (version < 14) {
-            // v13 → v14: Add subscription state
-            persisted.subscription = persisted.subscription || { plan: 'free', status: 'active', expiresAt: null };
-        }
         if (version < 15) {
             // v14 → v15: Add dismissedOnboarding for persistent hero banner
             persisted.dismissedOnboarding = persisted.dismissedOnboarding ?? false;
@@ -2196,6 +2166,8 @@ export const useWorkspaceStore = create(persist((set, get) => ({
             // v16 → v17: Reset onboarding checklist for all users (new improved checklist)
             persisted.dismissedOnboarding = false;
         }
+        delete persisted.subscription;
+        if (persisted.currentView === 'pricing') persisted.currentView = 'workspace';
         return persisted;
     },
 }));

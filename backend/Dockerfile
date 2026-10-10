@@ -4,7 +4,8 @@ WORKDIR /app
 
 # Install dependencies first (better caching)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade "pip>=26.2" "setuptools>=83.0.0" \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .

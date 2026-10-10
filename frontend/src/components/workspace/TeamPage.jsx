@@ -11,8 +11,6 @@ const ROLE_CONFIG = {
     viewer: { label: 'Viewer', icon: Eye, color: 'text-slate-500 dark:text-slate-400', bg: 'bg-slate-50 dark:bg-slate-800' },
 };
 
-const PLAN_LIMITS = { free: 3, pro: 5, team: -1 };
-
 function TeamPage() {
     const user = useWorkspaceStore(s => s.user);
     const setCurrentView = useWorkspaceStore(s => s.setCurrentView);
@@ -92,16 +90,6 @@ function TeamPage() {
                 .select()
                 .single();
             if (error) throw error;
-
-            // Sync team plan with owner's subscription
-            const subscription = useWorkspaceStore.getState().subscription;
-            if (subscription?.plan === 'pro' || subscription?.plan === 'team') {
-                const maxMembers = subscription.plan === 'team' ? 999 : 5;
-                await supabase.from('teams').update({
-                    plan: subscription.plan,
-                    max_members: maxMembers,
-                }).eq('id', team.id);
-            }
 
             // Add creator as owner member
             const { error: memberErr } = await supabase
@@ -248,8 +236,6 @@ function TeamPage() {
 
     const myRole = selectedTeam?.myRole;
     const canManage = myRole === 'owner' || myRole === 'admin';
-    const planLimit = PLAN_LIMITS[selectedTeam?.plan] ?? 3;
-    const atLimit = planLimit > 0 && members.length >= planLimit;
 
     const handleCreateTeamCollection = () => {
         if (!newCollName.trim() || !selectedTeam) return;
@@ -324,8 +310,7 @@ function TeamPage() {
                                         {React.createElement(ROLE_CONFIG[myRole]?.icon || Eye, { size: 10 })}
                                         {ROLE_CONFIG[myRole]?.label}
                                     </span>
-                                    <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 font-medium capitalize">{selectedTeam.plan} plan</span>
-                                    <span>{members.length}{planLimit > 0 ? `/${planLimit}` : ''} members</span>
+                                    <span>{members.length} members</span>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -372,19 +357,6 @@ function TeamPage() {
                                     <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
                                         <UserPlus size={15} /> Invite Member
                                     </h2>
-                                    {atLimit ? (
-                                        <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs">
-                                            <span className="text-amber-700 dark:text-amber-400">
-                                                Team is at {members.length}/{planLimit} member limit ({selectedTeam.plan} plan).
-                                            </span>
-                                            <button
-                                                onClick={() => setCurrentView('pricing')}
-                                                className="flex items-center gap-1 font-bold text-purple-600 dark:text-purple-400"
-                                            >
-                                                <Crown size={12} /> Upgrade
-                                            </button>
-                                        </div>
-                                    ) : (
                                         <form onSubmit={handleInvite} className="flex gap-2">
                                             <input
                                                 type="email"
@@ -411,7 +383,6 @@ function TeamPage() {
                                                 {inviting ? 'Inviting...' : 'Invite'}
                                             </button>
                                         </form>
-                                    )}
                                 </div>
                             )}
 
@@ -683,9 +654,6 @@ function TeamPage() {
                             {creating ? 'Creating...' : 'Create Team'}
                         </button>
                     </form>
-                    <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-                        Free plan: up to 3 members per team. Pro: 5 members. Team plan: unlimited.
-                    </p>
                 </div>
 
                 {/* Teams list */}
@@ -719,7 +687,6 @@ function TeamPage() {
                                                     {React.createElement(rc.icon, { size: 9 })}
                                                     {rc.label}
                                                 </span>
-                                                <span className="text-[10px] text-slate-400 capitalize">{team.plan} plan</span>
                                             </div>
                                         </div>
                                         <Settings size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-slate-400 transition-colors" />

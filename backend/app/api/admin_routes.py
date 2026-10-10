@@ -10,7 +10,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 
 from app.core.config import get_settings
 from app.core.security import verify_token
-from app.services.usage_service import usage_service, ENDPOINT_CATEGORIES, FREE_LIMITS
+from app.services.usage_service import usage_service, ENDPOINT_CATEGORIES, USAGE_CATEGORIES
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -44,7 +44,7 @@ async def admin_stats(request: Request, user: dict = Depends(verify_token)):
     - Active users (unique users with usage today / this week / this month)
     - Usage by endpoint category
     - Per-user breakdown (top users by usage)
-    - System info (uptime, plan limits)
+    - System info (tracked endpoints)
     """
     _require_admin(user)
 
@@ -66,7 +66,7 @@ async def admin_stats(request: Request, user: dict = Depends(verify_token)):
     total_security_scan_today = 0
 
     # Per-endpoint totals (today only)
-    endpoint_usage = {cat: 0 for cat in FREE_LIMITS}
+    endpoint_usage = {cat: 0 for cat in USAGE_CATEGORIES}
 
     # Top users by AI calls today
     user_breakdown = []
@@ -82,7 +82,7 @@ async def admin_stats(request: Request, user: dict = Depends(verify_token)):
             total_code_gen_today += entry.get("code_gen", 0)
             total_security_scan_today += entry.get("security_scan", 0)
 
-            for cat in FREE_LIMITS:
+            for cat in USAGE_CATEGORIES:
                 endpoint_usage[cat] += entry.get(cat, 0)
 
             user_breakdown.append({
@@ -116,7 +116,6 @@ async def admin_stats(request: Request, user: dict = Depends(verify_token)):
         },
         "endpoint_usage": endpoint_usage,
         "top_users": user_breakdown[:20],
-        "plan_limits": FREE_LIMITS,
         "tracked_endpoints": list(ENDPOINT_CATEGORIES.keys()),
         "total_tracked_users": len(data),
     }
